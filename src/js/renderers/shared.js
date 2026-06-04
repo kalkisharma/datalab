@@ -85,7 +85,7 @@ function buildMarkerStyle(seriesStyle, colorOverride) {
     size:    s.markerSize    ?? Number(document.getElementById('markerSize')?.value  ?? 6),
     opacity: s.opacity       ?? (Number(document.getElementById('markerOpacity')?.value ?? 80) / 100),
     line: {
-      color: s.edgeColor ?? document.getElementById('edgeColor')?.value ?? '#ffffff',
+      color: s.edgeColor ?? document.getElementById('edgeColor')?.value ?? '#333333',
       // edgeWidth, not lineWidth — lineWidth is the line-trace width (schema, state.js)
       width: s.edgeWidth ?? Number(document.getElementById('edgeWidth')?.value ?? 0.5),
     },

@@ -258,6 +258,11 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
     <details class="section">
       <summary>Style</summary>
       <div class="details-body">
+        <label class="ctrl-label">Plot background
+          <div class="edge-row">
+            <input type="color" class="edge-color" id="plotBg" value="#ffffff" />
+          </div>
+        </label>
         <label class="ctrl-label">Colormap</label>
         <select id="cmapSelect">
           <option>Viridis</option><option>Plasma</option><option>Inferno</option>
@@ -279,7 +284,7 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
         </label>
         <label class="ctrl-label">Edge color
           <div class="edge-row">
-            <input type="color" class="edge-color" id="edgeColor" value="#ffffff" />
+            <input type="color" class="edge-color" id="edgeColor" value="#333333" />
             <input type="range" id="edgeWidth" min="0" max="4" step="0.5" value="0.5" />
             <span class="slider-val" id="edgeWidthVal">0.5</span>
           </div>
@@ -1275,9 +1280,9 @@ function renderPlot() {
       // escHtml not needed here — these are computed numeric strings, not user input
       text: `NSE = ${fmt(stats.nse)}<br>MAE = ${fmt(stats.mae)}<br>RMSE = ${fmt(stats.rmse)}<br>N = ${n}`,
       showarrow: false,
-      bgcolor: 'rgba(19,19,26,0.88)',
-      bordercolor: '#3a3a4e', borderwidth: 1, borderpad: 8,
-      font: { family: 'JetBrains Mono,monospace', size: 11, color: '#e2e2ec' },
+      bgcolor: plotTheme().annotBg,
+      bordercolor: plotTheme().annotBorder, borderwidth: 1, borderpad: 8,
+      font: { family: 'JetBrains Mono,monospace', size: 11, color: plotTheme().title },
       align: 'left',
     }];
     // Update .sr-only annotation span for screen reader accessibility
@@ -1305,40 +1310,65 @@ function renderPlot() {
   syncTitle(); syncXLabel(); syncYLabel();
 }
 
+// Foreground palette adapts to the user-chosen plot background: light
+// backgrounds (default white) get dark grid/text, dark backgrounds get the
+// app's dark-theme set. Driven by relative luminance of the bg color.
+function isDarkColor(hex) {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return false; // type="color" inputs always yield #rrggbb; default light
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 < 0.5;
+}
+
+function plotTheme() {
+  const bg = document.getElementById('plotBg')?.value ?? '#ffffff';
+  return isDarkColor(bg)
+    ? { bg, grid: '#2e2e3e', minor: '#1e1e28', axis: '#3a3a4e',
+        tick: '#9090a8', text: '#e2e2ec', title: '#e2e2ec', axisTitle: '#9090a8',
+        legendBg: 'rgba(19,19,26,0.9)', legendBorder: '#2e2e3e',
+        annotBg: 'rgba(19,19,26,0.88)', annotBorder: '#3a3a4e' }
+    : { bg, grid: '#e0e0e0', minor: '#f0f0f0', axis: '#aaaaaa',
+        tick: '#222222', text: '#333333', title: '#111111', axisTitle: '#222222',
+        legendBg: 'rgba(255,255,255,0.9)', legendBorder: '#cccccc',
+        annotBg: 'rgba(255,255,255,0.88)', annotBorder: '#aaaaaa' };
+}
+
 function buildBaseLayout() {
   const cfg  = appState.plotConfig;
   const figW = parseInt(document.getElementById('figW')?.value  ?? 700);
   const figH = parseInt(document.getElementById('figH')?.value  ?? 500);
   const showMaj = document.getElementById('majorGrid')?.checked ?? true;
   const showMin = document.getElementById('minorGrid')?.checked ?? false;
+  const th = plotTheme();
 
   const xRange = getManualRange('xMin', 'xMax');
   const yRange = getManualRange('yMin', 'yMax');
 
   const axisBase = {
-    showgrid: showMaj, gridcolor: showMaj ? '#2e2e3e' : 'rgba(0,0,0,0)', gridwidth: 1,
-    minor: { showgrid: showMin, gridcolor: '#1e1e28', gridwidth: 0.5 },
-    zerolinecolor: '#3a3a4e', zerolinewidth: 1,
-    linecolor: '#3a3a4e', linewidth: 1, mirror: true,
-    tickfont: { family: 'JetBrains Mono,monospace', size: 10, color: '#9090a8' },
-    tickcolor: '#3a3a4e',
+    showgrid: showMaj, gridcolor: showMaj ? th.grid : 'rgba(0,0,0,0)', gridwidth: 1,
+    minor: { showgrid: showMin, gridcolor: th.minor, gridwidth: 0.5 },
+    zerolinecolor: th.axis, zerolinewidth: 1,
+    linecolor: th.axis, linewidth: 1, mirror: true,
+    tickfont: { family: 'JetBrains Mono,monospace', size: 10, color: th.tick },
+    tickcolor: th.axis,
   };
 
   return {
-    paper_bgcolor: '#13131a', plot_bgcolor: '#13131a',
+    paper_bgcolor: th.bg, plot_bgcolor: th.bg,
     width: figW, height: figH,
-    font: { family: 'IBM Plex Sans,system-ui,sans-serif', color: '#e2e2ec', size: 12 },
+    font: { family: 'IBM Plex Sans,system-ui,sans-serif', color: th.text, size: 12 },
     title: {
       text: cfg.titleLocked ? document.getElementById('inputTitle').value : autoTitle(),
       x: 0.5, xanchor: 'center', xref: 'paper',
-      font: { size: 14, color: '#e2e2ec' },
+      font: { size: 14, color: th.title },
     },
     xaxis: {
       ...axisBase,
       range: xRange,
       title: {
         text: cfg.xLabelLocked ? document.getElementById('inputXLabel').value : autoXLabel(),
-        font: { size: 12, color: '#9090a8' },
+        font: { size: 12, color: th.axisTitle },
       },
     },
     yaxis: {
@@ -1346,12 +1376,12 @@ function buildBaseLayout() {
       range: yRange,
       title: {
         text: cfg.yLabelLocked ? document.getElementById('inputYLabel').value : autoYLabel(),
-        font: { size: 12, color: '#9090a8' },
+        font: { size: 12, color: th.axisTitle },
       },
     },
     legend: {
-      font: { size: 11, color: '#e2e2ec' },
-      bgcolor: 'rgba(19,19,26,0.9)', bordercolor: '#2e2e3e', borderwidth: 1,
+      font: { size: 11, color: th.text },
+      bgcolor: th.legendBg, bordercolor: th.legendBorder, borderwidth: 1,
       x: 0.01, y: 0.99, xanchor: 'left', yanchor: 'top',
     },
     margin: { l: 60, r: 30, t: 50, b: 60 },
@@ -1723,7 +1753,7 @@ function init() {
   syncSliderNum('figH', 'figHNum');
 
   // Re-render on style changes
-  ['cmapSelect','edgeColor','majorGrid','minorGrid'].forEach(id => {
+  ['plotBg','cmapSelect','edgeColor','majorGrid','minorGrid'].forEach(id => {
     g(id)?.addEventListener('change', () => { if (appState.plotRendered) renderPlot(); });
   });
 
@@ -1831,7 +1861,7 @@ function buildMarkerStyle(seriesStyle, colorOverride) {
     size:    s.markerSize    ?? Number(document.getElementById('markerSize')?.value  ?? 6),
     opacity: s.opacity       ?? (Number(document.getElementById('markerOpacity')?.value ?? 80) / 100),
     line: {
-      color: s.edgeColor ?? document.getElementById('edgeColor')?.value ?? '#ffffff',
+      color: s.edgeColor ?? document.getElementById('edgeColor')?.value ?? '#333333',
       // edgeWidth, not lineWidth — lineWidth is the line-trace width (schema, state.js)
       width: s.edgeWidth ?? Number(document.getElementById('edgeWidth')?.value ?? 0.5),
     },

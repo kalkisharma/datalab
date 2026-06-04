@@ -86,6 +86,28 @@ test('load CSV, add scatter series, render produces SVG', async ({ page }) => {
     // Plotly should have produced an SVG inside plotDiv
     const svgCount = await page.locator('#plotDiv svg').count();
     expect(svgCount).toBeGreaterThan(0);
+
+    // Plot background defaults to white; foreground adapts to luminance
+    const layout = await page.evaluate(() => {
+      const fl = document.getElementById('plotDiv')._fullLayout;
+      return { paper: fl.paper_bgcolor, plot: fl.plot_bgcolor, font: fl.font.color };
+    });
+    expect(layout.paper).toBe('#ffffff');
+    expect(layout.plot).toBe('#ffffff');
+    expect(layout.font).toBe('#333333'); // dark text on light background
+
+    // Switching to a dark background flips the foreground palette
+    await page.evaluate(() => {
+      document.getElementById('plotBg').value = '#13131a';
+      renderPlot();
+    });
+    await page.waitForTimeout(400);
+    const dark = await page.evaluate(() => {
+      const fl = document.getElementById('plotDiv')._fullLayout;
+      return { paper: fl.paper_bgcolor, font: fl.font.color };
+    });
+    expect(dark.paper).toBe('#13131a');
+    expect(dark.font).toBe('#e2e2ec'); // light text on dark background
   } finally {
     fs.unlinkSync(csvPath);
   }

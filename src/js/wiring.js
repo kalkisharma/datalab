@@ -180,7 +180,7 @@ function init() {
   syncSliderNum('figH', 'figHNum');
 
   // Re-render on style changes
-  ['cmapSelect','edgeColor','majorGrid','minorGrid'].forEach(id => {
+  ['plotBg','cmapSelect','edgeColor','majorGrid','minorGrid'].forEach(id => {
     g(id)?.addEventListener('change', () => { if (appState.plotRendered) renderPlot(); });
   });
 
