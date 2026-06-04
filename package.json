@@ -1,0 +1,16 @@
+{
+  "name": "datalab",
+  "version": "0.0.0",
+  "description": "Standalone HTML data visualisation tool",
+  "scripts": {
+    "build": "node build.js",
+    "test": "npx playwright test",
+    "test:smoke": "npx playwright test tests/smoke.spec.js",
+    "test:bench": "npx playwright test tests/bench.spec.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  },
+  "author": "Kalki Sharma <kalkijsharma@gmail.com>",
+  "license": "MIT"
+}

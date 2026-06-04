@@ -49,3 +49,37 @@
 //   Phase 0–2: AND-only (all enabled predicates must pass)
 //   Phase 3+:  toggle per series — 'and' | 'or'
 //
+
+// ── applyFilters ──────────────────────────────────────────────────────────
+
+/**
+ * @param {object[]} rows    - dataset rows
+ * @param {object[]} filters - filter predicates ({ col, op, value, enabled })
+ * @param {string}   logic   - 'and' (default) | 'or'
+ * @returns {object[]}
+ */
+function applyFilters(rows, filters, logic = 'and') {
+  const active = filters.filter(f => f.enabled);
+  if (!active.length) return rows;
+  return rows.filter(row => {
+    const results = active.map(f => evalPredicate(row, f));
+    return logic === 'or' ? results.some(Boolean) : results.every(Boolean);
+  });
+}
+
+// Evaluates a single predicate against a row. All operators are explicit
+// switch cases — eval() and new Function() are permanently forbidden.
+function evalPredicate(row, { col, op, value }) {
+  const raw = row[col];
+  switch (op) {
+    case 'eq':       return String(raw) === String(value);
+    case 'neq':      return String(raw) !== String(value);
+    case 'lt':       return Number(raw) <   Number(value);
+    case 'gt':       return Number(raw) >   Number(value);
+    case 'lte':      return Number(raw) <=  Number(value);
+    case 'gte':      return Number(raw) >=  Number(value);
+    case 'in_range': return Number(raw) >= Number(value.min) && Number(raw) <= Number(value.max);
+    case 'in_set':   return Array.isArray(value) && value.map(String).includes(String(raw));
+    default:         return true; // unknown op: pass through without filtering
+  }
+}
