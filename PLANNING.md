@@ -375,8 +375,35 @@ Schema (all optional with defaults, no migration): plotConfig.legendShow, plotCo
 
 Exit criteria: every new control affects the rendered plot and round-trips through a session file. Legend stays where it was dragged. axe clean. Record corrections above visible in this document.
 
-### Phase 7+ — Future `(not scoped)`
-- Multiple plots: workspace tabs (one visible at a time) or plot grid (side-by-side live panels) — flavor decision pending maintainer
+### Phase 7 — Multi-Plot Live Grid `v2.0.0`
+**Goal:** Multiple live plots side by side. Maintainer chose the live grid over workspace tabs.
+
+**Schema (MAJOR — state version 1 → 2, first real migration):**
+- `appState.plots: [{ id, name, plotConfig }]` — each plot owns title, axis labels + locks, axis ranges, legendShow/legendPos, annotPos
+- Every series gains `plotId`
+- Migration v1→v2: wrap the singleton `plotConfig` into `plots[0]` ("Plot 1"), assign every series to it. Old session files load identically into a 1-plot grid.
+
+**Design decisions (EL + UX, maintainer to confirm):**
+- **Global vs per-plot:** style (colormap, markers, background, typography, frame) stays global for a consistent grid; title/labels/ranges/legend are per-plot
+- **Sizing:** panels autosize to their grid cell (responsive); the Figure size sliders become the export size
+- **Active plot:** clicking a panel makes it active (highlighted); the Plot settings panel binds to the active plot; new series default to it (modal gains a Plot picker)
+- **Grid:** auto-layout — 1 plot full-width, 2 side by side, 3–4 in 2×2, then 3 columns; soft warning above 6 plots
+- **Deleting a plot deletes its series** (confirm when it has any); per-panel error strips and sr-only mirrors
+
+Deliverables:
+- [ ] State: plots array, series.plotId, migration v1→v2 with round-trip test of a real v1 session file (Data Engineer)
+- [ ] Grid UI: panel per plot with editable name, active highlight, delete; + Add plot; responsive sizing with debounced relayout (Frontend + UX; flow description recorded)
+- [ ] renderAllPlots(): per-plot series gathering, per-panel errors/warnings/sr mirrors, per-panel legend hooks and clearPlot; trace cache unchanged (keyed by series) (Data Viz)
+- [ ] Plot settings binding: title/labels/locks/ranges/legend controls follow the active plot; switching active syncs the inputs (Frontend)
+- [ ] Series modal Plot picker (defaults to active plot); series list rows show their plot; reorder affects draw order within a plot (Frontend + UX)
+- [ ] Saved plots restore into the active panel; correlation heatmap renders to the active panel (Data Viz)
+- [ ] Memory: deleting a plot releases its panel's WebGL buffers (extend the Phase 4 benchmark) (Performance)
+- [ ] ARIA: panels labeled, active state announced, axe states extended to the grid (Accessibility)
+- [ ] Tests: two plots with disjoint series render independently; per-plot settings isolation; migration; session v2 round-trip; plot delete cascades; axe (QA)
+
+Exit criteria: v1 session files migrate losslessly into a 1-plot grid. Two plots render different series with independent titles/ranges/legends. Plot delete releases memory. axe clean. All prior 73 tests still green.
+
+### Phase 8+ — Future `(not scoped)`
 - Additional distributions (lognormal, Weibull), distribution comparison tests
 - Type casting to datetime; column reorder
 - Interpolated (non-gridded) contours
