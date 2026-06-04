@@ -10,13 +10,188 @@
 </head>
 <body>
 
-  <div id="app">
-    <!-- UI panels injected here by Phase 1 -->
+<header>
+  <span class="logo">DataLab <span>v%%VERSION%%</span></span>
+  <div class="divider"></div>
+  <button class="btn btn-sm" id="zipBtn" style="display:none">↓ ZIP</button>
+  <button class="btn btn-sm" id="downloadBtn" style="display:none">↓ PNG</button>
+</header>
+
+<div class="main">
+
+  <!-- ── Left sidebar ─────────────────────────────── -->
+  <div class="left-panel">
+
+    <!-- Datasets -->
+    <div class="section">
+      <div class="section-title">Datasets</div>
+      <div id="dropzone" class="dropzone" tabindex="0" role="button"
+           aria-label="Drop CSV files here or click to browse">
+        <input type="file" id="fileInput" accept=".csv" multiple aria-hidden="true" />
+        <div class="dz-label">
+          <span class="dz-icon">⊕</span>
+          <span class="dz-hint">Drop CSV or click to browse</span>
+        </div>
+      </div>
+      <div id="datasetList"></div>
+    </div>
+
+    <!-- Series -->
+    <div class="section">
+      <div class="section-title">Series</div>
+      <div id="seriesList">
+        <div id="seriesEmpty" class="empty-hint">No series yet — add one below.</div>
+      </div>
+      <button class="btn btn-primary btn-full" id="addSeriesBtn" disabled
+              title="Load a CSV first">+ Add Series</button>
+    </div>
+
+    <!-- Plot controls -->
+    <details class="section" open>
+      <summary>Plot settings</summary>
+      <div class="details-body">
+        <label class="ctrl-label">Title
+          <div class="input-lock-row">
+            <input type="text" class="ctrl-input" id="inputTitle" placeholder="Auto" />
+            <button class="lock-btn" id="titleLock" title="Lock title">auto</button>
+          </div>
+        </label>
+        <label class="ctrl-label">X axis label
+          <div class="input-lock-row">
+            <input type="text" class="ctrl-input" id="inputXLabel" placeholder="Auto" />
+            <button class="lock-btn" id="xLabelLock" title="Lock X label">auto</button>
+          </div>
+        </label>
+        <label class="ctrl-label">Y axis label
+          <div class="input-lock-row">
+            <input type="text" class="ctrl-input" id="inputYLabel" placeholder="Auto" />
+            <button class="lock-btn" id="yLabelLock" title="Lock Y label">auto</button>
+          </div>
+        </label>
+        <div class="check-row" style="margin-top:10px;">
+          <label><input type="checkbox" id="majorGrid" checked /> Major grid</label>
+          <label><input type="checkbox" id="minorGrid" /> Minor grid</label>
+        </div>
+      </div>
+    </details>
+
+    <!-- Style -->
+    <details class="section">
+      <summary>Style</summary>
+      <div class="details-body">
+        <label class="ctrl-label">Colormap</label>
+        <select id="cmapSelect">
+          <option>Viridis</option><option>Plasma</option><option>Inferno</option>
+          <option>Magma</option><option>Cividis</option><option>Coolwarm</option>
+          <option>RdBu</option><option>Blues</option><option>Reds</option>
+          <option>Greens</option><option>Turbo</option><option>Jet</option>
+        </select>
+        <label class="ctrl-label" style="margin-top:10px;">Marker size
+          <div class="slider-row">
+            <input type="range" id="markerSize" min="2" max="20" value="6" />
+            <span class="slider-val" id="markerSizeVal">6</span>
+          </div>
+        </label>
+        <label class="ctrl-label">Opacity
+          <div class="slider-row">
+            <input type="range" id="markerOpacity" min="10" max="100" value="80" />
+            <span class="slider-val" id="markerOpacityVal">80%</span>
+          </div>
+        </label>
+        <label class="ctrl-label">Edge color
+          <div class="edge-row">
+            <input type="color" class="edge-color" id="edgeColor" value="#ffffff" />
+            <input type="range" id="edgeWidth" min="0" max="4" step="0.5" value="0.5" />
+            <span class="slider-val" id="edgeWidthVal">0.5</span>
+          </div>
+        </label>
+      </div>
+    </details>
+
+    <!-- Figure size -->
+    <details class="section">
+      <summary>Figure size</summary>
+      <div class="details-body">
+        <label class="ctrl-label">Width
+          <div class="slider-row">
+            <input type="range" id="figW" min="400" max="1600" step="50" value="700" />
+            <input type="number" class="slider-num" id="figWNum" value="700" min="400" max="1600" />
+          </div>
+        </label>
+        <label class="ctrl-label">Height
+          <div class="slider-row">
+            <input type="range" id="figH" min="300" max="1200" step="50" value="500" />
+            <input type="number" class="slider-num" id="figHNum" value="500" min="300" max="1200" />
+          </div>
+        </label>
+      </div>
+    </details>
+
+    <!-- Axis ranges -->
+    <details class="section">
+      <summary>Axis ranges</summary>
+      <div class="details-body">
+        <div class="range-grid">
+          <div><label class="mini-label">X min</label><input type="number" class="ctrl-input" id="xMin" placeholder="auto" /></div>
+          <div><label class="mini-label">X max</label><input type="number" class="ctrl-input" id="xMax" placeholder="auto" /></div>
+          <div><label class="mini-label">Y min</label><input type="number" class="ctrl-input" id="yMin" placeholder="auto" /></div>
+          <div><label class="mini-label">Y max</label><input type="number" class="ctrl-input" id="yMax" placeholder="auto" /></div>
+        </div>
+        <button class="btn btn-sm" id="resetRangesBtn" style="margin-top:6px;">Reset</button>
+      </div>
+    </details>
+
+    <!-- Render -->
+    <div class="section" style="border-bottom:none;">
+      <button class="btn btn-primary btn-full" id="renderBtn" disabled>Render</button>
+    </div>
+
+  </div><!-- /left-panel -->
+
+  <!-- ── Main area ─────────────────────────────────── -->
+  <div class="main-area">
+    <div id="emptyState" class="empty-state">
+      <div class="empty-icon">◈</div>
+      <div class="empty-title">No data yet</div>
+      <div class="empty-sub">Drop a CSV into the Datasets panel, then add a series.</div>
+    </div>
+    <div id="plotArea" class="hidden">
+      <div id="renderErrors" role="alert" style="display:none"></div>
+      <div id="plotDiv"></div>
+      <span class="sr-only" id="plotAnnotSR" aria-live="polite"></span>
+    </div>
   </div>
 
-  <!-- INJECT:LIBS -->
-  <script>
-  /* INJECT:SCRIPT */
-  </script>
+</div><!-- /main -->
+
+<!-- Saved plots strip -->
+<div id="savedStrip" style="display:none">
+  <div class="saved-header">
+    <span class="section-title" style="margin:0;">Saved plots</span>
+    <button class="btn btn-sm" id="saveBtn">+ Save current</button>
+  </div>
+  <div id="savedScroll" class="saved-scroll"></div>
+</div>
+
+<!-- Series modal -->
+<div id="modalOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">Add Series</span>
+      <button class="modal-close" id="modalClose" aria-label="Close modal">×</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer">
+      <span class="modal-error" id="modalError" role="alert"></span>
+      <button class="btn" id="modalCancel">Cancel</button>
+      <button class="btn btn-primary" id="modalSave">Save series</button>
+    </div>
+  </div>
+</div>
+
+<!-- INJECT:LIBS -->
+<script>
+/* INJECT:SCRIPT */
+</script>
 </body>
 </html>
