@@ -69,7 +69,7 @@
 
 - Triggered when:
   - A phase exits (mandatory — scope is everything written that phase)
-  - A file exceeds ~300 lines
+  - A source file exceeds ~300 lines (applies to all maintained files under `src/`, including HTML and CSS; generated artifacts like the built `datalab.html` are exempt)
   - A new renderer is added (review `shared.js` + the new renderer together)
 - A refactor must **not change behavior** — must be accompanied by a passing test run.
 - Scoped to one file or module at a time. No whole-codebase sweeps mid-phase.
