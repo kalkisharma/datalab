@@ -307,22 +307,22 @@ Exit criteria: 3 CSVs, 6 series, reorder, edit, warm render < 2s. Smoke test gre
 ### Phase 3 — Full Chart Types + Advanced Filters `v0.3.0`
 **Goal:** All 5 chart types. AND/OR filter logic. Datetime support.
 
-- [ ] `renderers/contour.js`: 3 numeric cols (x, y, z); validates at series creation — requires pre-gridded data; error message with `role="alert"` and `escHtml()`; log scale guidance comment included (Data Viz)
-- [ ] Contour data requirements reviewed by Data Scientist — confirm or update "pre-gridded" guidance; interpolated contour support explicitly deferred to Phase 5+ (Data Scientist)
-- [ ] `renderers/histogram.js`: 1 numeric col; Freedman-Diaconis bin count computed on demand at render time from column values (not cached in state); user-configurable bin count; log scale guidance comment included (Data Viz + Data Engineer)
-- [ ] Histogram binning defaults reviewed by Data Scientist — confirm FD rule is appropriate, advise on configurable range (Data Scientist)
-- [ ] `renderers/boxplot.js`: numeric Y + optional categorical X; render-time warning if categorical X > 50 unique values; log scale guidance comment included (Data Viz + Data Engineer)
-- [ ] Boxplot whisker calculation and outlier detection reviewed by Data Scientist for statistical correctness (Data Scientist)
-- [ ] AND/OR filter toggle per series (Data Engineer + Frontend)
-- [ ] Extended operators: `in_range` and `in_set` per encoding spec from Phase 0 (Data Engineer)
-- [ ] Disabled filter rules (checkbox per rule, not delete-only) (UX)
-- [ ] Datetime column support: ISO 8601, MM/DD/YYYY, DD/MM/YYYY; when format is ambiguous (e.g., 01/02/2024), user is prompted to select format (Data Engineer + Data Viz)
-- [ ] Datetime format ambiguity prompt: UX flow description written before implementation; must be an accessible modal with keyboard nav (UX Designer + Accessibility)
-- [ ] Renderer validation error testing: contour with non-numeric column, boxplot with >50 categories, histogram with categorical column (QA)
-- [ ] Cold render benchmark active — < 5s (see STANDARDS.md §10) (QA + Performance Engineer)
-- [ ] Filter re-evaluation < 500ms at 100k rows (Performance Engineer)
-- [ ] ARIA pass on all panels introduced this phase; `role="alert"` on all renderer error containers verified; datetime format prompt modal accessibility verified (Accessibility)
-- [ ] Exploratory test all 5 chart types with real datasets; flag misleading defaults (Data Scientist)
+- [x] `renderers/contour.js`: 3 numeric cols (x, y, z); validates at series creation — requires pre-gridded data; error message with `role="alert"` and `escHtml()`; log scale guidance comment included (Data Viz)
+- [x] Contour data requirements reviewed by Data Scientist — confirm or update "pre-gridded" guidance; interpolated contour support explicitly deferred to Phase 5+ (Data Scientist)
+- [x] `renderers/histogram.js`: 1 numeric col; Freedman-Diaconis bin count computed on demand at render time from column values (not cached in state); user-configurable bin count; log scale guidance comment included (Data Viz + Data Engineer)
+- [x] Histogram binning defaults reviewed by Data Scientist — confirm FD rule is appropriate, advise on configurable range (Data Scientist)
+- [x] `renderers/boxplot.js`: numeric Y + optional categorical X; render-time warning if categorical X > 50 unique values; log scale guidance comment included (Data Viz + Data Engineer)
+- [x] Boxplot whisker calculation and outlier detection reviewed by Data Scientist for statistical correctness (Data Scientist)
+- [x] AND/OR filter toggle per series (Data Engineer + Frontend)
+- [x] Extended operators: `in_range` and `in_set` per encoding spec from Phase 0 (Data Engineer)
+- [x] Disabled filter rules (checkbox per rule, not delete-only) (UX)
+- [x] Datetime column support: ISO 8601, MM/DD/YYYY, DD/MM/YYYY; when format is ambiguous (e.g., 01/02/2024), user is prompted to select format (Data Engineer + Data Viz)
+- [x] Datetime format ambiguity prompt: UX flow description written before implementation; must be an accessible modal with keyboard nav (UX Designer + Accessibility)
+- [x] Renderer validation error testing: contour with non-numeric column, boxplot with >50 categories, histogram with categorical column (QA)
+- [x] Cold render benchmark active — < 5s (see STANDARDS.md §10) (QA + Performance Engineer)
+- [x] Filter re-evaluation < 500ms at 100k rows (Performance Engineer)
+- [x] ARIA pass on all panels introduced this phase; `role="alert"` on all renderer error containers verified; datetime format prompt modal accessibility verified (Accessibility)
+- [x] Exploratory test all 5 chart types with real datasets; flag misleading defaults (Data Scientist)
 
 Exit criteria: All 5 chart types render. Parity with AND/OR filters. Contour validation message on wrong input. Boxplot warning at >50 categories. Cold render < 5s. Filter < 500ms. Renderer validation errors tested. Data Scientist sign-off on statistical correctness of all chart types.
 

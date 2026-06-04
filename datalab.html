@@ -5,7 +5,7 @@
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; worker-src blob:; object-src 'none'; base-uri 'none'; form-action 'none';" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DataLab v0.2.0</title>
+  <title>DataLab v0.3.0</title>
   <style>
 /* style.css — DataLab design system (adapted from parity-plotting) */
 
@@ -192,7 +192,7 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
 <body>
 
 <header>
-  <span class="logo">DataLab <span>v0.2.0</span></span>
+  <span class="logo">DataLab <span>v0.3.0</span></span>
   <div class="divider"></div>
   <button class="btn btn-sm" id="zipBtn" style="display:none">↓ ZIP</button>
   <button class="btn btn-sm" id="downloadBtn" style="display:none">↓ PNG</button>
@@ -427,7 +427,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
 // Single source of truth for the app version (STANDARDS.md §3).
 // build.js parses the declaration below — do not rename or reformat it.
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 
 // ── appState ──────────────────────────────────────────────────────────────
 //
@@ -1024,7 +1024,8 @@ function updateFilterCount() {
 }
 
 
-// modal.js — series editor modal: open/close, adaptive fields, filters, save
+// modal.js — series editor modal: open/close, save, and the date format prompt
+// (per-chart-type fields live in modal-fields.js; filter rows in filters.js)
 
 let _editingSeriesId = null;
 let _modalTrigger    = null; // element that opened the modal — focus restored here on close
@@ -1111,6 +1112,151 @@ function wireModalBody(body, existing) {
   // Initial render if editing
   if (existing?.chartType) renderDynamicFields(existing);
 }
+
+// ── Modal save ────────────────────────────────────────────────────────────
+// (Filter row UI lives in filters.js — _modalFilters is shared module state)
+
+/**
+ * Collects modal field values, validates, and saves/updates the series.
+ * @returns {boolean} true if saved successfully
+ */
+function saveModalSeries() {
+  const err     = document.getElementById('modalError');
+  err.textContent = '';
+
+  const name      = document.getElementById('mSeriesName').value.trim();
+  const dsId      = document.getElementById('mDataset').value;
+  const chartType = document.getElementById('mChartType').value;
+
+  if (!dsId)      { err.textContent = 'Please select a dataset.';   return false; }
+  if (!chartType) { err.textContent = 'Please select a chart type.'; return false; }
+
+  const xCol = document.getElementById('mXCol')?.value || '';
+  const yCol = document.getElementById('mYCol')?.value || '';
+  const zCol = document.getElementById('mZCol')?.value || '';
+
+  // Required columns vary by chart type (see modal field matrix, PLANNING.md)
+  if (chartType === 'histogram') {
+    if (!xCol) { err.textContent = 'A numeric column is required.'; return false; }
+  } else if (chartType === 'boxplot') {
+    if (!yCol) { err.textContent = 'Y column is required.'; return false; }
+  } else {
+    if (!xCol) { err.textContent = 'X column is required.'; return false; }
+    if (!yCol) { err.textContent = 'Y column is required.'; return false; }
+    if (chartType === 'contour' && !zCol) { err.textContent = 'Z column is required.'; return false; }
+  }
+
+  const ds    = appState.datasets.find(d => d.id === dsId);
+
+  // Datetime X (scatter/line): resolve the column's date format before the
+  // series is saved. Ambiguous slash dates open the format prompt; the save
+  // resumes from its callback. Stored per dataset+column — asked once.
+  if ((chartType === 'scatter' || chartType === 'line') && xCol && ds
+      && classifyColumn(ds.rows, xCol) === 'datetime'
+      && !(ds.dateFormats && ds.dateFormats[xCol])) {
+    const det = detectDateFormat(ds.rows.map(r => r[xCol]));
+    if (det === 'ambiguous') {
+      showDateFormatPrompt(ds, xCol, () => saveModalSeries());
+      return false; // resumed by the prompt callback
+    }
+    ds.dateFormats = ds.dateFormats || {};
+    ds.dateFormats[xCol] = det || 'ISO';
+  }
+
+  // Raw name stored in state per the escaping contract (data.js) — escHtml
+  // here would double-escape at every display site
+  const autoName = name || `${chartType} · ${ds?.name ?? dsId}`;
+
+  // Style overrides: blank number fields = inherit global Style panel values
+  const style = { color: document.getElementById('mStyleColor')?.value || undefined };
+  const ms = document.getElementById('mStyleMarkerSize')?.value;
+  const lw = document.getElementById('mStyleLineWidth')?.value;
+  if (ms !== '' && ms != null) style.markerSize = Number(ms);
+  if (lw !== '' && lw != null) style.lineWidth  = Number(lw);
+
+  const existing = _editingSeriesId ? appState.series.find(s => s.id === _editingSeriesId) : null;
+
+  const series = {
+    id:        _editingSeriesId || uid(),
+    name:      name || autoName,
+    datasetId: dsId,
+    chartType,
+    xCol,
+    yCol,
+    zCol:      zCol || null,                                  // contour only
+    binCount:  Number(document.getElementById('mBinCount')?.value) || null, // histogram only
+    colorCol:  document.getElementById('mColorCol')?.value || null,
+    filters:   _modalFilters.map(f => ({ ...f })),
+    filterLogic: document.getElementById('mFilterLogic')?.value || 'and',
+    style,
+    enabled:   existing?.enabled ?? true, // preserve visibility toggle across edits
+  };
+
+  // Parity-specific fields
+  if (chartType === 'parity') {
+    series.joinDatasetId = document.getElementById('mJoinDataset')?.value || null;
+    series.joinKey       = document.getElementById('mJoinKey')?.value     || null;
+    series.band5         = document.getElementById('mBand5')?.checked  ?? false;
+    series.band10        = document.getElementById('mBand10')?.checked ?? true;
+    if (!series.joinDatasetId) { err.textContent = 'Please select a join dataset.'; return false; }
+    if (!series.joinKey)       { err.textContent = 'Please select a join key.';     return false; }
+  }
+
+  if (_editingSeriesId) {
+    const idx = appState.series.findIndex(s => s.id === _editingSeriesId);
+    if (idx >= 0) appState.series[idx] = series;
+  } else {
+    appState.series.push(series);
+  }
+
+  renderSeriesList();
+  updateRenderBtn();
+  closeModal();
+  if (appState.plotRendered) debounceRender();
+  return true;
+}
+
+// ── Date format prompt ────────────────────────────────────────────────────
+
+let _dateFmtAC = null;
+
+function showDateFormatPrompt(ds, col, onDone) {
+  const overlay = document.getElementById('dateFmtOverlay');
+  const text    = document.getElementById('dateFmtText');
+  const prev    = document.activeElement;
+
+  const samples = ds.rows.map(r => r[col]).filter(v => v != null && v !== '').slice(0, 3);
+  // textContent — no HTML interpretation, no escaping needed
+  text.textContent = `The dates in "${col}" are ambiguous (e.g. ${samples.join(', ')}). Which format are they?`;
+
+  _dateFmtAC?.abort();
+  _dateFmtAC = new AbortController();
+  const sig = _dateFmtAC.signal;
+
+  const close = () => { overlay.classList.add('hidden'); _dateFmtAC.abort(); };
+  const choose = fmt => {
+    ds.dateFormats = ds.dateFormats || {};
+    ds.dateFormats[col] = fmt;
+    bumpDatasetRev(ds.id); // cached traces depend on the parse format
+    close();
+    onDone();
+  };
+  const cancel = () => { close(); prev?.focus?.(); }; // back to the series modal, unsaved
+
+  document.getElementById('dateFmtMDY').addEventListener('click', () => choose('MDY'), { signal: sig });
+  document.getElementById('dateFmtDMY').addEventListener('click', () => choose('DMY'), { signal: sig });
+  document.getElementById('dateFmtClose').addEventListener('click', cancel, { signal: sig });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.stopPropagation(); cancel(); }
+  }, { signal: sig, capture: true });
+
+  overlay.classList.remove('hidden');
+  document.getElementById('dateFmtMDY').focus(); // ARIA: focus first action
+}
+
+
+// modal-fields.js — per-chart-type field builder for the series modal
+// (split from modal.js at the Phase 3 exit refactor review — verbatim move)
 
 function renderDynamicFields(existing) {
   const dsId     = document.getElementById('mDataset').value;
@@ -1278,149 +1424,9 @@ function renderDynamicFields(existing) {
   updateFilterCount();
 }
 
-// ── Modal save ────────────────────────────────────────────────────────────
-// (Filter row UI lives in filters.js — _modalFilters is shared module state)
 
-/**
- * Collects modal field values, validates, and saves/updates the series.
- * @returns {boolean} true if saved successfully
- */
-function saveModalSeries() {
-  const err     = document.getElementById('modalError');
-  err.textContent = '';
-
-  const name      = document.getElementById('mSeriesName').value.trim();
-  const dsId      = document.getElementById('mDataset').value;
-  const chartType = document.getElementById('mChartType').value;
-
-  if (!dsId)      { err.textContent = 'Please select a dataset.';   return false; }
-  if (!chartType) { err.textContent = 'Please select a chart type.'; return false; }
-
-  const xCol = document.getElementById('mXCol')?.value || '';
-  const yCol = document.getElementById('mYCol')?.value || '';
-  const zCol = document.getElementById('mZCol')?.value || '';
-
-  // Required columns vary by chart type (see modal field matrix, PLANNING.md)
-  if (chartType === 'histogram') {
-    if (!xCol) { err.textContent = 'A numeric column is required.'; return false; }
-  } else if (chartType === 'boxplot') {
-    if (!yCol) { err.textContent = 'Y column is required.'; return false; }
-  } else {
-    if (!xCol) { err.textContent = 'X column is required.'; return false; }
-    if (!yCol) { err.textContent = 'Y column is required.'; return false; }
-    if (chartType === 'contour' && !zCol) { err.textContent = 'Z column is required.'; return false; }
-  }
-
-  const ds    = appState.datasets.find(d => d.id === dsId);
-
-  // Datetime X (scatter/line): resolve the column's date format before the
-  // series is saved. Ambiguous slash dates open the format prompt; the save
-  // resumes from its callback. Stored per dataset+column — asked once.
-  if ((chartType === 'scatter' || chartType === 'line') && xCol && ds
-      && classifyColumn(ds.rows, xCol) === 'datetime'
-      && !(ds.dateFormats && ds.dateFormats[xCol])) {
-    const det = detectDateFormat(ds.rows.map(r => r[xCol]));
-    if (det === 'ambiguous') {
-      showDateFormatPrompt(ds, xCol, () => saveModalSeries());
-      return false; // resumed by the prompt callback
-    }
-    ds.dateFormats = ds.dateFormats || {};
-    ds.dateFormats[xCol] = det || 'ISO';
-  }
-
-  // Raw name stored in state per the escaping contract (data.js) — escHtml
-  // here would double-escape at every display site
-  const autoName = name || `${chartType} · ${ds?.name ?? dsId}`;
-
-  // Style overrides: blank number fields = inherit global Style panel values
-  const style = { color: document.getElementById('mStyleColor')?.value || undefined };
-  const ms = document.getElementById('mStyleMarkerSize')?.value;
-  const lw = document.getElementById('mStyleLineWidth')?.value;
-  if (ms !== '' && ms != null) style.markerSize = Number(ms);
-  if (lw !== '' && lw != null) style.lineWidth  = Number(lw);
-
-  const existing = _editingSeriesId ? appState.series.find(s => s.id === _editingSeriesId) : null;
-
-  const series = {
-    id:        _editingSeriesId || uid(),
-    name:      name || autoName,
-    datasetId: dsId,
-    chartType,
-    xCol,
-    yCol,
-    zCol:      zCol || null,                                  // contour only
-    binCount:  Number(document.getElementById('mBinCount')?.value) || null, // histogram only
-    colorCol:  document.getElementById('mColorCol')?.value || null,
-    filters:   _modalFilters.map(f => ({ ...f })),
-    filterLogic: document.getElementById('mFilterLogic')?.value || 'and',
-    style,
-    enabled:   existing?.enabled ?? true, // preserve visibility toggle across edits
-  };
-
-  // Parity-specific fields
-  if (chartType === 'parity') {
-    series.joinDatasetId = document.getElementById('mJoinDataset')?.value || null;
-    series.joinKey       = document.getElementById('mJoinKey')?.value     || null;
-    series.band5         = document.getElementById('mBand5')?.checked  ?? false;
-    series.band10        = document.getElementById('mBand10')?.checked ?? true;
-    if (!series.joinDatasetId) { err.textContent = 'Please select a join dataset.'; return false; }
-    if (!series.joinKey)       { err.textContent = 'Please select a join key.';     return false; }
-  }
-
-  if (_editingSeriesId) {
-    const idx = appState.series.findIndex(s => s.id === _editingSeriesId);
-    if (idx >= 0) appState.series[idx] = series;
-  } else {
-    appState.series.push(series);
-  }
-
-  renderSeriesList();
-  updateRenderBtn();
-  closeModal();
-  if (appState.plotRendered) debounceRender();
-  return true;
-}
-
-// ── Date format prompt ────────────────────────────────────────────────────
-
-let _dateFmtAC = null;
-
-function showDateFormatPrompt(ds, col, onDone) {
-  const overlay = document.getElementById('dateFmtOverlay');
-  const text    = document.getElementById('dateFmtText');
-  const prev    = document.activeElement;
-
-  const samples = ds.rows.map(r => r[col]).filter(v => v != null && v !== '').slice(0, 3);
-  // textContent — no HTML interpretation, no escaping needed
-  text.textContent = `The dates in "${col}" are ambiguous (e.g. ${samples.join(', ')}). Which format are they?`;
-
-  _dateFmtAC?.abort();
-  _dateFmtAC = new AbortController();
-  const sig = _dateFmtAC.signal;
-
-  const close = () => { overlay.classList.add('hidden'); _dateFmtAC.abort(); };
-  const choose = fmt => {
-    ds.dateFormats = ds.dateFormats || {};
-    ds.dateFormats[col] = fmt;
-    bumpDatasetRev(ds.id); // cached traces depend on the parse format
-    close();
-    onDone();
-  };
-  const cancel = () => { close(); prev?.focus?.(); }; // back to the series modal, unsaved
-
-  document.getElementById('dateFmtMDY').addEventListener('click', () => choose('MDY'), { signal: sig });
-  document.getElementById('dateFmtDMY').addEventListener('click', () => choose('DMY'), { signal: sig });
-  document.getElementById('dateFmtClose').addEventListener('click', cancel, { signal: sig });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { e.stopPropagation(); cancel(); }
-  }, { signal: sig, capture: true });
-
-  overlay.classList.remove('hidden');
-  document.getElementById('dateFmtMDY').focus(); // ARIA: focus first action
-}
-
-
-// chart.js — renderPlot dispatcher, PNG export, and ZIP export
+// chart.js — renderPlot dispatcher, trace cache, layout, and plot theme
+// (PNG/ZIP export lives in export.js)
 
 const RENDERERS = {
   scatter:   buildScatterTrace,
@@ -1676,6 +1682,10 @@ function showRenderErrors(errors, warnings = []) {
     ).join('');
   box.style.display = '';
 }
+
+
+// export.js — PNG download and ZIP export of saved plots
+// (split from chart.js at the Phase 3 exit refactor review — verbatim move)
 
 // ── Export ────────────────────────────────────────────────────────────────
 

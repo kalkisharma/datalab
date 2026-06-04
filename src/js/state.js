@@ -2,7 +2,7 @@
 
 // Single source of truth for the app version (STANDARDS.md §3).
 // build.js parses the declaration below — do not rename or reformat it.
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 
 // ── appState ──────────────────────────────────────────────────────────────
 //

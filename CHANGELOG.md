@@ -1,5 +1,41 @@
 # Changelog
 
+## v0.3.0 — Phase 3 Full Chart Types + Advanced Filters
+
+### Features
+- Three new chart types: **contour** (pre-gridded data, strict grid
+  validation with actionable errors), **histogram** (Freedman-Diaconis
+  auto-binning, manual override), **boxplot** (Tukey whiskers/outliers,
+  optional categorical grouping, readability warning above 50 categories)
+- AND/OR filter logic per series; new operators: numeric range
+  (`in range`) and categorical set (`in set`) with adaptive filter UI
+- Datetime X-axis support for scatter and line: ISO 8601, MM/DD/YYYY,
+  DD/MM/YYYY; slash format proven from the data where possible, otherwise
+  an accessible prompt asks once per dataset+column; line charts drawn in
+  time order
+- Plot background color control, default white; axis/grid/text/legend
+  colors adapt to the chosen background's luminance
+- Non-blocking render warnings (distinct from errors) in the plot area
+
+### Performance (all release gates green)
+- Cold render gate now binding: 520 ms vs 5 s target (10 series × 50k rows)
+- Filter re-evaluation: 36 ms vs 500 ms target (100k rows, 3 predicates)
+- Warm render: 12 ms vs 2 s target
+
+### Known issues (carried to Phase 4)
+- With multiple parity series, only the last one's stats annotation shows
+- Dataset colors assigned from the palette, not yet user-editable
+
+## Schema
+
+### v0.3.0
+- `series.zCol` (contour), `series.binCount` (histogram),
+  `series.filterLogic` ('and'|'or', default 'and'), and
+  `dataset.dateFormats` (per-column 'ISO'|'MDY'|'DMY') added — all
+  optional with backward-compatible defaults, no migration required.
+- New filter `op` strings `in_range` and `in_set` per the Phase 0
+  encoding spec — additive, no migration.
+
 ## v0.2.0 — Phase 2 Multi-Series
 
 ### Features
