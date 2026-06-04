@@ -1,5 +1,50 @@
 # Changelog
 
+## v1.0.0 — GA
+
+First general-availability release.
+
+### Features
+- **Session export/import:** save the entire workspace (datasets, series,
+  styles, saved plots) to a JSON file and reload it later; versioned with
+  migration support, newer-version files refused safely
+- **Style presets:** save/load the global style panel as JSON
+- **SVG export** alongside PNG and ZIP
+- **Color-blind-safe default palette** (Okabe-Ito)
+- **Keyboard shortcuts reference** — press ? in the header
+- Dataset colors are now editable (click the color dot); series that
+  inherited the color follow it
+- Multiple parity series each get their own stats annotation
+
+### Accessibility
+- WCAG 2.1 AA verified with axe across four app states — zero violations
+- Contrast fixes: muted text, accent buttons/badges, danger color
+- Dropzone restructured so the file input is the real focusable control
+- Full keyboard operation; focus management on all dialogs
+
+### Stability
+- Memory profile at 1M rows × 10 series: deleting everything returns the
+  heap to within 1.4 MB of baseline. Three leaks fixed: trace-cache prune
+  ordering, column-cache release on dataset removal, and WebGL buffer
+  release when the last series is deleted (Plotly.purge alone retains
+  scattergl buffers — the plot node is replaced)
+- Deleting the last series now clears the plot and returns to the empty
+  state instead of leaving a stale figure
+
+### Notes
+- Manual screen reader testing (VoiceOver/NVDA) requires assistive
+  hardware and remains a maintainer action item; the automated ARIA audit
+  is clean
+
+## Schema
+
+### v1.0.0
+- Session file format introduced: `{ _schema: "datalab-session", app,
+  saved, state }` where `state` is versioned appState (`version: 1`).
+  Style preset format: `{ _schema: "datalab-style-preset-v1", ... }`.
+- No changes to the state schema itself — sessions saved by any v0.x
+  in-memory state load without migration.
+
 ## v0.3.0 — Phase 3 Full Chart Types + Advanced Filters
 
 ### Features
