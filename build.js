@@ -57,6 +57,7 @@ const appJs = [
   'src/js/modal.js',
   'src/js/modal-fields.js',
   'src/js/chart.js',
+  'src/js/layout.js',
   'src/js/export.js',
   'src/js/sessions.js',
   'src/js/stats.js',

@@ -1594,8 +1594,8 @@ function renderDynamicFields(existing) {
 }
 
 
-// chart.js — renderPlot dispatcher, trace cache, layout, and plot theme
-// (PNG/ZIP export lives in export.js)
+// chart.js — renderPlot dispatcher and trace cache
+// (theme + base layout live in layout.js; PNG/ZIP export in export.js)
 
 const RENDERERS = {
   scatter:   buildScatterTrace,
@@ -1771,6 +1771,64 @@ function clearPlot() {
   if (srEl) srEl.textContent = '';
 }
 
+function getManualRange(minId, maxId) {
+  const mn = document.getElementById(minId)?.value;
+  const mx = document.getElementById(maxId)?.value;
+  if (mn === '' && mx === '') return undefined;
+  return [mn === '' ? null : parseFloat(mn), mx === '' ? null : parseFloat(mx)];
+}
+
+// ── Auto-label helpers ────────────────────────────────────────────────────
+
+function autoTitle() {
+  if (!appState.series.length) return 'DataLab';
+  const types = [...new Set(appState.series.map(s => s.chartType))];
+  return types.length === 1
+    ? `${types[0].charAt(0).toUpperCase()+types[0].slice(1)} plot`
+    : 'Multi-series plot';
+}
+function autoXLabel() {
+  const s = appState.series[0];
+  return s?.xCol || '';
+}
+function autoYLabel() {
+  const s = appState.series[0];
+  return s?.yCol || '';
+}
+function syncTitle()  {
+  if (!appState.plotConfig.titleLocked)
+    document.getElementById('inputTitle').value = autoTitle();
+}
+function syncXLabel() {
+  if (!appState.plotConfig.xLabelLocked)
+    document.getElementById('inputXLabel').value = autoXLabel();
+}
+function syncYLabel() {
+  if (!appState.plotConfig.yLabelLocked)
+    document.getElementById('inputYLabel').value = autoYLabel();
+}
+
+// ── Render errors display ─────────────────────────────────────────────────
+
+function showRenderErrors(errors, warnings = []) {
+  const box = document.getElementById('renderErrors');
+  // innerHTML: empty string — no user data
+  if (!errors.length && !warnings.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  // escHtml applied to series names, error and warning messages — all may contain user data
+  box.innerHTML =
+    errors.map(e =>
+      `<div class="render-error" role="alert"><strong>${escHtml(e.name)}:</strong> ${escHtml(e.error)}</div>`
+    ).join('') +
+    warnings.map(w =>
+      `<div class="render-warning" role="alert"><strong>${escHtml(w.name)}:</strong> ${escHtml(w.warning)}</div>`
+    ).join('');
+  box.style.display = '';
+}
+
+
+// layout.js — plot theme (background-luminance adaptive) and base layout
+// (split from chart.js at the Phase 6 exit refactor review — verbatim move)
+
 // Foreground palette adapts to the user-chosen plot background: light
 // backgrounds (default white) get dark grid/text, dark backgrounds get the
 // app's dark-theme set. Driven by relative luminance of the bg color.
@@ -1869,60 +1927,6 @@ function buildBaseLayout() {
       t: Math.round(20 + fsT * 2), b: Math.round(24 + fsA + fsTk * 2),
     },
   };
-}
-
-function getManualRange(minId, maxId) {
-  const mn = document.getElementById(minId)?.value;
-  const mx = document.getElementById(maxId)?.value;
-  if (mn === '' && mx === '') return undefined;
-  return [mn === '' ? null : parseFloat(mn), mx === '' ? null : parseFloat(mx)];
-}
-
-// ── Auto-label helpers ────────────────────────────────────────────────────
-
-function autoTitle() {
-  if (!appState.series.length) return 'DataLab';
-  const types = [...new Set(appState.series.map(s => s.chartType))];
-  return types.length === 1
-    ? `${types[0].charAt(0).toUpperCase()+types[0].slice(1)} plot`
-    : 'Multi-series plot';
-}
-function autoXLabel() {
-  const s = appState.series[0];
-  return s?.xCol || '';
-}
-function autoYLabel() {
-  const s = appState.series[0];
-  return s?.yCol || '';
-}
-function syncTitle()  {
-  if (!appState.plotConfig.titleLocked)
-    document.getElementById('inputTitle').value = autoTitle();
-}
-function syncXLabel() {
-  if (!appState.plotConfig.xLabelLocked)
-    document.getElementById('inputXLabel').value = autoXLabel();
-}
-function syncYLabel() {
-  if (!appState.plotConfig.yLabelLocked)
-    document.getElementById('inputYLabel').value = autoYLabel();
-}
-
-// ── Render errors display ─────────────────────────────────────────────────
-
-function showRenderErrors(errors, warnings = []) {
-  const box = document.getElementById('renderErrors');
-  // innerHTML: empty string — no user data
-  if (!errors.length && !warnings.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
-  // escHtml applied to series names, error and warning messages — all may contain user data
-  box.innerHTML =
-    errors.map(e =>
-      `<div class="render-error" role="alert"><strong>${escHtml(e.name)}:</strong> ${escHtml(e.error)}</div>`
-    ).join('') +
-    warnings.map(w =>
-      `<div class="render-warning" role="alert"><strong>${escHtml(w.name)}:</strong> ${escHtml(w.warning)}</div>`
-    ).join('');
-  box.style.display = '';
 }
 
 
