@@ -28,16 +28,7 @@ Only ~20–30% of parity-plotting is reusable. Its core (inner join, A/B state m
 
 ## Practical First Steps
 
-> **Note:** This section is archived at Phase 0 exit — replaced by git history and CHANGELOG.md.
-
-1. **Create the new repo**
-   ```
-   mkdir datalab && cd datalab && git init
-   ```
-2. **Copy from parity-plotting:** `lib/papaparse.min.js`, `lib/jszip.min.js`, `build.js` (update module list), `src/style.css` (adapt)
-3. **Download full Plotly bundle** (one-time manual download — not a runtime fetch): `plotly.min.js` from plotly CDN or npm → `datalab/lib/plotly.min.js` (~3.46 MB)
-4. **Copy these functions from parity-plotting:** `parseCSV()`, `wireDropzone()`, `handleFile()`, `debounce()`, `makeDD()`, `escHtml()`, `savePlot()`, `mkCard()`, `restorePlot()`, `delSaved()`, `downloadZip()`
-5. **Write from scratch:** `appState` schema, `index.html` layout, all renderers, `ui.js` panel builders, `chart.js` dispatcher
+> **Archived at Phase 0 exit** (housekeeping completed at Phase 2 exit) — superseded by git history and CHANGELOG.md.
 
 ---
 
@@ -188,7 +179,9 @@ datalab/
     js/
       state.js
       data.js           — parseCSV, applyFilters, classifyColumn
-      ui.js             — makeDD, panel builders, modal
+      ui.js             — makeDD, dataset panel, series list
+      modal.js          — series editor modal
+      filters.js        — filter row UI
       chart.js          — renderPlot dispatcher, downloadPlot, downloadZip
       renderers/
         shared.js       — renderer interface contract, colVals, buildMarkerStyle, colorMapping
@@ -206,7 +199,12 @@ datalab/
     jszip.min.js
   tests/
     smoke.spec.js       — Smoke render test; runs on every PR
-    bench.spec.js       — Performance benchmark; runs on release (Phase 2+)
+    bench.spec.js       — Performance benchmark; runs on release (BENCH=1)
+    xss.spec.js         — XSS injection suite; runs on every PR
+    parity-stats.spec.js — statistical correctness regression tests
+    series-list.spec.js — series list interaction tests
+    reload-validation.spec.js — dataset reload + keyboard nav tests
+    multi-series.spec.js — Phase 2 exit criteria scenario
     data/
       README.md         — Dataset specs and sourcing instructions (QA-owned)
       test_*.csv        — Committed synthetic datasets (max 500KB each)
@@ -288,19 +286,19 @@ Exit criteria: Load 2 CSVs, add a parity series with a join key, render with err
 ### Phase 2 — Multi-Series `v0.2.0`
 **Goal:** N series overlaid on one chart, series CRUD, performance baseline.
 
-- [ ] N CSVs loaded simultaneously (Frontend)
-- [ ] Series list: reorder, edit, delete (Frontend + UX)
-- [ ] UX flow description for series list interactions — written before branch is created (UX Designer)
-- [ ] Per-series style overrides: color, marker size, line width (Frontend + Data Viz)
-- [ ] Series legend: enable/disable toggles (Data Viz)
-- [ ] Column reference validation on dataset reload (Data Engineer)
-- [ ] Memoized column extraction + trace cache; cache invalidated on dataset reload or column rename (Performance Engineer)
-- [ ] Synthetic 50k-row benchmark dataset generated and committed to `tests/data/` per README spec; Performance Engineer signs off on dataset spec (QA + Performance Engineer)
-- [ ] `tests/data/README.md` completed with full benchmark dataset spec (QA)
-- [ ] `tests/bench.spec.js` warm render benchmark active — 10 series × 50k rows, warm render < 2s, memoized path (see STANDARDS.md §10) (QA + Performance Engineer)
-- [ ] Keyboard nav for series list (Accessibility)
-- [ ] ARIA pass on all panels introduced this phase (Accessibility)
-- [ ] Exploratory test with real multi-series datasets; advise on series color default palette (Data Scientist)
+- [x] N CSVs loaded simultaneously (Frontend)
+- [x] Series list: reorder, edit, delete (Frontend + UX)
+- [x] UX flow description for series list interactions — written before branch is created (UX Designer)
+- [x] Per-series style overrides: color, marker size, line width (Frontend + Data Viz)
+- [x] Series legend: enable/disable toggles (Data Viz)
+- [x] Column reference validation on dataset reload (Data Engineer)
+- [x] Memoized column extraction + trace cache; cache invalidated on dataset reload or column rename (Performance Engineer)
+- [x] Synthetic 50k-row benchmark dataset generated and committed to `tests/data/` per README spec; Performance Engineer signs off on dataset spec (QA + Performance Engineer)
+- [x] `tests/data/README.md` completed with full benchmark dataset spec (QA)
+- [x] `tests/bench.spec.js` warm render benchmark active — 10 series × 50k rows, warm render < 2s, memoized path (see STANDARDS.md §10) (QA + Performance Engineer)
+- [x] Keyboard nav for series list (Accessibility)
+- [x] ARIA pass on all panels introduced this phase (Accessibility)
+- [x] Exploratory test with real multi-series datasets; advise on series color default palette (Data Scientist)
 
 Exit criteria: 3 CSVs, 6 series, reorder, edit, warm render < 2s. Smoke test green on every PR. Performance benchmark passing. Data Scientist exploratory test complete.
 

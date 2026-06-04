@@ -1,5 +1,40 @@
 # Changelog
 
+## v0.2.0 — Phase 2 Multi-Series
+
+### Features
+- Series list: show/hide toggle per series, up/down reorder (row order =
+  draw order), keyboard navigation (arrows between rows, Enter edits,
+  Delete removes)
+- Per-series style overrides in the modal: color, marker size, line width
+  (line charts) — blank fields inherit the global Style panel
+- Dataset reload: dropping a CSV with an existing dataset's name replaces
+  its data in place (name/color/series references preserved); series whose
+  columns no longer exist are flagged in the panel and produce a clear
+  render error instead of an empty plot
+
+### Performance
+- Trace cache + memoized column extraction: style-only re-renders reuse
+  all traces (warm render median 5 ms at 10 series × 50k rows; target 2 s)
+- Scatter switches to WebGL above 10k points — cold render at 50k×10
+  improved 9.3 s → 0.26 s
+
+### Fixed
+- Editing a series no longer loses its color or visibility state
+- Marker edge width no longer conflated with line width
+
+### Known issues
+- With multiple parity series, only the last one's stats annotation is
+  shown (Phase 3)
+- Dataset colors are assigned from the palette and not yet user-editable
+  (Phase 3)
+
+## Schema
+
+### v0.2.0
+- `series.enabled` added (optional boolean, default true) — backward
+  compatible, no migration required.
+
 ## v0.1.0 — Phase 1 MVP
 
 First usable release. Open `datalab.html` in any browser — no server, no install, no internet.
