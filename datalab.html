@@ -595,7 +595,7 @@ function classifyColumn(rows, col) {
 }
 
 
-// ui.js — panel builders, searchable dropdowns, and series modal
+// ui.js — panel builders and searchable dropdowns (series modal lives in modal.js)
 
 const _ddControllers = new Map();
 
@@ -729,7 +729,13 @@ function renderSeriesList() {
   });
 }
 
-// ── Series modal ──────────────────────────────────────────────────────────
+function updateRenderBtn() {
+  const btn = document.getElementById('renderBtn');
+  btn.disabled = appState.series.length === 0;
+}
+
+
+// modal.js — series editor modal: open/close, adaptive fields, filters, save
 
 let _editingSeriesId = null;
 let _modalTrigger    = null; // element that opened the modal — focus restored here on close
@@ -1034,11 +1040,6 @@ function saveModalSeries() {
   updateRenderBtn();
   closeModal();
   return true;
-}
-
-function updateRenderBtn() {
-  const btn = document.getElementById('renderBtn');
-  btn.disabled = appState.series.length === 0;
 }
 
 

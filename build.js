@@ -53,6 +53,7 @@ const appJs = [
   'src/js/state.js',
   'src/js/data.js',
   'src/js/ui.js',
+  'src/js/modal.js',
   'src/js/chart.js',
   'src/js/saves.js',
   'src/js/wiring.js',
