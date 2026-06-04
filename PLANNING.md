@@ -364,12 +364,12 @@ Exit criteria: stats match hand-computed references. Rename follows through to s
 ### Phase 6 — Plot Controls & UI Polish `v1.2.0`
 **Goal:** Finish the plot-control surface (typography, frame, legend) and fix the too-small UI chrome. Sourced from maintainer review of v1.1.0.
 
-- [ ] UI chrome typography: raise header and left-panel font/symbol sizes (~1–2px across the scale), widen the left panel to fit; axe re-run after (Frontend + UX + Accessibility)
-- [ ] Plot typography panel: font-size sliders for title, axis labels, tick labels, legend, and stats annotations — completes the half-delivered Phase 1 deliverable; values included in style presets (additive, same preset schema) and sessions (Frontend + Data Viz)
-- [ ] Plot frame controls: axis line color and width; gridline color and width. Default is "auto" (follows the background-luminance theme); an explicit value overrides until cleared (Frontend + Data Viz + UX)
-- [ ] Legend controls: show/hide toggle; dragged legend position captured via plotly_relayout into plotConfig.legendPos and reused on re-render — fixes the position reset on every style tweak (Frontend + Data Viz)
-- [ ] Relabel "Edge color" → "Marker edge"; group marker controls under a Markers heading (UX)
-- [ ] Tests: typography values reach _fullLayout; legend position survives re-render and session round-trip; frame overrides + auto reset behave; chrome resize passes axe (QA)
+- [x] UI chrome typography — evidence: phase6.spec.js "chrome typography is the larger scale"; all 5 axe states green at the new sizes (commit 6509819)
+- [x] Plot typography panel — evidence: phase6.spec.js "typography sliders drive every plot font", "annotation font slider reaches parity stats annotations", preset round-trip test (commit 6509819)
+- [x] Plot frame controls — evidence: phase6.spec.js "frame auto follows the theme; override applies; re-check restores auto" (commit 6509819)
+- [x] Legend controls — evidence: phase6.spec.js "legend toggle hides it; dragged position survives re-render and session round-trip" (commit 6509819)
+- [x] Relabel "Edge color" → "Marker edge" — evidence: src/index.html label text (commit 6509819). Note: a separate Markers heading was judged unnecessary once the label named the target; descoped
+- [x] Tests — evidence: tests/phase6.spec.js, 6 tests, all listed behaviors covered (commit 6509819)
 
 Schema (all optional with defaults, no migration): plotConfig.legendShow, plotConfig.legendPos {x, y}; style gains font-size and frame fields.
 

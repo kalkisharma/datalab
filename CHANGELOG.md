@@ -1,5 +1,32 @@
 # Changelog
 
+## v1.2.0 — Plot Controls & UI Polish
+
+Sourced from maintainer review of v1.1.0.
+
+### Features
+- **Plot typography panel:** font-size sliders for title, axis labels,
+  tick labels, legend, and stats annotations; plot margins scale with the
+  fonts so large labels survive export (completes a Phase 1 deliverable
+  that had been recorded as done but only half-built — see PLANNING.md
+  record corrections)
+- **Plot frame controls:** axis line and gridline color + width; "auto"
+  follows the background-luminance theme, explicit values override
+- **Legend controls:** show/hide toggle; a dragged legend now keeps its
+  position across re-renders and session round-trips (previously snapped
+  back to the corner on any style change)
+- **Larger UI chrome:** header and panel text/symbols scaled up one step;
+  left panel widened to match
+- Style presets carry all the new fields (older preset files still load)
+- "Edge color" relabeled "Marker edge"
+
+## Schema
+
+### v1.2.0
+- `plotConfig.legendShow` (optional boolean, default true) and
+  `plotConfig.legendPos` (optional {x, y}) — backward compatible, no
+  migration.
+
 ## v1.1.0 — Data Cleaning + Statistics
 
 ### Features
