@@ -247,7 +247,53 @@ DataLab is used by private organisations loading sensitive data. The tool must g
 - **ARIA pass invalidation:** a panel change invalidates its ARIA pass if the change affects interactive behavior, focus management, DOM structure, or visible labels referenced by `aria-label` or `aria-labelledby`. CSS-only visual changes do not invalidate the pass. An invalidated pass must be re-done before phase exit.
 - **Domain expert input:** any team member may flag a sequencing conflict to the EL ("X must come before Y because..."). The EL hears the reasoning and decides. Security-flagged sequencing conflicts are the only ones that move without EL deliberation.
 
-## 19. Statistical Correctness and Exploratory Testing
+## 19. Code Comments and File Headers
+
+### Philosophy
+
+- Comment the **why**, not the **what**. Function and variable names describe what code does — comments explain why it does it that way: hidden constraints, non-obvious invariants, workarounds for specific bugs, behavior that would surprise a reader.
+- If removing a comment wouldn't confuse a future reader, don't write it.
+- No commented-out code on `master` — delete it. Code review must reject it before merge.
+
+### File headers
+
+Every file in `src/js/` begins with a single-line header comment:
+```js
+// filename.js — one-line description of purpose
+```
+Example: `// data.js — CSV parsing, column classification, and filter evaluation`
+
+No author names, dates, or ownership — that is git's job and PLANNING.md's job. Ownership is defined in the team roster, not in source files.
+
+Exception: files with a formal contract (e.g., `shared.js` renderer interface) may have a multi-line block for the contract itself. This is a documented exception, not a general pattern.
+
+### Function documentation
+
+- No JSDoc by default.
+- JSDoc is **required** for exported functions whose parameters or return shape are non-obvious to a reader unfamiliar with the codebase. Format: `@param` and `@returns` only — no `@author`, `@date`, `@version`.
+- Self-evident one-liners are exempt even if exported (e.g., `escHtml(str)` → `string`).
+- For complex non-exported helpers (> 20 lines, or non-obvious parameters or side effects): one plain comment line above the function describing the why. Not JSDoc.
+- Security-contract comment blocks (§8, §9) and JSDoc serve different purposes — both are required where applicable and are not redundant.
+
+### Section headers within files
+
+Use section headers to group related functions when a file has distinct logical sections:
+```js
+// --- Parsing ---
+// --- Classification ---
+// --- Filtering ---
+```
+Use sparingly — if a file needs many sections, it is a signal to split the file instead.
+
+### Pre-commit hook additions
+
+The pre-commit hook greps `src/js/**` for:
+- `console.log(` — forbidden on `master`
+- `debugger` — forbidden on `master`
+
+`console.warn(` and `console.error(` are permitted for genuine error reporting.
+
+## 20. Statistical Correctness and Exploratory Testing
 
 - The Data Scientist reviews and signs off on statistical correctness at every phase exit. No phase closes without this sign-off.
 - **Correctness scope:**
