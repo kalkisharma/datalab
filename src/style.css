@@ -3,9 +3,14 @@
 :root {
   --bg:#13131a; --surface:#1e1e28; --panel:#1a1a24;
   --border:#2e2e3e; --border2:#3a3a4e;
-  --accent:#5b8dee; --accent2:#7c6fe0;
-  --text:#e2e2ec; --text2:#9090a8; --text3:#5a5a72;
-  --success:#4caf7d; --warn:#e8a04a; --danger:#e05c5c;
+  /* accent family + danger lightened at the Phase 4 axe audit — original
+     values measured 3.86–4.33:1 on tinted button/badge backgrounds (AA
+     needs 4.5:1) */
+  --accent:#74a0f1; --accent2:#9a8ff0;
+  /* --text3 raised from #5a5a72 at the Phase 4 axe audit — 2.57:1 contrast
+     failed WCAG AA (4.5:1); #8a8aa2 measures ≈5.1:1 on the panel color */
+  --text:#e2e2ec; --text2:#9090a8; --text3:#8a8aa2;
+  --success:#4caf7d; --warn:#e8a04a; --danger:#ec8585;
   --mono:'JetBrains Mono','Fira Code','Courier New',monospace;
   --sans:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
   --radius:8px; --radius-lg:12px;
@@ -32,7 +37,7 @@ details.section>summary::after{content:'▸';font-size:10px;transition:transform
 details[open].section>summary::after{transform:rotate(90deg);}
 details.section>.details-body{padding:0 16px 14px;}
 .dropzone{border:1px dashed var(--border2);border-radius:var(--radius);padding:10px 12px;cursor:pointer;transition:border-color 0.2s,background 0.2s;margin-bottom:10px;position:relative;}
-.dropzone:hover,.dropzone.drag-over{border-color:var(--accent);background:rgba(91,141,238,0.05);}
+.dropzone:hover,.dropzone.drag-over,.dropzone:focus-within{border-color:var(--accent);background:rgba(91,141,238,0.05);}
 .dropzone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
 .dz-label{display:flex;align-items:center;gap:8px;}
 .dz-icon{font-size:16px;color:var(--text3);}
@@ -56,7 +61,7 @@ details.section>.details-body{padding:0 16px 14px;}
 .series-badge.parity{background:rgba(124,111,224,0.15);color:var(--accent2);}
 .series-badge.contour{background:rgba(232,160,74,0.15);color:var(--warn);}
 .series-badge.histogram{background:rgba(224,92,92,0.15);color:var(--danger);}
-.series-badge.boxplot{background:rgba(90,90,114,0.3);color:var(--text2);}
+.series-badge.boxplot{background:rgba(90,90,114,0.3);color:var(--text);}
 .series-name{flex:1;font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
 .series-edit,.series-del,.series-move{background:none;border:none;cursor:pointer;font-size:12px;padding:2px 4px;border-radius:3px;line-height:1;flex-shrink:0;transition:color 0.15s;}
 .series-move{color:var(--text3);font-size:11px;}

@@ -49,6 +49,9 @@ function migrateSessionState(st) {
 }
 
 function applySessionState(st) {
+  // Release the outgoing datasets' memoized columns before replacing them
+  appState.datasets.forEach(d => bumpDatasetRev(d.id));
+
   appState.version      = st.version;
   appState.datasets     = st.datasets   ?? [];
   appState.series       = st.series     ?? [];

@@ -102,6 +102,69 @@ test.describe('release benchmarks', () => {
     expect(cold).toBeLessThan(5000);
   });
 
+  // Phase 4 GA criterion: no memory leaks. 1M rows + 10 series rendered,
+  // then everything deleted — after GC the heap must return near baseline.
+  test('memory: 1M rows + 10 series, delete all → heap returns to baseline', async ({ browser }) => {
+    test.setTimeout(300_000);
+    // --expose-gc to force collection; --enable-precise-memory-info because
+    // performance.memory is otherwise quantized to coarse buckets
+    const context = await browser.browserType().launch({
+      args: ['--js-flags=--expose-gc', '--enable-precise-memory-info'],
+    }).then(b => b.newContext());
+    const page = await context.newPage();
+    await page.goto(FILE_URL);
+
+    const result = await page.evaluate(async () => {
+      const gc = window.gc ?? (() => {});
+      const heap = () => performance.memory?.usedJSHeapSize ?? 0;
+
+      gc(); await new Promise(r => setTimeout(r, 200)); gc();
+      const baseline = heap();
+
+      // Load 1M rows, 10 series, render. `rows` must be nulled before the
+      // final measurement — this closure's own reference would otherwise pin
+      // the data and measure the test, not the app.
+      let rows = [];
+      for (let i = 0; i < 1_000_000; i++) rows.push({ x: i % 1000, y: (i * 7) % 1000 });
+      appState.datasets.push({ id: 'mem', name: 'mem', rows, headers: ['x', 'y'], color: '#0072b2' });
+      rows = null;
+      for (let k = 0; k < 10; k++) {
+        appState.series.push({ id: 'm' + k, name: 'mem ' + k, datasetId: 'mem',
+          chartType: 'scatter', xCol: 'x', yCol: 'y', filters: [], style: {}, enabled: true });
+      }
+      renderPlot();
+      const peak = heap();
+
+      // Delete everything the way the UI does — removeDataset drops the
+      // series, renderPlot prunes caches and clearPlot() releases the gl
+      // buffers (no manual purge: the app must clean up after itself)
+      removeDataset('mem');
+      renderPlot();
+      // Two GC rounds with a settle between: Chromium releases WebGL-backed
+      // buffers asynchronously after context teardown — the first GC after
+      // clearPlot() cannot reclaim them yet (verified: 164 MB after round 1,
+      // baseline after round 2)
+      gc(); await new Promise(r => setTimeout(r, 300)); gc();
+      await new Promise(r => setTimeout(r, 500));
+      gc(); await new Promise(r => setTimeout(r, 300)); gc();
+      const after = heap();
+
+      return { baseline, peak, after, gcAvailable: !!window.gc };
+    });
+
+    console.log(`heap: baseline ${(result.baseline / 1048576).toFixed(1)} MB, ` +
+                `peak ${(result.peak / 1048576).toFixed(1)} MB, ` +
+                `after delete ${(result.after / 1048576).toFixed(1)} MB ` +
+                `(gc ${result.gcAvailable ? 'forced' : 'NOT available'})`);
+    expect(result.gcAvailable).toBe(true);
+    expect(result.peak).toBeGreaterThan(result.baseline); // sanity: the load was real
+    // "Returns to baseline": within 25 MB — Plotly retains some module-level
+    // buffers, but the 1M-row dataset (~tens of MB) must be gone
+    expect(result.after - result.baseline).toBeLessThan(25 * 1048576);
+
+    await context.close();
+  });
+
   // Binding from Phase 3
   test('filter re-evaluation: 100k rows < 500ms (median of 3)', async ({ page }) => {
     test.setTimeout(120_000);

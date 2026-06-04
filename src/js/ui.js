@@ -123,6 +123,8 @@ function removeDataset(id) {
   appState.series   = appState.series.filter(
     s => s.datasetId !== id && s.joinDatasetId !== id
   );
+  // Release this dataset's memoized column arrays (Phase 4 memory profile)
+  bumpDatasetRev(id);
   renderDatasetList();
   renderSeriesList();
   updateRenderBtn();
@@ -205,7 +207,7 @@ function renderSeriesList() {
       updateRenderBtn();
       if (appState.plotRendered) debounceRender();
     });
-    list.insertBefore(item, document.getElementById('seriesEmpty'));
+    list.appendChild(item); // seriesEmpty hint lives outside the role=list container
   });
 }
 

@@ -30,9 +30,11 @@
     <!-- Datasets -->
     <div class="section">
       <div class="section-title">Datasets</div>
-      <div id="dropzone" class="dropzone" tabindex="0" role="button"
-           aria-label="Drop CSV files here or click to browse">
-        <input type="file" id="fileInput" accept=".csv" multiple aria-hidden="true" />
+      <!-- The file input is the focusable control (native Enter-to-browse);
+           the wrapper only handles drag-drop styling — no nested interactive -->
+      <div id="dropzone" class="dropzone">
+        <input type="file" id="fileInput" accept=".csv" multiple
+               aria-label="Load CSV files — drop them here or press Enter to browse" />
         <div class="dz-label">
           <span class="dz-icon">⊕</span>
           <span class="dz-hint">Drop CSV or click to browse</span>
@@ -45,9 +47,8 @@
     <!-- Series -->
     <div class="section">
       <div class="section-title">Series</div>
-      <div id="seriesList" role="list" aria-label="Plot series">
-        <div id="seriesEmpty" class="empty-hint">No series yet — add one below.</div>
-      </div>
+      <div id="seriesList" role="list" aria-label="Plot series"></div>
+      <div id="seriesEmpty" class="empty-hint">No series yet — add one below.</div>
       <button class="btn btn-primary btn-full" id="addSeriesBtn" disabled
               title="Load a CSV first">+ Add Series</button>
     </div>

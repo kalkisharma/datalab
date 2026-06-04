@@ -12,9 +12,14 @@
 :root {
   --bg:#13131a; --surface:#1e1e28; --panel:#1a1a24;
   --border:#2e2e3e; --border2:#3a3a4e;
-  --accent:#5b8dee; --accent2:#7c6fe0;
-  --text:#e2e2ec; --text2:#9090a8; --text3:#5a5a72;
-  --success:#4caf7d; --warn:#e8a04a; --danger:#e05c5c;
+  /* accent family + danger lightened at the Phase 4 axe audit — original
+     values measured 3.86–4.33:1 on tinted button/badge backgrounds (AA
+     needs 4.5:1) */
+  --accent:#74a0f1; --accent2:#9a8ff0;
+  /* --text3 raised from #5a5a72 at the Phase 4 axe audit — 2.57:1 contrast
+     failed WCAG AA (4.5:1); #8a8aa2 measures ≈5.1:1 on the panel color */
+  --text:#e2e2ec; --text2:#9090a8; --text3:#8a8aa2;
+  --success:#4caf7d; --warn:#e8a04a; --danger:#ec8585;
   --mono:'JetBrains Mono','Fira Code','Courier New',monospace;
   --sans:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
   --radius:8px; --radius-lg:12px;
@@ -41,7 +46,7 @@ details.section>summary::after{content:'▸';font-size:10px;transition:transform
 details[open].section>summary::after{transform:rotate(90deg);}
 details.section>.details-body{padding:0 16px 14px;}
 .dropzone{border:1px dashed var(--border2);border-radius:var(--radius);padding:10px 12px;cursor:pointer;transition:border-color 0.2s,background 0.2s;margin-bottom:10px;position:relative;}
-.dropzone:hover,.dropzone.drag-over{border-color:var(--accent);background:rgba(91,141,238,0.05);}
+.dropzone:hover,.dropzone.drag-over,.dropzone:focus-within{border-color:var(--accent);background:rgba(91,141,238,0.05);}
 .dropzone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
 .dz-label{display:flex;align-items:center;gap:8px;}
 .dz-icon{font-size:16px;color:var(--text3);}
@@ -65,7 +70,7 @@ details.section>.details-body{padding:0 16px 14px;}
 .series-badge.parity{background:rgba(124,111,224,0.15);color:var(--accent2);}
 .series-badge.contour{background:rgba(232,160,74,0.15);color:var(--warn);}
 .series-badge.histogram{background:rgba(224,92,92,0.15);color:var(--danger);}
-.series-badge.boxplot{background:rgba(90,90,114,0.3);color:var(--text2);}
+.series-badge.boxplot{background:rgba(90,90,114,0.3);color:var(--text);}
 .series-name{flex:1;font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
 .series-edit,.series-del,.series-move{background:none;border:none;cursor:pointer;font-size:12px;padding:2px 4px;border-radius:3px;line-height:1;flex-shrink:0;transition:color 0.15s;}
 .series-move{color:var(--text3);font-size:11px;}
@@ -217,9 +222,11 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
     <!-- Datasets -->
     <div class="section">
       <div class="section-title">Datasets</div>
-      <div id="dropzone" class="dropzone" tabindex="0" role="button"
-           aria-label="Drop CSV files here or click to browse">
-        <input type="file" id="fileInput" accept=".csv" multiple aria-hidden="true" />
+      <!-- The file input is the focusable control (native Enter-to-browse);
+           the wrapper only handles drag-drop styling — no nested interactive -->
+      <div id="dropzone" class="dropzone">
+        <input type="file" id="fileInput" accept=".csv" multiple
+               aria-label="Load CSV files — drop them here or press Enter to browse" />
         <div class="dz-label">
           <span class="dz-icon">⊕</span>
           <span class="dz-hint">Drop CSV or click to browse</span>
@@ -232,9 +239,8 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
     <!-- Series -->
     <div class="section">
       <div class="section-title">Series</div>
-      <div id="seriesList" role="list" aria-label="Plot series">
-        <div id="seriesEmpty" class="empty-hint">No series yet — add one below.</div>
-      </div>
+      <div id="seriesList" role="list" aria-label="Plot series"></div>
+      <div id="seriesEmpty" class="empty-hint">No series yet — add one below.</div>
       <button class="btn btn-primary btn-full" id="addSeriesBtn" disabled
               title="Load a CSV first">+ Add Series</button>
     </div>
@@ -883,6 +889,8 @@ function removeDataset(id) {
   appState.series   = appState.series.filter(
     s => s.datasetId !== id && s.joinDatasetId !== id
   );
+  // Release this dataset's memoized column arrays (Phase 4 memory profile)
+  bumpDatasetRev(id);
   renderDatasetList();
   renderSeriesList();
   updateRenderBtn();
@@ -965,7 +973,7 @@ function renderSeriesList() {
       updateRenderBtn();
       if (appState.plotRendered) debounceRender();
     });
-    list.insertBefore(item, document.getElementById('seriesEmpty'));
+    list.appendChild(item); // seriesEmpty hint lives outside the role=list container
   });
 }
 
@@ -1536,11 +1544,16 @@ function buildSeriesResult(s) {
 // ── renderPlot ────────────────────────────────────────────────────────────
 
 function renderPlot() {
-  if (!appState.series.length) return;
-
-  // Prune cache entries for deleted series
+  // Prune cache entries for deleted series BEFORE the empty-list return —
+  // deleting the last series must release its cached traces (Phase 4
+  // memory profile found ~160 MB stranded here at 1M rows × 10 series)
   for (const id of [..._traceCache.keys()]) {
     if (!appState.series.some(s => s.id === id)) _traceCache.delete(id);
+  }
+
+  if (!appState.series.length) {
+    if (appState.plotRendered) clearPlot(); // last series deleted → release everything
+    return;
   }
 
   const traces   = [];
@@ -1625,6 +1638,23 @@ function renderPlot() {
   document.getElementById('savedStrip').style.display  = appState.savedPlots.filter(Boolean).length ? '' : 'none';
   document.getElementById('saveBtn').style.display     = '';
   syncTitle(); syncXLabel(); syncYLabel();
+}
+
+// Fully release the plot and return to the empty state. Plotly.purge alone
+// is not enough: scattergl retains WebGL buffers bound to the node past
+// purge (Phase 4 memory profile measured ~150 MB stranded at 1M rows ×
+// 10 series) — replacing the node is the reliable release.
+function clearPlot() {
+  const pd = document.getElementById('plotDiv');
+  try { Plotly.purge(pd); } catch (e) { /* nothing rendered */ }
+  pd.replaceWith(pd.cloneNode(false)); // keeps id/attrs, drops gl context
+  appState.plotRendered = false;
+  document.getElementById('plotArea').classList.add('hidden');
+  document.getElementById('emptyState').classList.remove('hidden');
+  document.getElementById('downloadBtn').style.display    = 'none';
+  document.getElementById('downloadSvgBtn').style.display = 'none';
+  const srEl = document.getElementById('plotAnnotSR');
+  if (srEl) srEl.textContent = '';
 }
 
 // Foreground palette adapts to the user-chosen plot background: light
@@ -1913,6 +1943,9 @@ function migrateSessionState(st) {
 }
 
 function applySessionState(st) {
+  // Release the outgoing datasets' memoized columns before replacing them
+  appState.datasets.forEach(d => bumpDatasetRev(d.id));
+
   appState.version      = st.version;
   appState.datasets     = st.datasets   ?? [];
   appState.series       = st.series     ?? [];
@@ -2055,7 +2088,8 @@ function wireDropzone() {
     [...e.target.files].forEach(f => handleFile(f));
     fi.value = ''; // allow re-selecting the same file
   });
-  dz.addEventListener('keydown', e => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); fi.click(); } });
+  // Keyboard: the file input is natively focusable and opens on Enter —
+  // no keydown shim on the wrapper (axe nested-interactive, Phase 4 audit)
   dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
   dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
   dz.addEventListener('drop', e => {

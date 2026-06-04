@@ -41,11 +41,16 @@ function buildSeriesResult(s) {
 // ── renderPlot ────────────────────────────────────────────────────────────
 
 function renderPlot() {
-  if (!appState.series.length) return;
-
-  // Prune cache entries for deleted series
+  // Prune cache entries for deleted series BEFORE the empty-list return —
+  // deleting the last series must release its cached traces (Phase 4
+  // memory profile found ~160 MB stranded here at 1M rows × 10 series)
   for (const id of [..._traceCache.keys()]) {
     if (!appState.series.some(s => s.id === id)) _traceCache.delete(id);
+  }
+
+  if (!appState.series.length) {
+    if (appState.plotRendered) clearPlot(); // last series deleted → release everything
+    return;
   }
 
   const traces   = [];
@@ -130,6 +135,23 @@ function renderPlot() {
   document.getElementById('savedStrip').style.display  = appState.savedPlots.filter(Boolean).length ? '' : 'none';
   document.getElementById('saveBtn').style.display     = '';
   syncTitle(); syncXLabel(); syncYLabel();
+}
+
+// Fully release the plot and return to the empty state. Plotly.purge alone
+// is not enough: scattergl retains WebGL buffers bound to the node past
+// purge (Phase 4 memory profile measured ~150 MB stranded at 1M rows ×
+// 10 series) — replacing the node is the reliable release.
+function clearPlot() {
+  const pd = document.getElementById('plotDiv');
+  try { Plotly.purge(pd); } catch (e) { /* nothing rendered */ }
+  pd.replaceWith(pd.cloneNode(false)); // keeps id/attrs, drops gl context
+  appState.plotRendered = false;
+  document.getElementById('plotArea').classList.add('hidden');
+  document.getElementById('emptyState').classList.remove('hidden');
+  document.getElementById('downloadBtn').style.display    = 'none';
+  document.getElementById('downloadSvgBtn').style.display = 'none';
+  const srEl = document.getElementById('plotAnnotSR');
+  if (srEl) srEl.textContent = '';
 }
 
 // Foreground palette adapts to the user-chosen plot background: light

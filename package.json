@@ -9,6 +9,7 @@
     "test:bench": "npx playwright test tests/bench.spec.js"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.3",
     "@playwright/test": "^1.49.0"
   },
   "author": "Kalki Sharma <kalkijsharma@gmail.com>",

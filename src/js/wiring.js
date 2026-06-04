@@ -27,7 +27,8 @@ function wireDropzone() {
     [...e.target.files].forEach(f => handleFile(f));
     fi.value = ''; // allow re-selecting the same file
   });
-  dz.addEventListener('keydown', e => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); fi.click(); } });
+  // Keyboard: the file input is natively focusable and opens on Enter —
+  // no keydown shim on the wrapper (axe nested-interactive, Phase 4 audit)
   dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
   dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
   dz.addEventListener('drop', e => {
