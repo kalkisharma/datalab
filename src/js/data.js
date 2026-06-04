@@ -88,6 +88,45 @@ function parseCSV(file, cb) {
   });
 }
 
+// ── validateSeriesColumns ─────────────────────────────────────────────────
+
+// Checks every column reference a series holds against the current dataset
+// headers. Returns human-readable descriptions of missing references (empty
+// array = valid). Used after dataset reload and before each render so a
+// reloaded CSV with different columns produces a clear error instead of a
+// silent all-NaN plot.
+/**
+ * @param {object}   s         series
+ * @param {object[]} datasets
+ * @returns {string[]} missing reference descriptions
+ */
+function validateSeriesColumns(s, datasets) {
+  const missing = [];
+  const ds = datasets.find(d => d.id === s.datasetId);
+  if (!ds) return ['its dataset (removed)'];
+  const check = (col, label, headers, where) => {
+    if (col && !headers.includes(col)) missing.push(`${label} "${col}"${where ? ` in ${where}` : ''}`);
+  };
+  check(s.xCol, 'X column', ds.headers);
+  if (s.chartType === 'parity') {
+    const jds = datasets.find(d => d.id === s.joinDatasetId);
+    if (!jds) {
+      missing.push('its join dataset (removed)');
+    } else {
+      check(s.yCol, 'Y column', jds.headers, jds.name);
+      check(s.joinKey, 'join key', ds.headers, ds.name);
+      check(s.joinKey, 'join key', jds.headers, jds.name);
+    }
+  } else {
+    check(s.yCol, 'Y column', ds.headers);
+    check(s.colorCol, 'color column', ds.headers);
+  }
+  (s.filters || []).forEach(f => {
+    if (f.enabled !== false) check(f.col, 'filter column', ds.headers);
+  });
+  return missing;
+}
+
 // ── classifyColumn ────────────────────────────────────────────────────────
 
 // Classifies a column as 'numeric', 'datetime', or 'categorical'.

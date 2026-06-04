@@ -45,16 +45,32 @@ function handleFile(file) {
     const headers = result.meta.fields || Object.keys(result.data[0] || {});
     if (!headers.length) return;
 
-    // Validate color assignment: pull from palette by position
-    const color = PALETTE[appState.datasets.length % PALETTE.length];
+    const name = file.name.replace(/\.csv$/i, '');
 
-    appState.datasets.push({
-      id:      uid(),
-      name:    file.name.replace(/\.csv$/i, ''),
-      rows:    result.data,
-      headers,
-      color,
-    });
+    // Reload: same file name as an existing dataset replaces its data in
+    // place (id, display name, and color survive), bumps the dataset
+    // revision to invalidate caches, and re-validates every series that
+    // references it
+    const existing = appState.datasets.find(d => d.name === name);
+    if (existing) {
+      existing.rows    = result.data;
+      existing.headers = headers;
+      bumpDatasetRev(existing.id);
+      const problems = appState.series
+        .filter(s => s.datasetId === existing.id || s.joinDatasetId === existing.id)
+        .map(s => ({ series: s, missing: validateSeriesColumns(s, appState.datasets) }))
+        .filter(p => p.missing.length);
+      showDataAlerts(existing, problems);
+      renderDatasetList();
+      renderSeriesList();
+      if (appState.plotRendered) debounceRender();
+      return;
+    }
+
+    // New dataset: pull color from palette by position
+    const color = PALETTE[appState.datasets.length % PALETTE.length];
+    appState.datasets.push({ id: uid(), name, rows: result.data, headers, color });
+    showDataAlerts(null, []);
     renderDatasetList();
     renderSeriesList();
     updateRenderBtn();

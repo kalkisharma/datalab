@@ -18,8 +18,10 @@ function buildLineTrace(series, datasets) {
 
   if (!series.xCol || !series.yCol) return { traces: [], error: 'X and Y columns are required.' };
 
-  const xV = colVals(rows, series.xCol);
-  const yV = colVals(rows, series.yCol);
+  // Memoized extraction only valid on the unfiltered dataset rows
+  const unfiltered = rows === ds.rows;
+  const xV = unfiltered ? colValsCached(ds, series.xCol) : colVals(rows, series.xCol);
+  const yV = unfiltered ? colValsCached(ds, series.yCol) : colVals(rows, series.yCol);
 
   const color = series.style?.color ?? (ds.color ?? '#5b8dee');
   const lineWidth = series.style?.lineWidth ?? 2;

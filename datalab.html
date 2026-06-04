@@ -55,7 +55,8 @@ details.section>.details-body{padding:0 16px 14px;}
 .dataset-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 4px;line-height:1;border-radius:3px;flex-shrink:0;transition:color 0.15s;}
 .dataset-del:hover{color:var(--danger);}
 .empty-hint{font-size:11px;color:var(--text3);font-style:italic;margin-bottom:10px;}
-.series-item{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);}
+.series-item{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);border-radius:4px;outline:none;}
+.series-item:focus{box-shadow:inset 0 0 0 1px var(--accent);}
 .series-item:last-of-type{border-bottom:none;}
 .series-badge{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:0.06em;padding:2px 5px;border-radius:4px;flex-shrink:0;text-transform:uppercase;}
 .series-badge.scatter{background:rgba(91,141,238,0.15);color:var(--accent);}
@@ -210,6 +211,7 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
           <span class="dz-hint">Drop CSV or click to browse</span>
         </div>
       </div>
+      <div id="dataAlerts" aria-live="polite"></div>
       <div id="datasetList" role="list" aria-label="Loaded datasets"></div>
     </div>
 
@@ -571,6 +573,45 @@ function parseCSV(file, cb) {
   });
 }
 
+// ── validateSeriesColumns ─────────────────────────────────────────────────
+
+// Checks every column reference a series holds against the current dataset
+// headers. Returns human-readable descriptions of missing references (empty
+// array = valid). Used after dataset reload and before each render so a
+// reloaded CSV with different columns produces a clear error instead of a
+// silent all-NaN plot.
+/**
+ * @param {object}   s         series
+ * @param {object[]} datasets
+ * @returns {string[]} missing reference descriptions
+ */
+function validateSeriesColumns(s, datasets) {
+  const missing = [];
+  const ds = datasets.find(d => d.id === s.datasetId);
+  if (!ds) return ['its dataset (removed)'];
+  const check = (col, label, headers, where) => {
+    if (col && !headers.includes(col)) missing.push(`${label} "${col}"${where ? ` in ${where}` : ''}`);
+  };
+  check(s.xCol, 'X column', ds.headers);
+  if (s.chartType === 'parity') {
+    const jds = datasets.find(d => d.id === s.joinDatasetId);
+    if (!jds) {
+      missing.push('its join dataset (removed)');
+    } else {
+      check(s.yCol, 'Y column', jds.headers, jds.name);
+      check(s.joinKey, 'join key', ds.headers, ds.name);
+      check(s.joinKey, 'join key', jds.headers, jds.name);
+    }
+  } else {
+    check(s.yCol, 'Y column', ds.headers);
+    check(s.colorCol, 'color column', ds.headers);
+  }
+  (s.filters || []).forEach(f => {
+    if (f.enabled !== false) check(f.col, 'filter column', ds.headers);
+  });
+  return missing;
+}
+
 // ── classifyColumn ────────────────────────────────────────────────────────
 
 // Classifies a column as 'numeric', 'datetime', or 'categorical'.
@@ -648,6 +689,21 @@ function makeDD(inputId, ddId, items, onSel) {
 }
 
 // ── Dataset panel ─────────────────────────────────────────────────────────
+
+// Reload feedback under the dropzone. reloadedDs = null clears the area.
+function showDataAlerts(reloadedDs, problems) {
+  const box = document.getElementById('dataAlerts');
+  if (!box) return;
+  // innerHTML: empty string — no user data
+  if (!reloadedDs) { box.innerHTML = ''; return; }
+  // escHtml applied to: dataset name, series names, missing-reference text
+  let html = `<div class="alert success">Reloaded ${escHtml(reloadedDs.name)} — ${reloadedDs.rows.length}r·${reloadedDs.headers.length}c</div>`;
+  problems.forEach(p => {
+    html += `<div class="alert warn" role="alert">Series "${escHtml(p.series.name)}" references missing ${escHtml(p.missing.join(', '))}</div>`;
+  });
+  // innerHTML: dataset name, series names, and missing-ref text all escaped via escHtml() above
+  box.innerHTML = html;
+}
 
 function renderDatasetList() {
   const list = document.getElementById('datasetList');
@@ -729,6 +785,27 @@ function renderSeriesList() {
               title="Move down" ${idx === appState.series.length - 1 ? 'disabled' : ''}>↓</button>
       <button class="series-edit" aria-label="Edit series ${escHtml(s.name)}" title="Edit">✎</button>
       <button class="series-del"  aria-label="Delete series ${escHtml(s.name)}" title="Delete">×</button>`;
+    // Keyboard nav (roving tabindex): arrows move between rows, Enter edits,
+    // Delete removes. Buttons inside rows stay Tab-reachable as usual.
+    item.tabIndex = idx === 0 ? 0 : -1;
+    item.setAttribute('aria-label', `Series ${s.name}, ${s.chartType}, ${dsName}`);
+    item.addEventListener('keydown', e => {
+      if (e.target !== item) return; // don't hijack keys inside inputs/buttons
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const rows = [...list.querySelectorAll('.series-item')];
+        const next = rows[rows.indexOf(item) + (e.key === 'ArrowDown' ? 1 : -1)];
+        if (next) { item.tabIndex = -1; next.tabIndex = 0; next.focus(); }
+      } else if (e.key === 'Enter') {
+        openModal(s.id);
+      } else if (e.key === 'Delete') {
+        appState.series = appState.series.filter(x => x.id !== s.id);
+        renderSeriesList();
+        updateRenderBtn();
+        if (appState.plotRendered) debounceRender();
+        document.querySelector('.series-item')?.focus();
+      }
+    });
     item.querySelector('.series-ena').addEventListener('change', e => {
       s.enabled = e.target.checked;
       if (appState.plotRendered) debounceRender();
@@ -878,12 +955,12 @@ function buildModalBody(existing) {
 
   return `
     <div class="modal-field">
-      <label class="modal-label">Name</label>
+      <label class="modal-label" for="mSeriesName">Name</label>
       <input type="text" class="ctrl-input" id="mSeriesName"
              value="${escHtml(existing?.name || '')}" placeholder="Series name" />
     </div>
     <div class="modal-field">
-      <label class="modal-label">Dataset <span class="required">*</span></label>
+      <label class="modal-label" for="mDataset">Dataset <span class="required">*</span></label>
       <select id="mDataset">${dsOptions}</select>
     </div>
     <div class="modal-field">
@@ -941,15 +1018,15 @@ function renderDynamicFields(existing) {
     html = `
       <div class="modal-section-title">Columns</div>
       <div class="modal-field">
-        <label class="modal-label">X column <span class="required">*</span></label>
+        <label class="modal-label" for="mXCol">X column <span class="required">*</span></label>
         <select id="mXCol">${colOptions(existing?.xCol, true)}</select>
       </div>
       <div class="modal-field">
-        <label class="modal-label">Y column <span class="required">*</span></label>
+        <label class="modal-label" for="mYCol">Y column <span class="required">*</span></label>
         <select id="mYCol">${colOptions(existing?.yCol, false)}</select>
       </div>
       <div class="modal-field">
-        <label class="modal-label">Color by (optional)</label>
+        <label class="modal-label" for="mColorCol">Color by (optional)</label>
         <select id="mColorCol"><option value="">None</option>${colOptions(existing?.colorCol, true)}</select>
       </div>`;
   } else if (chartType === 'parity') {
@@ -963,11 +1040,11 @@ function renderDynamicFields(existing) {
     html = `
       <div class="modal-section-title">Parity setup</div>
       <div class="modal-field">
-        <label class="modal-label">Join dataset (Y / modelled) <span class="required">*</span></label>
+        <label class="modal-label" for="mJoinDataset">Join dataset (Y / modelled) <span class="required">*</span></label>
         <select id="mJoinDataset">${joinDsOptions || '<option value="">— load a second CSV —</option>'}</select>
       </div>
       <div class="modal-field">
-        <label class="modal-label">Join key <span class="required">*</span></label>
+        <label class="modal-label" for="mJoinKey">Join key <span class="required">*</span></label>
         <select id="mJoinKey">
           <option value="">Select key…</option>
           ${sharedKeys.map(c=>`<option value="${escHtml(c)}" ${existing?.joinKey===c?'selected':''}>${escHtml(c)}</option>`).join('')}
@@ -975,11 +1052,11 @@ function renderDynamicFields(existing) {
       </div>
       <div class="modal-section-title">Columns</div>
       <div class="modal-field">
-        <label class="modal-label">X column — observed <span class="required">*</span></label>
+        <label class="modal-label" for="mXCol">X column — observed <span class="required">*</span></label>
         <select id="mXCol">${colOptions(existing?.xCol, false)}</select>
       </div>
       <div class="modal-field">
-        <label class="modal-label">Y column — modelled <span class="required">*</span></label>
+        <label class="modal-label" for="mYCol">Y column — modelled <span class="required">*</span></label>
         <select id="mYCol">${colOptions(existing?.yCol, false)}</select>
       </div>
       <div class="modal-section-title">Error bands</div>
@@ -996,17 +1073,17 @@ function renderDynamicFields(existing) {
   html += `
     <div class="modal-section-title">Style</div>
     <div class="modal-field">
-      <label class="modal-label">Color</label>
+      <label class="modal-label" for="mStyleColor">Color</label>
       <input type="color" class="edge-color" id="mStyleColor" value="${escHtml(curColor)}" />
     </div>
     <div class="modal-field">
-      <label class="modal-label">Marker size <span class="field-hint" style="margin:0">(blank = global)</span></label>
+      <label class="modal-label" for="mStyleMarkerSize">Marker size <span class="field-hint" style="margin:0">(blank = global)</span></label>
       <input type="number" class="ctrl-input" id="mStyleMarkerSize" min="1" max="30"
              value="${existing?.style?.markerSize ?? ''}" placeholder="global" />
     </div>
     ${showLineWidth ? `
     <div class="modal-field">
-      <label class="modal-label">Line width <span class="field-hint" style="margin:0">(blank = global)</span></label>
+      <label class="modal-label" for="mStyleLineWidth">Line width <span class="field-hint" style="margin:0">(blank = global)</span></label>
       <input type="number" class="ctrl-input" id="mStyleLineWidth" min="0.5" max="10" step="0.5"
              value="${existing?.style?.lineWidth ?? ''}" placeholder="global" />
     </div>` : ''}`;
@@ -1116,10 +1193,43 @@ const RENDERERS = {
   parity:    buildParityTrace,
 };
 
+// ── Trace cache (Phase 2, Performance) ────────────────────────────────────
+//
+// Keyed per series id; the key captures everything a trace depends on:
+// the series definition itself, the revision of every dataset it reads,
+// and the global style panel values that buildMarkerStyle consumes.
+// A style-only re-render (figure size, gridlines, labels) reuses every
+// cached trace and pays only the Plotly.react cost.
+
+const _traceCache = new Map(); // series.id → { key, result }
+
+function globalStyleKey() {
+  return ['markerSize', 'markerOpacity', 'edgeColor', 'edgeWidth', 'cmapSelect']
+    .map(id => document.getElementById(id)?.value ?? '')
+    .join('|');
+}
+
+function buildSeriesResult(s) {
+  const key = JSON.stringify(s)
+    + '|' + datasetRev(s.datasetId)
+    + (s.joinDatasetId ? '|' + datasetRev(s.joinDatasetId) : '')
+    + '|' + globalStyleKey();
+  const cached = _traceCache.get(s.id);
+  if (cached && cached.key === key) return cached.result;
+  const result = RENDERERS[s.chartType](s, appState.datasets);
+  _traceCache.set(s.id, { key, result });
+  return result;
+}
+
 // ── renderPlot ────────────────────────────────────────────────────────────
 
 function renderPlot() {
   if (!appState.series.length) return;
+
+  // Prune cache entries for deleted series
+  for (const id of [..._traceCache.keys()]) {
+    if (!appState.series.some(s => s.id === id)) _traceCache.delete(id);
+  }
 
   const traces  = [];
   const errors  = [];
@@ -1128,10 +1238,17 @@ function renderPlot() {
 
   for (const s of appState.series) {
     if (s.enabled === false) continue; // hidden via series list toggle
-    const renderer = RENDERERS[s.chartType];
-    if (!renderer) continue;
+    if (!RENDERERS[s.chartType]) continue;
 
-    const result = renderer(s, appState.datasets);
+    // Clear error for missing column refs (e.g. after a dataset reload)
+    // instead of the all-NaN fallthrough the renderer would produce
+    const missing = validateSeriesColumns(s, appState.datasets);
+    if (missing.length) {
+      errors.push({ name: s.name, error: `references missing ${missing.join(', ')} — edit the series or reload the original CSV` });
+      continue;
+    }
+
+    const result = buildSeriesResult(s);
     if (result.error) { errors.push({ name: s.name, error: result.error }); continue; }
 
     traces.push(...result.traces);
@@ -1471,16 +1588,32 @@ function handleFile(file) {
     const headers = result.meta.fields || Object.keys(result.data[0] || {});
     if (!headers.length) return;
 
-    // Validate color assignment: pull from palette by position
-    const color = PALETTE[appState.datasets.length % PALETTE.length];
+    const name = file.name.replace(/\.csv$/i, '');
 
-    appState.datasets.push({
-      id:      uid(),
-      name:    file.name.replace(/\.csv$/i, ''),
-      rows:    result.data,
-      headers,
-      color,
-    });
+    // Reload: same file name as an existing dataset replaces its data in
+    // place (id, display name, and color survive), bumps the dataset
+    // revision to invalidate caches, and re-validates every series that
+    // references it
+    const existing = appState.datasets.find(d => d.name === name);
+    if (existing) {
+      existing.rows    = result.data;
+      existing.headers = headers;
+      bumpDatasetRev(existing.id);
+      const problems = appState.series
+        .filter(s => s.datasetId === existing.id || s.joinDatasetId === existing.id)
+        .map(s => ({ series: s, missing: validateSeriesColumns(s, appState.datasets) }))
+        .filter(p => p.missing.length);
+      showDataAlerts(existing, problems);
+      renderDatasetList();
+      renderSeriesList();
+      if (appState.plotRendered) debounceRender();
+      return;
+    }
+
+    // New dataset: pull color from palette by position
+    const color = PALETTE[appState.datasets.length % PALETTE.length];
+    appState.datasets.push({ id: uid(), name, rows: result.data, headers, color });
+    showDataAlerts(null, []);
     renderDatasetList();
     renderSeriesList();
     updateRenderBtn();
@@ -1643,6 +1776,35 @@ const PALETTE = [
   '#edc948','#b07aa1','#ff9da7','#9c755f','#bab0ac',
 ];
 
+// ── Dataset revisions + memoized column extraction (Phase 2, Performance) ──
+//
+// Revisions live in a module map, not on the dataset object, so they never
+// leak into serialized session state. Bumping a revision invalidates every
+// cached column extraction for that dataset; the trace cache in chart.js
+// keys on revisions too, so it invalidates transitively.
+
+const _dsRev    = new Map(); // dsId → integer revision
+const _colCache = new Map(); // dsId + '\x00' + col → number[]
+
+function datasetRev(dsId) { return _dsRev.get(dsId) ?? 0; }
+
+function bumpDatasetRev(dsId) {
+  _dsRev.set(dsId, datasetRev(dsId) + 1);
+  for (const k of [..._colCache.keys()]) {
+    if (k.startsWith(dsId + '\x00')) _colCache.delete(k);
+  }
+}
+
+// Memoized colVals over the FULL (unfiltered) rows of a dataset. Only valid
+// when the caller is operating on ds.rows itself — renderers fall back to
+// plain colVals when filters produce a different row array.
+function colValsCached(ds, col) {
+  const key = ds.id + '\x00' + col;
+  let v = _colCache.get(key);
+  if (!v) { v = colVals(ds.rows, col); _colCache.set(key, v); }
+  return v;
+}
+
 /**
  * Extract numeric values for a column from rows. Non-finite values become NaN.
  * @param {object[]} rows
@@ -1726,8 +1888,10 @@ function buildScatterTrace(series, datasets) {
 
   if (!series.xCol || !series.yCol) return { traces: [], error: 'X and Y columns are required.' };
 
-  const xV = colVals(rows, series.xCol);
-  const yV = colVals(rows, series.yCol);
+  // Memoized extraction only valid on the unfiltered dataset rows
+  const unfiltered = rows === ds.rows;
+  const xV = unfiltered ? colValsCached(ds, series.xCol) : colVals(rows, series.xCol);
+  const yV = unfiltered ? colValsCached(ds, series.yCol) : colVals(rows, series.yCol);
 
   let markerColor;
   if (series.colorCol) {
@@ -1740,7 +1904,10 @@ function buildScatterTrace(series, datasets) {
 
   return {
     traces: [{
-      type: 'scatter',
+      // WebGL above 10k points — SVG scatter at 50k×10 series measured 9.3s
+      // cold render vs the 5s Phase 3 gate (CSP worker-src blob: permits
+      // Plotly's GL workers). Below the threshold SVG keeps crisper markers.
+      type: rows.length > 10000 ? 'scattergl' : 'scatter',
       mode: 'markers',
       x: xV,
       y: yV,
@@ -1773,8 +1940,10 @@ function buildLineTrace(series, datasets) {
 
   if (!series.xCol || !series.yCol) return { traces: [], error: 'X and Y columns are required.' };
 
-  const xV = colVals(rows, series.xCol);
-  const yV = colVals(rows, series.yCol);
+  // Memoized extraction only valid on the unfiltered dataset rows
+  const unfiltered = rows === ds.rows;
+  const xV = unfiltered ? colValsCached(ds, series.xCol) : colVals(rows, series.xCol);
+  const yV = unfiltered ? colValsCached(ds, series.yCol) : colVals(rows, series.yCol);
 
   const color = series.style?.color ?? (ds.color ?? '#5b8dee');
   const lineWidth = series.style?.lineWidth ?? 2;

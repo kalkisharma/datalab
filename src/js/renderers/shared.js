@@ -30,6 +30,35 @@ const PALETTE = [
   '#edc948','#b07aa1','#ff9da7','#9c755f','#bab0ac',
 ];
 
+// ── Dataset revisions + memoized column extraction (Phase 2, Performance) ──
+//
+// Revisions live in a module map, not on the dataset object, so they never
+// leak into serialized session state. Bumping a revision invalidates every
+// cached column extraction for that dataset; the trace cache in chart.js
+// keys on revisions too, so it invalidates transitively.
+
+const _dsRev    = new Map(); // dsId → integer revision
+const _colCache = new Map(); // dsId + '\x00' + col → number[]
+
+function datasetRev(dsId) { return _dsRev.get(dsId) ?? 0; }
+
+function bumpDatasetRev(dsId) {
+  _dsRev.set(dsId, datasetRev(dsId) + 1);
+  for (const k of [..._colCache.keys()]) {
+    if (k.startsWith(dsId + '\x00')) _colCache.delete(k);
+  }
+}
+
+// Memoized colVals over the FULL (unfiltered) rows of a dataset. Only valid
+// when the caller is operating on ds.rows itself — renderers fall back to
+// plain colVals when filters produce a different row array.
+function colValsCached(ds, col) {
+  const key = ds.id + '\x00' + col;
+  let v = _colCache.get(key);
+  if (!v) { v = colVals(ds.rows, col); _colCache.set(key, v); }
+  return v;
+}
+
 /**
  * Extract numeric values for a column from rows. Non-finite values become NaN.
  * @param {object[]} rows

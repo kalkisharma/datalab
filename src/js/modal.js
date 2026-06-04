@@ -52,12 +52,12 @@ function buildModalBody(existing) {
 
   return `
     <div class="modal-field">
-      <label class="modal-label">Name</label>
+      <label class="modal-label" for="mSeriesName">Name</label>
       <input type="text" class="ctrl-input" id="mSeriesName"
              value="${escHtml(existing?.name || '')}" placeholder="Series name" />
     </div>
     <div class="modal-field">
-      <label class="modal-label">Dataset <span class="required">*</span></label>
+      <label class="modal-label" for="mDataset">Dataset <span class="required">*</span></label>
       <select id="mDataset">${dsOptions}</select>
     </div>
     <div class="modal-field">
@@ -115,15 +115,15 @@ function renderDynamicFields(existing) {
     html = `
       <div class="modal-section-title">Columns</div>
       <div class="modal-field">
-        <label class="modal-label">X column <span class="required">*</span></label>
+        <label class="modal-label" for="mXCol">X column <span class="required">*</span></label>
         <select id="mXCol">${colOptions(existing?.xCol, true)}</select>
       </div>
       <div class="modal-field">
-        <label class="modal-label">Y column <span class="required">*</span></label>
+        <label class="modal-label" for="mYCol">Y column <span class="required">*</span></label>
         <select id="mYCol">${colOptions(existing?.yCol, false)}</select>
       </div>
       <div class="modal-field">
-        <label class="modal-label">Color by (optional)</label>
+        <label class="modal-label" for="mColorCol">Color by (optional)</label>
         <select id="mColorCol"><option value="">None</option>${colOptions(existing?.colorCol, true)}</select>
       </div>`;
   } else if (chartType === 'parity') {
@@ -137,11 +137,11 @@ function renderDynamicFields(existing) {
     html = `
       <div class="modal-section-title">Parity setup</div>
       <div class="modal-field">
-        <label class="modal-label">Join dataset (Y / modelled) <span class="required">*</span></label>
+        <label class="modal-label" for="mJoinDataset">Join dataset (Y / modelled) <span class="required">*</span></label>
         <select id="mJoinDataset">${joinDsOptions || '<option value="">— load a second CSV —</option>'}</select>
       </div>
       <div class="modal-field">
-        <label class="modal-label">Join key <span class="required">*</span></label>
+        <label class="modal-label" for="mJoinKey">Join key <span class="required">*</span></label>
         <select id="mJoinKey">
           <option value="">Select key…</option>
           ${sharedKeys.map(c=>`<option value="${escHtml(c)}" ${existing?.joinKey===c?'selected':''}>${escHtml(c)}</option>`).join('')}
@@ -149,11 +149,11 @@ function renderDynamicFields(existing) {
       </div>
       <div class="modal-section-title">Columns</div>
       <div class="modal-field">
-        <label class="modal-label">X column — observed <span class="required">*</span></label>
+        <label class="modal-label" for="mXCol">X column — observed <span class="required">*</span></label>
         <select id="mXCol">${colOptions(existing?.xCol, false)}</select>
       </div>
       <div class="modal-field">
-        <label class="modal-label">Y column — modelled <span class="required">*</span></label>
+        <label class="modal-label" for="mYCol">Y column — modelled <span class="required">*</span></label>
         <select id="mYCol">${colOptions(existing?.yCol, false)}</select>
       </div>
       <div class="modal-section-title">Error bands</div>
@@ -170,17 +170,17 @@ function renderDynamicFields(existing) {
   html += `
     <div class="modal-section-title">Style</div>
     <div class="modal-field">
-      <label class="modal-label">Color</label>
+      <label class="modal-label" for="mStyleColor">Color</label>
       <input type="color" class="edge-color" id="mStyleColor" value="${escHtml(curColor)}" />
     </div>
     <div class="modal-field">
-      <label class="modal-label">Marker size <span class="field-hint" style="margin:0">(blank = global)</span></label>
+      <label class="modal-label" for="mStyleMarkerSize">Marker size <span class="field-hint" style="margin:0">(blank = global)</span></label>
       <input type="number" class="ctrl-input" id="mStyleMarkerSize" min="1" max="30"
              value="${existing?.style?.markerSize ?? ''}" placeholder="global" />
     </div>
     ${showLineWidth ? `
     <div class="modal-field">
-      <label class="modal-label">Line width <span class="field-hint" style="margin:0">(blank = global)</span></label>
+      <label class="modal-label" for="mStyleLineWidth">Line width <span class="field-hint" style="margin:0">(blank = global)</span></label>
       <input type="number" class="ctrl-input" id="mStyleLineWidth" min="0.5" max="10" step="0.5"
              value="${existing?.style?.lineWidth ?? ''}" placeholder="global" />
     </div>` : ''}`;

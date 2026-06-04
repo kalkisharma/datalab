@@ -48,6 +48,21 @@ function makeDD(inputId, ddId, items, onSel) {
 
 // ── Dataset panel ─────────────────────────────────────────────────────────
 
+// Reload feedback under the dropzone. reloadedDs = null clears the area.
+function showDataAlerts(reloadedDs, problems) {
+  const box = document.getElementById('dataAlerts');
+  if (!box) return;
+  // innerHTML: empty string — no user data
+  if (!reloadedDs) { box.innerHTML = ''; return; }
+  // escHtml applied to: dataset name, series names, missing-reference text
+  let html = `<div class="alert success">Reloaded ${escHtml(reloadedDs.name)} — ${reloadedDs.rows.length}r·${reloadedDs.headers.length}c</div>`;
+  problems.forEach(p => {
+    html += `<div class="alert warn" role="alert">Series "${escHtml(p.series.name)}" references missing ${escHtml(p.missing.join(', '))}</div>`;
+  });
+  // innerHTML: dataset name, series names, and missing-ref text all escaped via escHtml() above
+  box.innerHTML = html;
+}
+
 function renderDatasetList() {
   const list = document.getElementById('datasetList');
   // innerHTML: empty string — no user data
@@ -128,6 +143,27 @@ function renderSeriesList() {
               title="Move down" ${idx === appState.series.length - 1 ? 'disabled' : ''}>↓</button>
       <button class="series-edit" aria-label="Edit series ${escHtml(s.name)}" title="Edit">✎</button>
       <button class="series-del"  aria-label="Delete series ${escHtml(s.name)}" title="Delete">×</button>`;
+    // Keyboard nav (roving tabindex): arrows move between rows, Enter edits,
+    // Delete removes. Buttons inside rows stay Tab-reachable as usual.
+    item.tabIndex = idx === 0 ? 0 : -1;
+    item.setAttribute('aria-label', `Series ${s.name}, ${s.chartType}, ${dsName}`);
+    item.addEventListener('keydown', e => {
+      if (e.target !== item) return; // don't hijack keys inside inputs/buttons
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const rows = [...list.querySelectorAll('.series-item')];
+        const next = rows[rows.indexOf(item) + (e.key === 'ArrowDown' ? 1 : -1)];
+        if (next) { item.tabIndex = -1; next.tabIndex = 0; next.focus(); }
+      } else if (e.key === 'Enter') {
+        openModal(s.id);
+      } else if (e.key === 'Delete') {
+        appState.series = appState.series.filter(x => x.id !== s.id);
+        renderSeriesList();
+        updateRenderBtn();
+        if (appState.plotRendered) debounceRender();
+        document.querySelector('.series-item')?.focus();
+      }
+    });
     item.querySelector('.series-ena').addEventListener('change', e => {
       s.enabled = e.target.checked;
       if (appState.plotRendered) debounceRender();

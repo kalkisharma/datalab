@@ -6,10 +6,43 @@ const RENDERERS = {
   parity:    buildParityTrace,
 };
 
+// ── Trace cache (Phase 2, Performance) ────────────────────────────────────
+//
+// Keyed per series id; the key captures everything a trace depends on:
+// the series definition itself, the revision of every dataset it reads,
+// and the global style panel values that buildMarkerStyle consumes.
+// A style-only re-render (figure size, gridlines, labels) reuses every
+// cached trace and pays only the Plotly.react cost.
+
+const _traceCache = new Map(); // series.id → { key, result }
+
+function globalStyleKey() {
+  return ['markerSize', 'markerOpacity', 'edgeColor', 'edgeWidth', 'cmapSelect']
+    .map(id => document.getElementById(id)?.value ?? '')
+    .join('|');
+}
+
+function buildSeriesResult(s) {
+  const key = JSON.stringify(s)
+    + '|' + datasetRev(s.datasetId)
+    + (s.joinDatasetId ? '|' + datasetRev(s.joinDatasetId) : '')
+    + '|' + globalStyleKey();
+  const cached = _traceCache.get(s.id);
+  if (cached && cached.key === key) return cached.result;
+  const result = RENDERERS[s.chartType](s, appState.datasets);
+  _traceCache.set(s.id, { key, result });
+  return result;
+}
+
 // ── renderPlot ────────────────────────────────────────────────────────────
 
 function renderPlot() {
   if (!appState.series.length) return;
+
+  // Prune cache entries for deleted series
+  for (const id of [..._traceCache.keys()]) {
+    if (!appState.series.some(s => s.id === id)) _traceCache.delete(id);
+  }
 
   const traces  = [];
   const errors  = [];
@@ -18,10 +51,17 @@ function renderPlot() {
 
   for (const s of appState.series) {
     if (s.enabled === false) continue; // hidden via series list toggle
-    const renderer = RENDERERS[s.chartType];
-    if (!renderer) continue;
+    if (!RENDERERS[s.chartType]) continue;
 
-    const result = renderer(s, appState.datasets);
+    // Clear error for missing column refs (e.g. after a dataset reload)
+    // instead of the all-NaN fallthrough the renderer would produce
+    const missing = validateSeriesColumns(s, appState.datasets);
+    if (missing.length) {
+      errors.push({ name: s.name, error: `references missing ${missing.join(', ')} — edit the series or reload the original CSV` });
+      continue;
+    }
+
+    const result = buildSeriesResult(s);
     if (result.error) { errors.push({ name: s.name, error: result.error }); continue; }
 
     traces.push(...result.traces);

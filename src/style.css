@@ -46,7 +46,8 @@ details.section>.details-body{padding:0 16px 14px;}
 .dataset-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 4px;line-height:1;border-radius:3px;flex-shrink:0;transition:color 0.15s;}
 .dataset-del:hover{color:var(--danger);}
 .empty-hint{font-size:11px;color:var(--text3);font-style:italic;margin-bottom:10px;}
-.series-item{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);}
+.series-item{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);border-radius:4px;outline:none;}
+.series-item:focus{box-shadow:inset 0 0 0 1px var(--accent);}
 .series-item:last-of-type{border-bottom:none;}
 .series-badge{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:0.06em;padding:2px 5px;border-radius:4px;flex-shrink:0;text-transform:uppercase;}
 .series-badge.scatter{background:rgba(91,141,238,0.15);color:var(--accent);}

@@ -18,10 +18,13 @@ None committed yet — first datasets added in Phase 1 (smoke render) and Phase 
   - Generate: uniform random values, x ∈ [0, 100], y ∈ [0, 100]
 
 ### Phase 2 — benchmark
-- `test_benchmark_50000rows.csv` — 4 columns (x, y, category, value), 50,000 rows
-  - Purpose: warm render benchmark (`tests/bench.spec.js`)
-  - Spec: x/y numeric, category has 10 unique values, value numeric
-  - Performance Engineer must sign off on this spec before the file is generated
+- Benchmark dataset is **generated in-page at test time** by `tests/bench.spec.js`,
+  not committed: a 50,000-row CSV would be ~1.2 MB (over the 500 KB limit above),
+  and CSV parse time is not part of the render benchmark.
+  - Spec (Performance Engineer signed off, Phase 2): 50,000 rows × 4 columns —
+    x: numeric uniform [0,100), y: numeric uniform [0,100), category: 10 unique
+    values c0–c9, value: numeric uniform [0,1)
+  - Run with: `BENCH=1 npx playwright test tests/bench.spec.js`
 
 ### Phase 3 — renderer validation
 - `test_datetime_iso_500rows.csv` — date column (ISO 8601), numeric y, 500 rows

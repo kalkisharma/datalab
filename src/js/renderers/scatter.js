@@ -18,8 +18,10 @@ function buildScatterTrace(series, datasets) {
 
   if (!series.xCol || !series.yCol) return { traces: [], error: 'X and Y columns are required.' };
 
-  const xV = colVals(rows, series.xCol);
-  const yV = colVals(rows, series.yCol);
+  // Memoized extraction only valid on the unfiltered dataset rows
+  const unfiltered = rows === ds.rows;
+  const xV = unfiltered ? colValsCached(ds, series.xCol) : colVals(rows, series.xCol);
+  const yV = unfiltered ? colValsCached(ds, series.yCol) : colVals(rows, series.yCol);
 
   let markerColor;
   if (series.colorCol) {
@@ -32,7 +34,10 @@ function buildScatterTrace(series, datasets) {
 
   return {
     traces: [{
-      type: 'scatter',
+      // WebGL above 10k points — SVG scatter at 50k×10 series measured 9.3s
+      // cold render vs the 5s Phase 3 gate (CSP worker-src blob: permits
+      // Plotly's GL workers). Below the threshold SVG keeps crisper markers.
+      type: rows.length > 10000 ? 'scattergl' : 'scatter',
       mode: 'markers',
       x: xV,
       y: yV,
