@@ -361,7 +361,22 @@ Exit criteria: No ARIA violations. Screen reader tested. No memory leaks. Sessio
 
 Exit criteria: stats match hand-computed references. Rename follows through to series. Correlation symmetric with unit diagonal. Fit overlay integrates to n. CSV round-trips. axe clean. Data Scientist sign-off.
 
-### Phase 6+ — Future `(not scoped)`
+### Phase 6 — Plot Controls & UI Polish `v1.2.0`
+**Goal:** Finish the plot-control surface (typography, frame, legend) and fix the too-small UI chrome. Sourced from maintainer review of v1.1.0.
+
+- [ ] UI chrome typography: raise header and left-panel font/symbol sizes (~1–2px across the scale), widen the left panel to fit; axe re-run after (Frontend + UX + Accessibility)
+- [ ] Plot typography panel: font-size sliders for title, axis labels, tick labels, legend, and stats annotations — completes the half-delivered Phase 1 deliverable; values included in style presets (additive, same preset schema) and sessions (Frontend + Data Viz)
+- [ ] Plot frame controls: axis line color and width; gridline color and width. Default is "auto" (follows the background-luminance theme); an explicit value overrides until cleared (Frontend + Data Viz + UX)
+- [ ] Legend controls: show/hide toggle; dragged legend position captured via plotly_relayout into plotConfig.legendPos and reused on re-render — fixes the position reset on every style tweak (Frontend + Data Viz)
+- [ ] Relabel "Edge color" → "Marker edge"; group marker controls under a Markers heading (UX)
+- [ ] Tests: typography values reach _fullLayout; legend position survives re-render and session round-trip; frame overrides + auto reset behave; chrome resize passes axe (QA)
+
+Schema (all optional with defaults, no migration): plotConfig.legendShow, plotConfig.legendPos {x, y}; style gains font-size and frame fields.
+
+Exit criteria: every new control affects the rendered plot and round-trips through a session file. Legend stays where it was dragged. axe clean. Record corrections above visible in this document.
+
+### Phase 7+ — Future `(not scoped)`
+- Multiple plots: workspace tabs (one visible at a time) or plot grid (side-by-side live panels) — flavor decision pending maintainer
 - Additional distributions (lognormal, Weibull), distribution comparison tests
 - Type casting to datetime; column reorder
 - Interpolated (non-gridded) contours

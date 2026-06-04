@@ -215,6 +215,8 @@ DataLab is used by private organisations loading sensitive data. The tool must g
 ## 16. Phase Exits
 
 - All exit criteria in the plan must be explicitly checked off before the phase closes.
+- **Checkbox verification:** a deliverable is checked off only against evidence — a test that exercises it, a commit that contains it, or the behavior demonstrated. Bulk-checking a phase's checkbox block is forbidden; the Engineering Lead walks the list item by item at exit. (Added after two Phase 1 sub-items — session tabs and plot typography controls — were swept into a checked line without being built and survived four phase exits unnoticed.)
+- A deliverable line that bundles several features (e.g. "save/restore; tabs; export") is split into one checkbox per feature before being checked.
 - No Phase N+1 work begins until Phase N is tagged and closed.
 - Phase exit sequence: refactor review → security checklist → accessibility pass → Data Scientist sign-off → release checklist → tag.
 - QA and Performance Engineer jointly confirm performance targets are met before tagging. Disagreements go to Engineering Lead.
