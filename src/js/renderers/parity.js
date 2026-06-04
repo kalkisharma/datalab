@@ -34,12 +34,18 @@ function buildParityTrace(series, datasets) {
   const rowsB = applyFilters(mB, series.filters || []);
   if (!rowsA.length) return { traces: [], error: 'No rows pass the active filters.', layout: null };
 
-  const xV = colVals(rowsA, series.xCol).filter(Number.isFinite);
-  const yV = colVals(rowsB, series.yCol).filter(Number.isFinite);
-  const n  = Math.min(xV.length, yV.length);
-  const xs = xV.slice(0, n), ys = yV.slice(0, n);
+  // Pairs must be filtered TOGETHER — independent filtering would misalign
+  // x/y pairings after any row where only one side is non-finite, silently
+  // corrupting the stats. (Data Scientist blocks-phase finding, Phase 1.)
+  const xRaw = colVals(rowsA, series.xCol);
+  const yRaw = colVals(rowsB, series.yCol);
+  const xs = [], ys = [];
+  for (let i = 0; i < Math.min(xRaw.length, yRaw.length); i++) {
+    if (Number.isFinite(xRaw[i]) && Number.isFinite(yRaw[i])) { xs.push(xRaw[i]); ys.push(yRaw[i]); }
+  }
+  const n = xs.length;
 
-  if (!n) return { traces: [], error: 'No finite numeric values found in selected columns.', layout: null };
+  if (!n) return { traces: [], error: 'No finite numeric value pairs found in selected columns.', layout: null };
 
   // Compute stats
   const stats = computeParityStats(xs, ys);

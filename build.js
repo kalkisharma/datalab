@@ -6,10 +6,18 @@ const fs     = require('fs');
 const path   = require('path');
 const crypto = require('crypto');
 
-const VERSION = '0.0.0';
 const ROOT    = __dirname;
 const read    = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const readBuf = f => fs.readFileSync(path.join(ROOT, f));
+
+// Version: single source of truth is the VERSION constant in src/js/state.js
+// (STANDARDS.md §3). Parsed here rather than duplicated.
+const versionMatch = read('src/js/state.js').match(/const VERSION = '([^']+)'/);
+if (!versionMatch) {
+  console.error('Could not find VERSION constant in src/js/state.js — aborting.');
+  process.exit(1);
+}
+const VERSION = versionMatch[1];
 
 // ── Library hash verification (DEPENDENCIES.md) ───────────────────────────
 const DEPS = {

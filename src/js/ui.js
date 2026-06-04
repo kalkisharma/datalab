@@ -54,7 +54,7 @@ function renderDatasetList() {
   if (!appState.datasets.length) { list.innerHTML = ''; return; }
   // escHtml applied to: dataset name, row/col counts
   list.innerHTML = appState.datasets.map(ds => `
-    <div class="dataset-chip" data-dsid="${ds.id}">
+    <div class="dataset-chip" role="listitem" data-dsid="${ds.id}">
       <div class="dataset-color" style="background:${ds.color}" title="Dataset color"
            data-dsid="${ds.id}"></div>
       <input class="dataset-name" type="text" value="${escHtml(ds.name)}"
@@ -114,6 +114,7 @@ function renderSeriesList() {
     const dsName = ds ? ds.name : '?';
     const item = document.createElement('div');
     item.className = 'series-item';
+    item.setAttribute('role', 'listitem');
     item.dataset.sid = s.id;
     // escHtml applied to: series name, dataset name
     item.innerHTML = `
@@ -134,9 +135,11 @@ function renderSeriesList() {
 // ── Series modal ──────────────────────────────────────────────────────────
 
 let _editingSeriesId = null;
+let _modalTrigger    = null; // element that opened the modal — focus restored here on close
 
 function openModal(editId) {
   _editingSeriesId = editId || null;
+  _modalTrigger    = document.activeElement;
   const overlay = document.getElementById('modalOverlay');
   const title   = document.getElementById('modalTitle');
   const body    = document.getElementById('modalBody');
@@ -160,12 +163,14 @@ function openModal(editId) {
 function closeModal() {
   const overlay = document.getElementById('modalOverlay');
   overlay.classList.add('hidden');
-  // Restore focus to the trigger (add series button or edit button)
-  const trigger = _editingSeriesId
-    ? document.querySelector(`.series-edit[data-sid-ref="${_editingSeriesId}"]`)
+  // Restore focus to whatever opened the modal (ARIA checklist item 3);
+  // fall back to the add button if the trigger is gone (e.g. series deleted)
+  const trigger = (_modalTrigger && document.contains(_modalTrigger))
+    ? _modalTrigger
     : document.getElementById('addSeriesBtn');
   if (trigger) trigger.focus();
   _editingSeriesId = null;
+  _modalTrigger    = null;
 }
 
 function buildModalBody(existing) {
