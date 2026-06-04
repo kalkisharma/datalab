@@ -70,8 +70,8 @@ function renderDatasetList() {
   // escHtml applied to: dataset name, row/col counts
   list.innerHTML = appState.datasets.map(ds => `
     <div class="dataset-chip" role="listitem" data-dsid="${ds.id}">
-      <div class="dataset-color" style="background:${ds.color}" title="Dataset color"
-           data-dsid="${ds.id}"></div>
+      <button class="dataset-color" style="background:${ds.color}" title="Change dataset color"
+              aria-label="Change color of dataset ${escHtml(ds.name)}" data-dsid="${ds.id}"></button>
       <input class="dataset-name" type="text" value="${escHtml(ds.name)}"
              aria-label="Dataset name" data-dsid="${ds.id}" />
       <span class="dataset-info">${ds.rows.length}r·${ds.headers.length}c</span>
@@ -88,6 +88,33 @@ function renderDatasetList() {
   list.querySelectorAll('.dataset-del').forEach(btn => {
     btn.addEventListener('click', () => removeDataset(btn.dataset.dsid));
   });
+  list.querySelectorAll('.dataset-color').forEach(dot => {
+    dot.addEventListener('click', () => editDatasetColor(dot.dataset.dsid));
+  });
+}
+
+// Native color picker for a dataset dot. Series that inherited the old
+// color follow it; explicit per-series overrides are left alone.
+function editDatasetColor(dsId) {
+  const ds = appState.datasets.find(d => d.id === dsId);
+  if (!ds) return;
+  const input = document.createElement('input');
+  input.type = 'color';
+  input.value = ds.color;
+  input.style.cssText = 'position:fixed;left:-9999px;top:0;';
+  document.body.appendChild(input);
+  input.addEventListener('change', () => {
+    const oldColor = ds.color;
+    ds.color = input.value;
+    appState.series.forEach(s => {
+      if (s.datasetId === dsId && s.style?.color === oldColor) s.style.color = input.value;
+    });
+    bumpDatasetRev(dsId);
+    renderDatasetList();
+    if (appState.plotRendered) debounceRender();
+  });
+  input.addEventListener('blur', () => input.remove());
+  input.click();
 }
 
 function removeDataset(id) {

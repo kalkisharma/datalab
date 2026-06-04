@@ -1,14 +1,59 @@
-// export.js — PNG download and ZIP export of saved plots
-// (split from chart.js at the Phase 3 exit refactor review — verbatim move)
+// export.js — PNG/SVG download, ZIP export, and style presets
 
 // ── Export ────────────────────────────────────────────────────────────────
 
-function downloadPlot() {
+function downloadPlot(format = 'png') {
   const title    = document.getElementById('inputTitle').value || 'datalab_plot';
   const filename = title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'datalab_plot';
   const w = parseInt(document.getElementById('figW').value);
   const h = parseInt(document.getElementById('figH').value);
-  Plotly.downloadImage('plotDiv', { format: 'png', width: w, height: h, filename });
+  // Note: scattergl traces (WebGL, >10k points) are rasterized inside the
+  // SVG by Plotly — vector output applies to axes/text and SVG traces
+  Plotly.downloadImage('plotDiv', { format, width: w, height: h, filename });
+}
+
+// ── Style presets ─────────────────────────────────────────────────────────
+
+const PRESET_SCHEMA = 'datalab-style-preset-v1';
+const PRESET_FIELDS = ['plotBg', 'cmapSelect', 'markerSize', 'markerOpacity',
+                       'edgeColor', 'edgeWidth', 'figW', 'figH'];
+const PRESET_CHECKS = ['majorGrid', 'minorGrid'];
+
+function savePreset() {
+  const preset = { _schema: PRESET_SCHEMA };
+  PRESET_FIELDS.forEach(id => { preset[id] = document.getElementById(id)?.value; });
+  PRESET_CHECKS.forEach(id => { preset[id] = document.getElementById(id)?.checked; });
+  const blob = new Blob([JSON.stringify(preset, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'datalab_style.json'; a.click();
+  URL.revokeObjectURL(url); // safe to revoke immediately — download is async
+}
+
+function loadPresetFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    let preset;
+    try { preset = JSON.parse(reader.result); }
+    catch { sessionAlert('Not a valid JSON file.'); return; }
+    if (preset?._schema !== PRESET_SCHEMA) { sessionAlert('Not a DataLab style preset.'); return; }
+    PRESET_FIELDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && preset[id] != null) el.value = preset[id];
+    });
+    PRESET_CHECKS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && preset[id] != null) el.checked = preset[id];
+    });
+    // Sync slider value displays and number twins
+    document.getElementById('markerSizeVal').textContent    = document.getElementById('markerSize').value;
+    document.getElementById('markerOpacityVal').textContent = document.getElementById('markerOpacity').value + '%';
+    document.getElementById('edgeWidthVal').textContent     = document.getElementById('edgeWidth').value;
+    document.getElementById('figWNum').value = document.getElementById('figW').value;
+    document.getElementById('figHNum').value = document.getElementById('figH').value;
+    if (appState.plotRendered) renderPlot();
+  };
+  reader.readAsText(file);
 }
 
 async function downloadZip() {

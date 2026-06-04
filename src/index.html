@@ -13,8 +13,13 @@
 <header>
   <span class="logo">DataLab <span>v%%VERSION%%</span></span>
   <div class="divider"></div>
+  <button class="btn btn-sm" id="sessionSaveBtn" title="Save full session to a JSON file">💾 Session</button>
+  <button class="btn btn-sm" id="sessionLoadBtn" title="Load a saved session">📂 Load</button>
+  <input type="file" id="sessionFileInput" accept=".json" class="sr-only" aria-label="Load session file" />
   <button class="btn btn-sm" id="zipBtn" style="display:none">↓ ZIP</button>
   <button class="btn btn-sm" id="downloadBtn" style="display:none">↓ PNG</button>
+  <button class="btn btn-sm" id="downloadSvgBtn" style="display:none">↓ SVG</button>
+  <button class="btn btn-sm" id="helpBtn" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button>
 </header>
 
 <div class="main">
@@ -111,6 +116,11 @@
             <span class="slider-val" id="edgeWidthVal">0.5</span>
           </div>
         </label>
+        <div class="check-row" style="margin-top:12px;gap:8px">
+          <button class="btn btn-sm" id="presetSaveBtn" title="Save current style settings to a JSON file">Save preset</button>
+          <button class="btn btn-sm" id="presetLoadBtn" title="Load a style preset">Load preset</button>
+          <input type="file" id="presetFileInput" accept=".json" class="sr-only" aria-label="Load style preset file" />
+        </div>
       </div>
     </details>
 
@@ -191,6 +201,31 @@
       <span class="modal-error" id="modalError" role="alert"></span>
       <button class="btn" id="modalCancel">Cancel</button>
       <button class="btn btn-primary" id="modalSave">Save series</button>
+    </div>
+  </div>
+</div>
+
+<!-- Keyboard shortcuts reference (Phase 4) -->
+<div id="helpOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <span class="modal-title" id="helpTitle">Keyboard shortcuts</span>
+      <button class="modal-close" id="helpClose" aria-label="Close shortcuts reference">×</button>
+    </div>
+    <div class="modal-body">
+      <table class="help-table">
+        <tbody>
+          <tr><th colspan="2">Series list (focus a row first)</th></tr>
+          <tr><td><kbd>↑</kbd> / <kbd>↓</kbd></td><td>Move between series</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>Edit the focused series</td></tr>
+          <tr><td><kbd>Delete</kbd></td><td>Remove the focused series</td></tr>
+          <tr><th colspan="2">Dialogs</th></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Close the open dialog</td></tr>
+          <tr><th colspan="2">Datasets</th></tr>
+          <tr><td><kbd>Enter</kbd> / <kbd>Space</kbd></td><td>Open file browser (dropzone focused)</td></tr>
+          <tr><td><kbd>Tab</kbd></td><td>Move between all controls</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </div>

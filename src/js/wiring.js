@@ -137,9 +137,40 @@ function init() {
   g('renderBtn').addEventListener('click', renderPlot);
 
   // Export buttons
-  g('downloadBtn').addEventListener('click', downloadPlot);
-  g('zipBtn')     .addEventListener('click', downloadZip);
-  g('saveBtn')    .addEventListener('click', savePlot);
+  g('downloadBtn')   .addEventListener('click', () => downloadPlot('png'));
+  g('downloadSvgBtn').addEventListener('click', () => downloadPlot('svg'));
+  g('zipBtn')        .addEventListener('click', downloadZip);
+  g('saveBtn')       .addEventListener('click', savePlot);
+
+  // Session export/import
+  g('sessionSaveBtn').addEventListener('click', exportSession);
+  g('sessionLoadBtn').addEventListener('click', () => g('sessionFileInput').click());
+  g('sessionFileInput').addEventListener('change', e => {
+    if (e.target.files[0]) importSessionFile(e.target.files[0]);
+    e.target.value = '';
+  });
+
+  // Style presets
+  g('presetSaveBtn').addEventListener('click', savePreset);
+  g('presetLoadBtn').addEventListener('click', () => g('presetFileInput').click());
+  g('presetFileInput').addEventListener('change', e => {
+    if (e.target.files[0]) loadPresetFile(e.target.files[0]);
+    e.target.value = '';
+  });
+
+  // Keyboard shortcuts reference (focus managed like other dialogs)
+  let _helpTrigger = null;
+  const closeHelp = () => { g('helpOverlay').classList.add('hidden'); _helpTrigger?.focus?.(); };
+  g('helpBtn').addEventListener('click', () => {
+    _helpTrigger = document.activeElement;
+    g('helpOverlay').classList.remove('hidden');
+    g('helpClose').focus();
+  });
+  g('helpClose').addEventListener('click', closeHelp);
+  g('helpOverlay').addEventListener('click', e => { if (e.target === g('helpOverlay')) closeHelp(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !g('helpOverlay').classList.contains('hidden')) closeHelp();
+  });
 
   // Reset axis ranges
   g('resetRangesBtn').addEventListener('click', () => {

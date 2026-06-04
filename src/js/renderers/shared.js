@@ -28,9 +28,18 @@
 //
 // ─────────────────────────────────────────────────────────────────────────
 
+// Okabe-Ito palette — the standard color-vision-deficiency-safe set
+// (Okabe & Ito 2008), distinguishable under protanopia, deuteranopia, and
+// tritanopia. Data Scientist sign-off, Phase 4 (replaces Tableau-10).
 const PALETTE = [
-  '#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f',
-  '#edc948','#b07aa1','#ff9da7','#9c755f','#bab0ac',
+  '#0072b2', // blue
+  '#e69f00', // orange
+  '#009e73', // bluish green
+  '#d55e00', // vermillion
+  '#cc79a7', // reddish purple
+  '#56b4e9', // sky blue
+  '#f0e442', // yellow
+  '#999999', // grey
 ];
 
 // ── Dataset revisions + memoized column extraction (Phase 2, Performance) ──

@@ -52,7 +52,7 @@ function renderPlot() {
   const errors   = [];
   const warnings = [];
   let   layout   = buildBaseLayout();
-  let   parityAnnot = null;
+  const parityResults = []; // one entry per parity series — all annotated, not just the last
 
   for (const s of appState.series) {
     if (s.enabled === false) continue; // hidden via series list toggle
@@ -74,37 +74,44 @@ function renderPlot() {
 
     // Parity renderers return extra layout (equal axes) and stats annotation
     if (result.layout) Object.assign(layout, result.layout);
-    if (result.stats && result.annotSR) parityAnnot = result;
+    if (result.stats && result.annotSR) parityResults.push({ name: s.name, ...result });
   }
 
   showRenderErrors(errors, warnings);
   // Empty traces still render (blank axes) — toggling every series off should
   // visibly empty the plot, not silently keep the stale one
 
-  // Stats annotation for parity
-  if (parityAnnot) {
-    const { stats, axMin, axMax, n } = parityAnnot;
+  // Stats annotations — one per parity series, stacked bottom-right.
+  // (Phase 4 fix for the Phase 2/3 known issue: previously only the last
+  // parity series was annotated.) A single parity keeps the draggable
+  // stored position; multiples use fixed stacking so they never overlap.
+  if (parityResults.length) {
     const fmt = v => isNaN(v) ? 'N/A' : Number(v).toPrecision(4);
-    const annotPos = appState.plotConfig.annotPos ?? { x: 0.98, y: 0.04 };
-    layout.annotations = [{
-      x: annotPos.x, y: annotPos.y,
+    const th  = plotTheme();
+    const single = parityResults.length === 1;
+    const base = single ? (appState.plotConfig.annotPos ?? { x: 0.98, y: 0.04 })
+                        : { x: 0.98, y: 0.04 };
+    layout.annotations = parityResults.map((p, i) => ({
+      x: base.x, y: base.y + i * 0.24,
       xref: 'paper', yref: 'paper',
-      xanchor: annotPos.x > 0.5 ? 'right' : 'left',
-      yanchor: annotPos.y < 0.5 ? 'bottom' : 'top',
-      // escHtml not needed here — these are computed numeric strings, not user input
-      text: `NSE = ${fmt(stats.nse)}<br>MAE = ${fmt(stats.mae)}<br>RMSE = ${fmt(stats.rmse)}<br>N = ${n}`,
+      xanchor: base.x > 0.5 ? 'right' : 'left',
+      yanchor: base.y < 0.5 ? 'bottom' : 'top',
+      // Plotly annotation text is rendered as restricted pseudo-HTML; series
+      // names are user data — escHtml applied. Stats are computed numerics.
+      text: (single ? '' : `<b>${escHtml(p.name)}</b><br>`)
+        + `NSE = ${fmt(p.stats.nse)}<br>MAE = ${fmt(p.stats.mae)}<br>RMSE = ${fmt(p.stats.rmse)}<br>N = ${p.n}`,
       showarrow: false,
-      bgcolor: plotTheme().annotBg,
-      bordercolor: plotTheme().annotBorder, borderwidth: 1, borderpad: 8,
-      font: { family: 'JetBrains Mono,monospace', size: 11, color: plotTheme().title },
+      bgcolor: th.annotBg,
+      bordercolor: th.annotBorder, borderwidth: 1, borderpad: 8,
+      font: { family: 'JetBrains Mono,monospace', size: 11, color: th.title },
       align: 'left',
-    }];
-    // Update .sr-only annotation span for screen reader accessibility
+    }));
+    // Mirror for screen readers (.sr-only span, aria-live)
     const srEl = document.getElementById('plotAnnotSR');
     if (srEl) {
-      // escHtml applied to stats text — fmt() produces numeric strings (safe),
-      // but escHtml ensures safety if format ever changes
-      srEl.textContent = `Plot statistics: NSE=${fmt(stats.nse)}, MAE=${fmt(stats.mae)}, RMSE=${fmt(stats.rmse)}, N=${n}`;
+      srEl.textContent = parityResults.map(p =>
+        `${p.name} statistics: NSE=${fmt(p.stats.nse)}, MAE=${fmt(p.stats.mae)}, RMSE=${fmt(p.stats.rmse)}, N=${p.n}`
+      ).join('; ');
     }
   }
 
@@ -118,7 +125,8 @@ function renderPlot() {
   appState.plotRendered = true;
   document.getElementById('emptyState').classList.add('hidden');
   document.getElementById('plotArea').classList.remove('hidden');
-  document.getElementById('downloadBtn').style.display = '';
+  document.getElementById('downloadBtn').style.display    = '';
+  document.getElementById('downloadSvgBtn').style.display = '';
   document.getElementById('savedStrip').style.display  = appState.savedPlots.filter(Boolean).length ? '' : 'none';
   document.getElementById('saveBtn').style.display     = '';
   syncTitle(); syncXLabel(); syncYLabel();

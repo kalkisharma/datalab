@@ -48,7 +48,8 @@ details.section>.details-body{padding:0 16px 14px;}
 .dz-hint{font-size:11px;color:var(--text3);}
 .dataset-chip{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);}
 .dataset-chip:last-child{border-bottom:none;}
-.dataset-color{width:12px;height:12px;border-radius:50%;flex-shrink:0;border:1px solid rgba(255,255,255,0.15);}
+.dataset-color{width:12px;height:12px;border-radius:50%;flex-shrink:0;border:1px solid rgba(255,255,255,0.15);padding:0;cursor:pointer;}
+.dataset-color:focus{outline:none;box-shadow:0 0 0 2px var(--accent);}
 .dataset-name{flex:1;background:transparent;border:none;color:var(--text);font-family:var(--sans);font-size:12px;outline:none;min-width:0;}
 .dataset-name:focus{color:var(--accent);}
 .dataset-info{font-family:var(--mono);font-size:10px;color:var(--text3);flex-shrink:0;}
@@ -186,6 +187,11 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
 .filter-del:hover{color:var(--danger);}
 .filter-ena{cursor:pointer;flex-shrink:0;}
 .filter-count{font-family:var(--mono);font-size:10px;color:var(--text3);}
+.help-table{width:100%;border-collapse:collapse;font-size:12px;}
+.help-table th{text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);padding:12px 0 6px;}
+.help-table td{padding:4px 0;color:var(--text2);}
+.help-table td:first-child{width:140px;}
+.help-table kbd{font-family:var(--mono);font-size:10px;background:var(--bg);border:1px solid var(--border2);border-radius:4px;padding:2px 6px;color:var(--accent);}
 
 </style>
 </head>
@@ -194,8 +200,13 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
 <header>
   <span class="logo">DataLab <span>v0.3.0</span></span>
   <div class="divider"></div>
+  <button class="btn btn-sm" id="sessionSaveBtn" title="Save full session to a JSON file">💾 Session</button>
+  <button class="btn btn-sm" id="sessionLoadBtn" title="Load a saved session">📂 Load</button>
+  <input type="file" id="sessionFileInput" accept=".json" class="sr-only" aria-label="Load session file" />
   <button class="btn btn-sm" id="zipBtn" style="display:none">↓ ZIP</button>
   <button class="btn btn-sm" id="downloadBtn" style="display:none">↓ PNG</button>
+  <button class="btn btn-sm" id="downloadSvgBtn" style="display:none">↓ SVG</button>
+  <button class="btn btn-sm" id="helpBtn" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button>
 </header>
 
 <div class="main">
@@ -292,6 +303,11 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
             <span class="slider-val" id="edgeWidthVal">0.5</span>
           </div>
         </label>
+        <div class="check-row" style="margin-top:12px;gap:8px">
+          <button class="btn btn-sm" id="presetSaveBtn" title="Save current style settings to a JSON file">Save preset</button>
+          <button class="btn btn-sm" id="presetLoadBtn" title="Load a style preset">Load preset</button>
+          <input type="file" id="presetFileInput" accept=".json" class="sr-only" aria-label="Load style preset file" />
+        </div>
       </div>
     </details>
 
@@ -372,6 +388,31 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
       <span class="modal-error" id="modalError" role="alert"></span>
       <button class="btn" id="modalCancel">Cancel</button>
       <button class="btn btn-primary" id="modalSave">Save series</button>
+    </div>
+  </div>
+</div>
+
+<!-- Keyboard shortcuts reference (Phase 4) -->
+<div id="helpOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <span class="modal-title" id="helpTitle">Keyboard shortcuts</span>
+      <button class="modal-close" id="helpClose" aria-label="Close shortcuts reference">×</button>
+    </div>
+    <div class="modal-body">
+      <table class="help-table">
+        <tbody>
+          <tr><th colspan="2">Series list (focus a row first)</th></tr>
+          <tr><td><kbd>↑</kbd> / <kbd>↓</kbd></td><td>Move between series</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>Edit the focused series</td></tr>
+          <tr><td><kbd>Delete</kbd></td><td>Remove the focused series</td></tr>
+          <tr><th colspan="2">Dialogs</th></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Close the open dialog</td></tr>
+          <tr><th colspan="2">Datasets</th></tr>
+          <tr><td><kbd>Enter</kbd> / <kbd>Space</kbd></td><td>Open file browser (dropzone focused)</td></tr>
+          <tr><td><kbd>Tab</kbd></td><td>Move between all controls</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -789,8 +830,8 @@ function renderDatasetList() {
   // escHtml applied to: dataset name, row/col counts
   list.innerHTML = appState.datasets.map(ds => `
     <div class="dataset-chip" role="listitem" data-dsid="${ds.id}">
-      <div class="dataset-color" style="background:${ds.color}" title="Dataset color"
-           data-dsid="${ds.id}"></div>
+      <button class="dataset-color" style="background:${ds.color}" title="Change dataset color"
+              aria-label="Change color of dataset ${escHtml(ds.name)}" data-dsid="${ds.id}"></button>
       <input class="dataset-name" type="text" value="${escHtml(ds.name)}"
              aria-label="Dataset name" data-dsid="${ds.id}" />
       <span class="dataset-info">${ds.rows.length}r·${ds.headers.length}c</span>
@@ -807,6 +848,33 @@ function renderDatasetList() {
   list.querySelectorAll('.dataset-del').forEach(btn => {
     btn.addEventListener('click', () => removeDataset(btn.dataset.dsid));
   });
+  list.querySelectorAll('.dataset-color').forEach(dot => {
+    dot.addEventListener('click', () => editDatasetColor(dot.dataset.dsid));
+  });
+}
+
+// Native color picker for a dataset dot. Series that inherited the old
+// color follow it; explicit per-series overrides are left alone.
+function editDatasetColor(dsId) {
+  const ds = appState.datasets.find(d => d.id === dsId);
+  if (!ds) return;
+  const input = document.createElement('input');
+  input.type = 'color';
+  input.value = ds.color;
+  input.style.cssText = 'position:fixed;left:-9999px;top:0;';
+  document.body.appendChild(input);
+  input.addEventListener('change', () => {
+    const oldColor = ds.color;
+    ds.color = input.value;
+    appState.series.forEach(s => {
+      if (s.datasetId === dsId && s.style?.color === oldColor) s.style.color = input.value;
+    });
+    bumpDatasetRev(dsId);
+    renderDatasetList();
+    if (appState.plotRendered) debounceRender();
+  });
+  input.addEventListener('blur', () => input.remove());
+  input.click();
 }
 
 function removeDataset(id) {
@@ -1479,7 +1547,7 @@ function renderPlot() {
   const errors   = [];
   const warnings = [];
   let   layout   = buildBaseLayout();
-  let   parityAnnot = null;
+  const parityResults = []; // one entry per parity series — all annotated, not just the last
 
   for (const s of appState.series) {
     if (s.enabled === false) continue; // hidden via series list toggle
@@ -1501,37 +1569,44 @@ function renderPlot() {
 
     // Parity renderers return extra layout (equal axes) and stats annotation
     if (result.layout) Object.assign(layout, result.layout);
-    if (result.stats && result.annotSR) parityAnnot = result;
+    if (result.stats && result.annotSR) parityResults.push({ name: s.name, ...result });
   }
 
   showRenderErrors(errors, warnings);
   // Empty traces still render (blank axes) — toggling every series off should
   // visibly empty the plot, not silently keep the stale one
 
-  // Stats annotation for parity
-  if (parityAnnot) {
-    const { stats, axMin, axMax, n } = parityAnnot;
+  // Stats annotations — one per parity series, stacked bottom-right.
+  // (Phase 4 fix for the Phase 2/3 known issue: previously only the last
+  // parity series was annotated.) A single parity keeps the draggable
+  // stored position; multiples use fixed stacking so they never overlap.
+  if (parityResults.length) {
     const fmt = v => isNaN(v) ? 'N/A' : Number(v).toPrecision(4);
-    const annotPos = appState.plotConfig.annotPos ?? { x: 0.98, y: 0.04 };
-    layout.annotations = [{
-      x: annotPos.x, y: annotPos.y,
+    const th  = plotTheme();
+    const single = parityResults.length === 1;
+    const base = single ? (appState.plotConfig.annotPos ?? { x: 0.98, y: 0.04 })
+                        : { x: 0.98, y: 0.04 };
+    layout.annotations = parityResults.map((p, i) => ({
+      x: base.x, y: base.y + i * 0.24,
       xref: 'paper', yref: 'paper',
-      xanchor: annotPos.x > 0.5 ? 'right' : 'left',
-      yanchor: annotPos.y < 0.5 ? 'bottom' : 'top',
-      // escHtml not needed here — these are computed numeric strings, not user input
-      text: `NSE = ${fmt(stats.nse)}<br>MAE = ${fmt(stats.mae)}<br>RMSE = ${fmt(stats.rmse)}<br>N = ${n}`,
+      xanchor: base.x > 0.5 ? 'right' : 'left',
+      yanchor: base.y < 0.5 ? 'bottom' : 'top',
+      // Plotly annotation text is rendered as restricted pseudo-HTML; series
+      // names are user data — escHtml applied. Stats are computed numerics.
+      text: (single ? '' : `<b>${escHtml(p.name)}</b><br>`)
+        + `NSE = ${fmt(p.stats.nse)}<br>MAE = ${fmt(p.stats.mae)}<br>RMSE = ${fmt(p.stats.rmse)}<br>N = ${p.n}`,
       showarrow: false,
-      bgcolor: plotTheme().annotBg,
-      bordercolor: plotTheme().annotBorder, borderwidth: 1, borderpad: 8,
-      font: { family: 'JetBrains Mono,monospace', size: 11, color: plotTheme().title },
+      bgcolor: th.annotBg,
+      bordercolor: th.annotBorder, borderwidth: 1, borderpad: 8,
+      font: { family: 'JetBrains Mono,monospace', size: 11, color: th.title },
       align: 'left',
-    }];
-    // Update .sr-only annotation span for screen reader accessibility
+    }));
+    // Mirror for screen readers (.sr-only span, aria-live)
     const srEl = document.getElementById('plotAnnotSR');
     if (srEl) {
-      // escHtml applied to stats text — fmt() produces numeric strings (safe),
-      // but escHtml ensures safety if format ever changes
-      srEl.textContent = `Plot statistics: NSE=${fmt(stats.nse)}, MAE=${fmt(stats.mae)}, RMSE=${fmt(stats.rmse)}, N=${n}`;
+      srEl.textContent = parityResults.map(p =>
+        `${p.name} statistics: NSE=${fmt(p.stats.nse)}, MAE=${fmt(p.stats.mae)}, RMSE=${fmt(p.stats.rmse)}, N=${p.n}`
+      ).join('; ');
     }
   }
 
@@ -1545,7 +1620,8 @@ function renderPlot() {
   appState.plotRendered = true;
   document.getElementById('emptyState').classList.add('hidden');
   document.getElementById('plotArea').classList.remove('hidden');
-  document.getElementById('downloadBtn').style.display = '';
+  document.getElementById('downloadBtn').style.display    = '';
+  document.getElementById('downloadSvgBtn').style.display = '';
   document.getElementById('savedStrip').style.display  = appState.savedPlots.filter(Boolean).length ? '' : 'none';
   document.getElementById('saveBtn').style.display     = '';
   syncTitle(); syncXLabel(); syncYLabel();
@@ -1684,17 +1760,62 @@ function showRenderErrors(errors, warnings = []) {
 }
 
 
-// export.js — PNG download and ZIP export of saved plots
-// (split from chart.js at the Phase 3 exit refactor review — verbatim move)
+// export.js — PNG/SVG download, ZIP export, and style presets
 
 // ── Export ────────────────────────────────────────────────────────────────
 
-function downloadPlot() {
+function downloadPlot(format = 'png') {
   const title    = document.getElementById('inputTitle').value || 'datalab_plot';
   const filename = title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'datalab_plot';
   const w = parseInt(document.getElementById('figW').value);
   const h = parseInt(document.getElementById('figH').value);
-  Plotly.downloadImage('plotDiv', { format: 'png', width: w, height: h, filename });
+  // Note: scattergl traces (WebGL, >10k points) are rasterized inside the
+  // SVG by Plotly — vector output applies to axes/text and SVG traces
+  Plotly.downloadImage('plotDiv', { format, width: w, height: h, filename });
+}
+
+// ── Style presets ─────────────────────────────────────────────────────────
+
+const PRESET_SCHEMA = 'datalab-style-preset-v1';
+const PRESET_FIELDS = ['plotBg', 'cmapSelect', 'markerSize', 'markerOpacity',
+                       'edgeColor', 'edgeWidth', 'figW', 'figH'];
+const PRESET_CHECKS = ['majorGrid', 'minorGrid'];
+
+function savePreset() {
+  const preset = { _schema: PRESET_SCHEMA };
+  PRESET_FIELDS.forEach(id => { preset[id] = document.getElementById(id)?.value; });
+  PRESET_CHECKS.forEach(id => { preset[id] = document.getElementById(id)?.checked; });
+  const blob = new Blob([JSON.stringify(preset, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'datalab_style.json'; a.click();
+  URL.revokeObjectURL(url); // safe to revoke immediately — download is async
+}
+
+function loadPresetFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    let preset;
+    try { preset = JSON.parse(reader.result); }
+    catch { sessionAlert('Not a valid JSON file.'); return; }
+    if (preset?._schema !== PRESET_SCHEMA) { sessionAlert('Not a DataLab style preset.'); return; }
+    PRESET_FIELDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && preset[id] != null) el.value = preset[id];
+    });
+    PRESET_CHECKS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && preset[id] != null) el.checked = preset[id];
+    });
+    // Sync slider value displays and number twins
+    document.getElementById('markerSizeVal').textContent    = document.getElementById('markerSize').value;
+    document.getElementById('markerOpacityVal').textContent = document.getElementById('markerOpacity').value + '%';
+    document.getElementById('edgeWidthVal').textContent     = document.getElementById('edgeWidth').value;
+    document.getElementById('figWNum').value = document.getElementById('figW').value;
+    document.getElementById('figHNum').value = document.getElementById('figH').value;
+    if (appState.plotRendered) renderPlot();
+  };
+  reader.readAsText(file);
 }
 
 async function downloadZip() {
@@ -1738,6 +1859,91 @@ async function downloadZip() {
     if (exportErr) { btn.textContent = 'Export failed'; setTimeout(() => { btn.textContent = orig; }, 3000); }
     else btn.textContent = orig;
   }
+}
+
+
+// sessions.js — full-state session export/import (JSON round-trip)
+//
+// The exported file carries the complete appState — datasets (rows
+// included), series, plot config, style, saved plots — plus the state
+// schema version. Import validates the schema marker and runs migrations
+// for older versions before applying. Newer-than-supported versions are
+// refused with a clear message rather than half-loaded.
+
+const SESSION_SCHEMA = 'datalab-session';
+
+function exportSession() {
+  const payload = {
+    _schema: SESSION_SCHEMA,
+    app:     VERSION,
+    saved:   new Date().toISOString(),
+    state:   appState,
+  };
+  const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'datalab_session.json'; a.click();
+  URL.revokeObjectURL(url); // safe to revoke immediately — download is async
+}
+
+function importSessionFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    let payload;
+    try { payload = JSON.parse(reader.result); }
+    catch { sessionAlert('Not a valid JSON file.'); return; }
+    if (payload?._schema !== SESSION_SCHEMA || !payload.state) {
+      sessionAlert('Not a DataLab session file.'); return;
+    }
+    const v = payload.state.version ?? 0;
+    if (v > 1) {
+      sessionAlert(`This session was saved by a newer DataLab (state v${v}) — update the app to load it.`);
+      return;
+    }
+    applySessionState(migrateSessionState(payload.state));
+  };
+  reader.readAsText(file);
+}
+
+// Migration stubs per state version (STANDARDS.md §3). v1 is current.
+function migrateSessionState(st) {
+  // v0 → v1: no released v0 files exist; treat as v1
+  st.version = 1;
+  return st;
+}
+
+function applySessionState(st) {
+  appState.version      = st.version;
+  appState.datasets     = st.datasets   ?? [];
+  appState.series       = st.series     ?? [];
+  appState.plotConfig   = { ...appState.plotConfig, ...(st.plotConfig ?? {}) };
+  appState.style        = { ...appState.style,      ...(st.style      ?? {}) };
+  appState.savedPlots   = st.savedPlots ?? [];
+  appState.plotRendered = false;
+
+  // Imported data invalidates every cache keyed on dataset revisions
+  appState.datasets.forEach(d => bumpDatasetRev(d.id));
+
+  renderDatasetList();
+  renderSeriesList();
+  updateRenderBtn();
+  showDataAlerts(null, []);
+
+  // Rebuild the saved plots strip
+  const strip = document.getElementById('savedScroll');
+  // innerHTML: empty string — no user data
+  strip.innerHTML = '';
+  appState.savedPlots.forEach((snap, i) => { if (snap) mkCard(i, snap, false); });
+  document.getElementById('savedStrip').style.display =
+    appState.savedPlots.filter(Boolean).length ? '' : 'none';
+
+  if (appState.series.length) renderPlot();
+}
+
+function sessionAlert(msg) {
+  const box = document.getElementById('dataAlerts');
+  // innerHTML: message escaped via escHtml — may quote file content
+  if (box) box.innerHTML = `<div class="alert danger" role="alert">${escHtml(msg)}</div>`;
 }
 
 
@@ -1959,9 +2165,40 @@ function init() {
   g('renderBtn').addEventListener('click', renderPlot);
 
   // Export buttons
-  g('downloadBtn').addEventListener('click', downloadPlot);
-  g('zipBtn')     .addEventListener('click', downloadZip);
-  g('saveBtn')    .addEventListener('click', savePlot);
+  g('downloadBtn')   .addEventListener('click', () => downloadPlot('png'));
+  g('downloadSvgBtn').addEventListener('click', () => downloadPlot('svg'));
+  g('zipBtn')        .addEventListener('click', downloadZip);
+  g('saveBtn')       .addEventListener('click', savePlot);
+
+  // Session export/import
+  g('sessionSaveBtn').addEventListener('click', exportSession);
+  g('sessionLoadBtn').addEventListener('click', () => g('sessionFileInput').click());
+  g('sessionFileInput').addEventListener('change', e => {
+    if (e.target.files[0]) importSessionFile(e.target.files[0]);
+    e.target.value = '';
+  });
+
+  // Style presets
+  g('presetSaveBtn').addEventListener('click', savePreset);
+  g('presetLoadBtn').addEventListener('click', () => g('presetFileInput').click());
+  g('presetFileInput').addEventListener('change', e => {
+    if (e.target.files[0]) loadPresetFile(e.target.files[0]);
+    e.target.value = '';
+  });
+
+  // Keyboard shortcuts reference (focus managed like other dialogs)
+  let _helpTrigger = null;
+  const closeHelp = () => { g('helpOverlay').classList.add('hidden'); _helpTrigger?.focus?.(); };
+  g('helpBtn').addEventListener('click', () => {
+    _helpTrigger = document.activeElement;
+    g('helpOverlay').classList.remove('hidden');
+    g('helpClose').focus();
+  });
+  g('helpClose').addEventListener('click', closeHelp);
+  g('helpOverlay').addEventListener('click', e => { if (e.target === g('helpOverlay')) closeHelp(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !g('helpOverlay').classList.contains('hidden')) closeHelp();
+  });
 
   // Reset axis ranges
   g('resetRangesBtn').addEventListener('click', () => {
@@ -2053,9 +2290,18 @@ document.addEventListener('DOMContentLoaded', init);
 //
 // ─────────────────────────────────────────────────────────────────────────
 
+// Okabe-Ito palette — the standard color-vision-deficiency-safe set
+// (Okabe & Ito 2008), distinguishable under protanopia, deuteranopia, and
+// tritanopia. Data Scientist sign-off, Phase 4 (replaces Tableau-10).
 const PALETTE = [
-  '#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f',
-  '#edc948','#b07aa1','#ff9da7','#9c755f','#bab0ac',
+  '#0072b2', // blue
+  '#e69f00', // orange
+  '#009e73', // bluish green
+  '#d55e00', // vermillion
+  '#cc79a7', // reddish purple
+  '#56b4e9', // sky blue
+  '#f0e442', // yellow
+  '#999999', // grey
 ];
 
 // ── Dataset revisions + memoized column extraction (Phase 2, Performance) ──
