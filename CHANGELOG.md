@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.1.0 — Data Cleaning + Statistics
+
+### Features
+- **Data Tools** (Σ button on each dataset): summary statistics table
+  (n, missing, mean, median, sample std, min/P25/P75/max), cleaning
+  operations, correlation matrix, CSV export
+- **Cleaning operations:** rename column (series references follow
+  automatically), drop column, cast to numeric (reports unparseable
+  values), missing-value handling (drop rows, fill with mean/median/value)
+- **Correlation matrix:** Pearson r heatmap of all numeric columns,
+  pairwise-complete deletion, symmetric ±1 scale
+- **Histogram normal fit:** overlay a fitted normal curve (μ, σ in the
+  legend) scaled to the count axis
+- **Export cleaned CSV** with the current column set
+
+### Methodology notes (Data Scientist)
+- Standard deviations are sample (n−1); quantiles use linear interpolation
+- Correlation uses pairwise-complete deletion — cells may be computed on
+  different row subsets when data is missing
+- Fixed during acceptance testing: `Number(null)`/`Number('')` coerce to
+  0 in JavaScript — missing values were counted as zeros in early builds
+  of the stats engine; all extraction now goes through an explicit guard
+
+## Schema
+
+### v1.1.0
+- `series.fitNormal` (optional boolean, default false) — backward
+  compatible, no migration. Cleaning operations mutate dataset rows and
+  headers in place; the state schema is unchanged.
+
 ## v1.0.0 — GA
 
 First general-availability release.
