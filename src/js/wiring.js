@@ -219,12 +219,34 @@ function init() {
   syncSlider('markerSize',    'markerSizeVal',    '');
   syncSlider('markerOpacity', 'markerOpacityVal', '%');
   syncSlider('edgeWidth',     'edgeWidthVal',     '');
+  syncSlider('fsTitle',  'fsTitleVal',  '');
+  syncSlider('fsAxis',   'fsAxisVal',   '');
+  syncSlider('fsTick',   'fsTickVal',   '');
+  syncSlider('fsLegend', 'fsLegendVal', '');
+  syncSlider('fsAnnot',  'fsAnnotVal',  '');
+  syncSlider('frameWidth', 'frameWidthVal', '');
+  syncSlider('gridWidth',  'gridWidthVal',  '');
   syncSliderNum('figW', 'figWNum');
   syncSliderNum('figH', 'figHNum');
 
   // Re-render on style changes
-  ['plotBg','cmapSelect','edgeColor','majorGrid','minorGrid'].forEach(id => {
+  ['plotBg','cmapSelect','edgeColor','majorGrid','minorGrid','frameColor','gridColor'].forEach(id => {
     g(id)?.addEventListener('change', () => { if (appState.plotRendered) renderPlot(); });
+  });
+
+  // Frame "auto" checkboxes: auto = follow the background theme; unchecking
+  // enables the explicit color input (Phase 6, approved design)
+  [['frameAuto', 'frameColor'], ['gridAuto', 'gridColor']].forEach(([autoId, colorId]) => {
+    g(autoId).addEventListener('change', () => {
+      g(colorId).disabled = g(autoId).checked;
+      if (appState.plotRendered) renderPlot();
+    });
+  });
+
+  // Legend visibility lives in plotConfig so sessions round-trip it
+  g('showLegend').addEventListener('change', () => {
+    appState.plotConfig.legendShow = g('showLegend').checked;
+    if (appState.plotRendered) renderPlot();
   });
 
   // beforeunload guard — warn if there are unsaved series or unsaved plot changes

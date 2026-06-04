@@ -15,9 +15,13 @@ function downloadPlot(format = 'png') {
 // ── Style presets ─────────────────────────────────────────────────────────
 
 const PRESET_SCHEMA = 'datalab-style-preset-v1';
+// Phase 6 added typography and frame fields — additive, same schema marker;
+// presets saved before then simply lack the keys and leave defaults alone
 const PRESET_FIELDS = ['plotBg', 'cmapSelect', 'markerSize', 'markerOpacity',
-                       'edgeColor', 'edgeWidth', 'figW', 'figH'];
-const PRESET_CHECKS = ['majorGrid', 'minorGrid'];
+                       'edgeColor', 'edgeWidth', 'figW', 'figH',
+                       'fsTitle', 'fsAxis', 'fsTick', 'fsLegend', 'fsAnnot',
+                       'frameColor', 'frameWidth', 'gridColor', 'gridWidth'];
+const PRESET_CHECKS = ['majorGrid', 'minorGrid', 'showLegend', 'frameAuto', 'gridAuto'];
 
 function savePreset() {
   const preset = { _schema: PRESET_SCHEMA };
@@ -46,11 +50,21 @@ function loadPresetFile(file) {
       if (el && preset[id] != null) el.checked = preset[id];
     });
     // Sync slider value displays and number twins
-    document.getElementById('markerSizeVal').textContent    = document.getElementById('markerSize').value;
-    document.getElementById('markerOpacityVal').textContent = document.getElementById('markerOpacity').value + '%';
-    document.getElementById('edgeWidthVal').textContent     = document.getElementById('edgeWidth').value;
+    [['markerSize','markerSizeVal',''], ['markerOpacity','markerOpacityVal','%'],
+     ['edgeWidth','edgeWidthVal',''], ['fsTitle','fsTitleVal',''], ['fsAxis','fsAxisVal',''],
+     ['fsTick','fsTickVal',''], ['fsLegend','fsLegendVal',''], ['fsAnnot','fsAnnotVal',''],
+     ['frameWidth','frameWidthVal',''], ['gridWidth','gridWidthVal','']
+    ].forEach(([id, valId, suffix]) => {
+      const el = document.getElementById(id), val = document.getElementById(valId);
+      if (el && val) val.textContent = el.value + suffix;
+    });
     document.getElementById('figWNum').value = document.getElementById('figW').value;
     document.getElementById('figHNum').value = document.getElementById('figH').value;
+    // Frame auto state drives the color inputs' enabled state
+    document.getElementById('frameColor').disabled = document.getElementById('frameAuto').checked;
+    document.getElementById('gridColor').disabled  = document.getElementById('gridAuto').checked;
+    // Legend visibility mirrors into plotConfig (sessions round-trip it)
+    appState.plotConfig.legendShow = document.getElementById('showLegend').checked;
     if (appState.plotRendered) renderPlot();
   };
   reader.readAsText(file);

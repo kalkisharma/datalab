@@ -68,6 +68,10 @@ function applySessionState(st) {
   updateRenderBtn();
   showDataAlerts(null, []);
 
+  // Mirror session-carried plotConfig flags back into their UI controls
+  const legendCb = document.getElementById('showLegend');
+  if (legendCb) legendCb.checked = appState.plotConfig.legendShow ?? true;
+
   // Rebuild the saved plots strip
   const strip = document.getElementById('savedScroll');
   // innerHTML: empty string — no user data

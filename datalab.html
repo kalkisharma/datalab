@@ -25,62 +25,62 @@
   --radius:8px; --radius-lg:12px;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;}
 .hidden{display:none!important;}
 header{display:flex;align-items:center;gap:12px;padding:0 20px;height:48px;border-bottom:1px solid var(--border);background:var(--panel);flex-shrink:0;}
-.logo{font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:0.08em;color:var(--accent);}
+.logo{font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:0.08em;color:var(--accent);}
 .logo span{color:var(--text2);font-weight:400;}
 .divider{flex:1;}
 .main{display:flex;flex:1;overflow:hidden;}
-.left-panel{width:300px;flex-shrink:0;border-right:1px solid var(--border);background:var(--panel);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;}
+.left-panel{width:330px;flex-shrink:0;border-right:1px solid var(--border);background:var(--panel);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;}
 .left-panel::-webkit-scrollbar{width:4px;}
 .left-panel::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
 .main-area{flex:1;overflow:auto;display:flex;flex-direction:column;background:var(--bg);}
 .section{border-bottom:1px solid var(--border);padding:14px 16px;}
-.section-title{font-family:var(--mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;}
+.section-title{font-family:var(--mono);font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;}
 details.section{padding:0;}
-details.section>summary{font-family:var(--mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);padding:14px 16px;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;user-select:none;}
+details.section>summary{font-family:var(--mono);font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);padding:14px 16px;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;user-select:none;}
 details.section>summary::-webkit-details-marker{display:none;}
-details.section>summary::after{content:'▸';font-size:10px;transition:transform 0.2s;}
+details.section>summary::after{content:'▸';font-size:11px;transition:transform 0.2s;}
 details[open].section>summary::after{transform:rotate(90deg);}
 details.section>.details-body{padding:0 16px 14px;}
 .dropzone{border:1px dashed var(--border2);border-radius:var(--radius);padding:10px 12px;cursor:pointer;transition:border-color 0.2s,background 0.2s;margin-bottom:10px;position:relative;}
 .dropzone:hover,.dropzone.drag-over,.dropzone:focus-within{border-color:var(--accent);background:rgba(91,141,238,0.05);}
 .dropzone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
 .dz-label{display:flex;align-items:center;gap:8px;}
-.dz-icon{font-size:16px;color:var(--text3);}
-.dz-hint{font-size:11px;color:var(--text3);}
+.dz-icon{font-size:18px;color:var(--text3);}
+.dz-hint{font-size:12px;color:var(--text3);}
 .dataset-chip{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);}
 .dataset-chip:last-child{border-bottom:none;}
 .dataset-color{width:12px;height:12px;border-radius:50%;flex-shrink:0;border:1px solid rgba(255,255,255,0.15);padding:0;cursor:pointer;}
 .dataset-color:focus{outline:none;box-shadow:0 0 0 2px var(--accent);}
-.dataset-name{flex:1;background:transparent;border:none;color:var(--text);font-family:var(--sans);font-size:12px;outline:none;min-width:0;}
+.dataset-name{flex:1;background:transparent;border:none;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;min-width:0;}
 .dataset-name:focus{color:var(--accent);}
-.dataset-info{font-family:var(--mono);font-size:10px;color:var(--text3);flex-shrink:0;}
-.dataset-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 4px;line-height:1;border-radius:3px;flex-shrink:0;transition:color 0.15s;}
+.dataset-info{font-family:var(--mono);font-size:11px;color:var(--text3);flex-shrink:0;}
+.dataset-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:15px;padding:2px 4px;line-height:1;border-radius:3px;flex-shrink:0;transition:color 0.15s;}
 .dataset-del:hover{color:var(--danger);}
-.dataset-tools{background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;font-family:var(--mono);padding:2px 4px;line-height:1;border-radius:3px;flex-shrink:0;transition:color 0.15s;}
+.dataset-tools{background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;font-family:var(--mono);padding:2px 4px;line-height:1;border-radius:3px;flex-shrink:0;transition:color 0.15s;}
 .dataset-tools:hover{color:var(--accent);}
-.stats-table{width:100%;border-collapse:collapse;font-size:11px;font-family:var(--mono);}
-.stats-table th{text-align:right;color:var(--text3);font-weight:400;padding:3px 6px;border-bottom:1px solid var(--border);font-size:10px;text-transform:uppercase;letter-spacing:0.04em;}
+.stats-table{width:100%;border-collapse:collapse;font-size:12px;font-family:var(--mono);}
+.stats-table th{text-align:right;color:var(--text3);font-weight:400;padding:3px 6px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;}
 .stats-table th:first-child,.stats-table td:first-child{text-align:left;}
 .stats-table td{text-align:right;color:var(--text2);padding:3px 6px;border-bottom:1px solid var(--border);white-space:nowrap;}
-.stats-table td:first-child{color:var(--text);overflow:hidden;text-overflow:ellipsis;max-width:120px;}
-.empty-hint{font-size:11px;color:var(--text3);font-style:italic;margin-bottom:10px;}
+.stats-table td:first-child{color:var(--text);overflow:hidden;text-overflow:ellipsis;max-width:140px;}
+.empty-hint{font-size:12px;color:var(--text3);font-style:italic;margin-bottom:10px;}
 .series-item{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);border-radius:4px;outline:none;}
 .series-item:focus{box-shadow:inset 0 0 0 1px var(--accent);}
 .series-item:last-of-type{border-bottom:none;}
-.series-badge{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:0.06em;padding:2px 5px;border-radius:4px;flex-shrink:0;text-transform:uppercase;}
+.series-badge{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:0.06em;padding:2px 5px;border-radius:4px;flex-shrink:0;text-transform:uppercase;}
 .series-badge.scatter{background:rgba(91,141,238,0.15);color:var(--accent);}
 .series-badge.line{background:rgba(76,175,125,0.15);color:var(--success);}
 .series-badge.parity{background:rgba(124,111,224,0.15);color:var(--accent2);}
 .series-badge.contour{background:rgba(232,160,74,0.15);color:var(--warn);}
 .series-badge.histogram{background:rgba(224,92,92,0.15);color:var(--danger);}
 .series-badge.boxplot{background:rgba(90,90,114,0.3);color:var(--text);}
-.series-name{flex:1;font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
-.series-edit,.series-del,.series-move{background:none;border:none;cursor:pointer;font-size:12px;padding:2px 4px;border-radius:3px;line-height:1;flex-shrink:0;transition:color 0.15s;}
-.series-move{color:var(--text3);font-size:11px;}
+.series-name{flex:1;font-size:13px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+.series-edit,.series-del,.series-move{background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;border-radius:3px;line-height:1;flex-shrink:0;transition:color 0.15s;}
+.series-move{color:var(--text3);font-size:12px;}
 .series-move:hover:not(:disabled){color:var(--accent);}
 .series-move:disabled{opacity:0.2;cursor:default;pointer-events:none;}
 .series-ena{flex-shrink:0;}
@@ -88,30 +88,30 @@ details.section>.details-body{padding:0 16px 14px;}
 .series-edit:hover{color:var(--accent);}
 .series-del{color:var(--text3);}
 .series-del:hover{color:var(--danger);}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);border:1px solid var(--border2);background:transparent;color:var(--text2);font-family:var(--sans);font-size:12px;cursor:pointer;transition:all 0.15s;white-space:nowrap;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);border:1px solid var(--border2);background:transparent;color:var(--text2);font-family:var(--sans);font-size:13px;cursor:pointer;transition:all 0.15s;white-space:nowrap;}
 .btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(91,141,238,0.07);}
 .btn:disabled{opacity:0.35;cursor:not-allowed;pointer-events:none;}
 .btn-primary{background:rgba(91,141,238,0.12);border-color:rgba(91,141,238,0.4);color:var(--accent);}
 .btn-primary:hover{background:rgba(91,141,238,0.22);}
-.btn-sm{padding:5px 10px;font-size:11px;}
+.btn-sm{padding:5px 10px;font-size:12px;}
 .btn-full{width:100%;justify-content:center;margin-top:8px;}
-.ctrl-label{display:block;font-size:11px;color:var(--text2);margin-bottom:5px;margin-top:10px;}
+.ctrl-label{display:block;font-size:12px;color:var(--text2);margin-bottom:5px;margin-top:10px;}
 .ctrl-label:first-child{margin-top:0;}
-input[type=text].ctrl-input,input[type=number].ctrl-input{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--sans);font-size:12px;padding:7px 10px;outline:none;transition:border-color 0.2s;}
+input[type=text].ctrl-input,input[type=number].ctrl-input{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--sans);font-size:13px;padding:7px 10px;outline:none;transition:border-color 0.2s;}
 input[type=text].ctrl-input:focus,input[type=number].ctrl-input:focus{border-color:var(--accent);}
 input[type=number].ctrl-input{-moz-appearance:textfield;}
 input[type=number].ctrl-input::-webkit-inner-spin-button,input[type=number].ctrl-input::-webkit-outer-spin-button{-webkit-appearance:none;}
-select{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--sans);font-size:12px;padding:7px 10px;outline:none;cursor:pointer;transition:border-color 0.2s;}
+select{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--sans);font-size:13px;padding:7px 10px;outline:none;cursor:pointer;transition:border-color 0.2s;}
 select:focus{border-color:var(--accent);}
 select option{background:var(--surface);}
 .input-lock-row{display:flex;gap:4px;align-items:center;}
 .input-lock-row .ctrl-input{flex:1;min-width:0;}
-.lock-btn{flex-shrink:0;background:rgba(91,141,238,0.08);border:1px solid rgba(91,141,238,0.3);border-radius:var(--radius);color:var(--accent);font-family:var(--mono);font-size:10px;letter-spacing:0.06em;cursor:pointer;padding:5px 7px;line-height:1;transition:all 0.15s;}
+.lock-btn{flex-shrink:0;background:rgba(91,141,238,0.08);border:1px solid rgba(91,141,238,0.3);border-radius:var(--radius);color:var(--accent);font-family:var(--mono);font-size:11px;letter-spacing:0.06em;cursor:pointer;padding:5px 7px;line-height:1;transition:all 0.15s;}
 .lock-btn:hover{background:rgba(91,141,238,0.18);}
 .lock-btn.locked{background:transparent;border-color:var(--border2);color:var(--text3);}
 .lock-btn.locked:hover{border-color:var(--text2);color:var(--text2);}
 .check-row{display:flex;gap:14px;flex-wrap:wrap;}
-.check-row label{display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;color:var(--text2);}
+.check-row label{display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;color:var(--text2);}
 input[type=checkbox]{appearance:none;width:14px;height:14px;border:1px solid var(--border2);border-radius:3px;cursor:pointer;position:relative;flex-shrink:0;transition:background 0.15s,border-color 0.15s;}
 input[type=checkbox]:checked{background:var(--accent);border-color:var(--accent);}
 input[type=checkbox]:checked::after{content:'';position:absolute;top:2px;left:4px;width:4px;height:7px;border:2px solid white;border-top:none;border-left:none;transform:rotate(45deg);}
@@ -119,8 +119,8 @@ input[type=checkbox]:checked::after{content:'';position:absolute;top:2px;left:4p
 input[type=range]{flex:1;appearance:none;height:3px;background:var(--border2);border-radius:2px;outline:none;cursor:pointer;}
 input[type=range]::-webkit-slider-thumb{appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer;transition:transform 0.1s;}
 input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2);}
-.slider-val{font-family:var(--mono);font-size:12px;color:var(--accent);min-width:40px;text-align:right;}
-.slider-num{width:54px;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--accent);font-family:var(--mono);font-size:12px;text-align:right;padding:0 2px;outline:none;-moz-appearance:textfield;cursor:text;flex-shrink:0;}
+.slider-val{font-family:var(--mono);font-size:13px;color:var(--accent);min-width:40px;text-align:right;}
+.slider-num{width:60px;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--accent);font-family:var(--mono);font-size:13px;text-align:right;padding:0 2px;outline:none;-moz-appearance:textfield;cursor:text;flex-shrink:0;}
 .slider-num:focus{border-bottom-color:var(--accent);}
 .slider-num::-webkit-inner-spin-button,.slider-num::-webkit-outer-spin-button{-webkit-appearance:none;}
 input[type=color].edge-color{width:34px;height:28px;padding:2px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--bg);cursor:pointer;vertical-align:middle;}
@@ -128,31 +128,31 @@ input[type=color].edge-color::-webkit-color-swatch-wrapper{padding:0;}
 input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px;}
 .edge-row{display:flex;align-items:center;gap:8px;}
 .range-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:4px;}
-.mini-label{font-size:10px;color:var(--text3);display:block;margin-bottom:3px;}
+.mini-label{font-size:11px;color:var(--text3);display:block;margin-bottom:3px;}
 .search-wrap{position:relative;margin-bottom:4px;}
-.search-wrap input[type=text]{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--sans);font-size:12px;padding:7px 28px 7px 10px;outline:none;transition:border-color 0.2s;}
+.search-wrap input[type=text]{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--sans);font-size:13px;padding:7px 28px 7px 10px;outline:none;transition:border-color 0.2s;}
 .search-wrap input[type=text]:focus{border-color:var(--accent);}
-.search-wrap::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none;font-size:12px;}
+.search-wrap::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none;font-size:13px;}
 .dropdown-list{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);max-height:180px;overflow-y:auto;z-index:200;display:none;}
 .dropdown-list.open{display:block;}
-.dropdown-list .opt{padding:7px 10px;cursor:pointer;font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background 0.1s,color 0.1s;}
+.dropdown-list .opt{padding:7px 10px;cursor:pointer;font-size:13px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background 0.1s,color 0.1s;}
 .dropdown-list .opt:hover{background:rgba(91,141,238,0.1);color:var(--text);}
 .dropdown-list .opt.selected{color:var(--accent);}
-.dropdown-list .no-results{padding:8px 10px;font-size:12px;color:var(--text3);font-style:italic;}
-.dropdown-list .tag{font-family:var(--mono);font-size:10px;font-weight:700;margin-right:5px;}
-.alert{border-radius:var(--radius);padding:8px 10px;font-size:11px;line-height:1.5;margin-top:8px;}
+.dropdown-list .no-results{padding:8px 10px;font-size:13px;color:var(--text3);font-style:italic;}
+.dropdown-list .tag{font-family:var(--mono);font-size:11px;font-weight:700;margin-right:5px;}
+.alert{border-radius:var(--radius);padding:8px 10px;font-size:12px;line-height:1.5;margin-top:8px;}
 .alert.warn{background:rgba(232,160,74,0.1);border:1px solid rgba(232,160,74,0.3);color:var(--warn);}
 .alert.danger{background:rgba(224,92,92,0.1);border:1px solid rgba(224,92,92,0.3);color:var(--danger);}
 .alert.success{background:rgba(76,175,125,0.1);border:1px solid rgba(76,175,125,0.3);color:var(--success);}
 .empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--text3);padding:40px;}
 .empty-icon{font-size:40px;opacity:0.3;}
-.empty-title{font-size:15px;color:var(--text2);}
-.empty-sub{font-size:12px;text-align:center;max-width:280px;line-height:1.6;}
+.empty-title{font-size:16px;color:var(--text2);}
+.empty-sub{font-size:13px;text-align:center;max-width:280px;line-height:1.6;}
 #plotArea{padding:16px;}
 #plotDiv{border-radius:var(--radius-lg);overflow:hidden;border:1px solid var(--border);}
 #renderErrors{margin-bottom:12px;}
-.render-error{background:rgba(224,92,92,0.1);border:1px solid rgba(224,92,92,0.3);color:var(--danger);border-radius:var(--radius);padding:8px 10px;font-size:11px;margin-bottom:6px;}
-.render-warning{background:rgba(232,160,74,0.1);border:1px solid rgba(232,160,74,0.3);color:var(--warn);border-radius:var(--radius);padding:8px 10px;font-size:11px;margin-bottom:6px;}
+.render-error{background:rgba(224,92,92,0.1);border:1px solid rgba(224,92,92,0.3);color:var(--danger);border-radius:var(--radius);padding:8px 10px;font-size:12px;margin-bottom:6px;}
+.render-warning{background:rgba(232,160,74,0.1);border:1px solid rgba(232,160,74,0.3);color:var(--warn);border-radius:var(--radius);padding:8px 10px;font-size:12px;margin-bottom:6px;}
 #savedStrip{border-top:1px solid var(--border);padding:10px 16px;flex-shrink:0;background:var(--panel);}
 .saved-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
 .saved-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;}
@@ -162,48 +162,48 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
 .saved-card:hover{border-color:var(--accent);}
 .saved-card.active-card{border-color:var(--accent);}
 .saved-thumb{width:100%;height:90px;object-fit:cover;display:block;}
-.saved-thumb-placeholder{width:100%;height:90px;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--text3);font-size:10px;font-family:var(--mono);}
+.saved-thumb-placeholder{width:100%;height:90px;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--text3);font-size:11px;font-family:var(--mono);}
 .saved-card-footer{padding:6px 8px;display:flex;align-items:center;gap:4px;}
-.saved-card-title{flex:1;background:transparent;border:none;color:var(--text2);font-family:var(--sans);font-size:11px;outline:none;min-width:0;}
-.saved-del{background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 4px;border-radius:3px;line-height:1;transition:color 0.15s;}
+.saved-card-title{flex:1;background:transparent;border:none;color:var(--text2);font-family:var(--sans);font-size:12px;outline:none;min-width:0;}
+.saved-del{background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:15px;padding:2px 4px;border-radius:3px;line-height:1;transition:color 0.15s;}
 .saved-del:hover{color:var(--danger);}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;}
 .modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-lg);width:100%;max-width:520px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.5);}
 .modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0;}
-.modal-title{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:0.06em;color:var(--text);}
+.modal-title{font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:0.06em;color:var(--text);}
 .modal-close{background:none;border:none;color:var(--text3);cursor:pointer;font-size:20px;line-height:1;padding:0 4px;border-radius:4px;transition:color 0.15s;}
 .modal-close:hover{color:var(--danger);}
 .modal-body{padding:20px;overflow-y:auto;flex:1;}
 .modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;}
-.modal-error{flex:1;font-size:11px;color:var(--danger);}
+.modal-error{flex:1;font-size:12px;color:var(--danger);}
 .modal-field{margin-bottom:14px;}
-.modal-label{display:block;font-size:11px;color:var(--text2);margin-bottom:6px;}
+.modal-label{display:block;font-size:12px;color:var(--text2);margin-bottom:6px;}
 .modal-label .required{color:var(--danger);margin-left:2px;}
 .field-disabled{opacity:0.4;pointer-events:none;}
-.field-hint{font-size:10px;color:var(--text3);margin-top:4px;font-style:italic;}
+.field-hint{font-size:11px;color:var(--text3);margin-top:4px;font-style:italic;}
 .chart-type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
-.ct-btn{padding:8px;border:1px solid var(--border2);border-radius:var(--radius);background:transparent;color:var(--text2);font-family:var(--mono);font-size:10px;letter-spacing:0.05em;text-transform:uppercase;cursor:pointer;transition:all 0.15s;text-align:center;}
+.ct-btn{padding:8px;border:1px solid var(--border2);border-radius:var(--radius);background:transparent;color:var(--text2);font-family:var(--mono);font-size:11px;letter-spacing:0.05em;text-transform:uppercase;cursor:pointer;transition:all 0.15s;text-align:center;}
 .ct-btn:hover{border-color:var(--accent);color:var(--accent);}
 .ct-btn.active{background:rgba(91,141,238,0.12);border-color:var(--accent);color:var(--accent);}
-.modal-section-title{font-family:var(--mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin:16px 0 10px;padding-top:14px;border-top:1px solid var(--border);}
+.modal-section-title{font-family:var(--mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin:16px 0 10px;padding-top:14px;border-top:1px solid var(--border);}
 .filter-list{display:flex;flex-direction:column;gap:6px;margin-bottom:8px;}
 .filter-row{display:flex;align-items:center;gap:6px;}
-.filter-row select,.filter-row input[type=text]{background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--sans);font-size:11px;padding:5px 8px;outline:none;transition:border-color 0.2s;}
+.filter-row select,.filter-row input[type=text]{background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--sans);font-size:12px;padding:5px 8px;outline:none;transition:border-color 0.2s;}
 .filter-row select:focus,.filter-row input[type=text]:focus{border-color:var(--accent);}
 .filter-col{flex:2;min-width:0;}
 .filter-op{flex:1;min-width:60px;}
 .filter-val{flex:2;min-width:0;}
 .filter-val-cell{display:flex;gap:4px;flex:2;min-width:0;}
 .filter-val-cell .filter-val{flex:1;width:100%;min-width:0;}
-.filter-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0 4px;line-height:1;transition:color 0.15s;flex-shrink:0;}
+.filter-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:15px;padding:0 4px;line-height:1;transition:color 0.15s;flex-shrink:0;}
 .filter-del:hover{color:var(--danger);}
 .filter-ena{cursor:pointer;flex-shrink:0;}
-.filter-count{font-family:var(--mono);font-size:10px;color:var(--text3);}
-.help-table{width:100%;border-collapse:collapse;font-size:12px;}
-.help-table th{text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);padding:12px 0 6px;}
+.filter-count{font-family:var(--mono);font-size:11px;color:var(--text3);}
+.help-table{width:100%;border-collapse:collapse;font-size:13px;}
+.help-table th{text-align:left;font-family:var(--mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);padding:12px 0 6px;}
 .help-table td{padding:4px 0;color:var(--text2);}
 .help-table td:first-child{width:140px;}
-.help-table kbd{font-family:var(--mono);font-size:10px;background:var(--bg);border:1px solid var(--border2);border-radius:4px;padding:2px 6px;color:var(--accent);}
+.help-table kbd{font-family:var(--mono);font-size:11px;background:var(--bg);border:1px solid var(--border2);border-radius:4px;padding:2px 6px;color:var(--accent);}
 
 </style>
 </head>
@@ -277,6 +277,7 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
         <div class="check-row" style="margin-top:10px;">
           <label><input type="checkbox" id="majorGrid" checked /> Major grid</label>
           <label><input type="checkbox" id="minorGrid" /> Minor grid</label>
+          <label><input type="checkbox" id="showLegend" checked /> Legend</label>
         </div>
       </div>
     </details>
@@ -309,10 +310,10 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
             <span class="slider-val" id="markerOpacityVal">80%</span>
           </div>
         </label>
-        <label class="ctrl-label">Edge color
+        <label class="ctrl-label">Marker edge (color · width)
           <div class="edge-row">
-            <input type="color" class="edge-color" id="edgeColor" value="#333333" />
-            <input type="range" id="edgeWidth" min="0" max="4" step="0.5" value="0.5" />
+            <input type="color" class="edge-color" id="edgeColor" value="#333333" aria-label="Marker edge color" />
+            <input type="range" id="edgeWidth" min="0" max="4" step="0.5" value="0.5" aria-label="Marker edge width" />
             <span class="slider-val" id="edgeWidthVal">0.5</span>
           </div>
         </label>
@@ -338,6 +339,66 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
           <div class="slider-row">
             <input type="range" id="figH" min="300" max="1200" step="50" value="500" />
             <input type="number" class="slider-num" id="figHNum" value="500" min="300" max="1200" />
+          </div>
+        </label>
+      </div>
+    </details>
+
+    <!-- Plot typography (Phase 6 — completes the Phase 1 deliverable) -->
+    <details class="section">
+      <summary>Plot typography</summary>
+      <div class="details-body">
+        <label class="ctrl-label">Title size
+          <div class="slider-row">
+            <input type="range" id="fsTitle" min="10" max="28" value="14" />
+            <span class="slider-val" id="fsTitleVal">14</span>
+          </div>
+        </label>
+        <label class="ctrl-label">Axis label size
+          <div class="slider-row">
+            <input type="range" id="fsAxis" min="8" max="22" value="12" />
+            <span class="slider-val" id="fsAxisVal">12</span>
+          </div>
+        </label>
+        <label class="ctrl-label">Tick label size
+          <div class="slider-row">
+            <input type="range" id="fsTick" min="6" max="18" value="10" />
+            <span class="slider-val" id="fsTickVal">10</span>
+          </div>
+        </label>
+        <label class="ctrl-label">Legend size
+          <div class="slider-row">
+            <input type="range" id="fsLegend" min="8" max="20" value="11" />
+            <span class="slider-val" id="fsLegendVal">11</span>
+          </div>
+        </label>
+        <label class="ctrl-label">Annotation size
+          <div class="slider-row">
+            <input type="range" id="fsAnnot" min="8" max="20" value="11" />
+            <span class="slider-val" id="fsAnnotVal">11</span>
+          </div>
+        </label>
+      </div>
+    </details>
+
+    <!-- Plot frame (Phase 6) — auto follows the background theme -->
+    <details class="section">
+      <summary>Plot frame</summary>
+      <div class="details-body">
+        <label class="ctrl-label">Axis lines
+          <div class="edge-row">
+            <label class="check-row" style="margin:0"><input type="checkbox" id="frameAuto" checked /> auto</label>
+            <input type="color" class="edge-color" id="frameColor" value="#aaaaaa" disabled aria-label="Axis line color" />
+            <input type="range" id="frameWidth" min="0.5" max="4" step="0.5" value="1" aria-label="Axis line width" />
+            <span class="slider-val" id="frameWidthVal">1</span>
+          </div>
+        </label>
+        <label class="ctrl-label">Gridlines
+          <div class="edge-row">
+            <label class="check-row" style="margin:0"><input type="checkbox" id="gridAuto" checked /> auto</label>
+            <input type="color" class="edge-color" id="gridColor" value="#e0e0e0" disabled aria-label="Gridline color" />
+            <input type="range" id="gridWidth" min="0.5" max="3" step="0.5" value="1" aria-label="Gridline width" />
+            <span class="slider-val" id="gridWidthVal">1</span>
           </div>
         </label>
       </div>
@@ -1645,7 +1706,9 @@ function renderPlot() {
       showarrow: false,
       bgcolor: th.annotBg,
       bordercolor: th.annotBorder, borderwidth: 1, borderpad: 8,
-      font: { family: 'JetBrains Mono,monospace', size: 11, color: th.title },
+      font: { family: 'JetBrains Mono,monospace',
+              size: parseFloat(document.getElementById('fsAnnot')?.value) || 11,
+              color: th.title },
       align: 'left',
     }));
     parityResults.forEach(p => srParts.unshift(
@@ -1664,6 +1727,22 @@ function renderPlot() {
     displaylogo: false,
     edits: { legendPosition: true, annotationPosition: true },
   });
+
+  // Persist a dragged legend so re-renders stop snapping it back to the
+  // default corner (Phase 6). Hook survives react; re-bound after clearPlot
+  // because that replaces the node.
+  const pd = document.getElementById('plotDiv');
+  if (!pd._legendHooked) {
+    pd.on('plotly_relayout', e => {
+      if (e['legend.x'] !== undefined || e['legend.y'] !== undefined) {
+        appState.plotConfig.legendPos = {
+          x: e['legend.x'] ?? appState.plotConfig.legendPos?.x ?? 0.01,
+          y: e['legend.y'] ?? appState.plotConfig.legendPos?.y ?? 0.99,
+        };
+      }
+    });
+    pd._legendHooked = true;
+  }
 
   appState.plotRendered = true;
   document.getElementById('emptyState').classList.add('hidden');
@@ -1718,39 +1797,57 @@ function plotTheme() {
 
 function buildBaseLayout() {
   const cfg  = appState.plotConfig;
-  const figW = parseInt(document.getElementById('figW')?.value  ?? 700);
-  const figH = parseInt(document.getElementById('figH')?.value  ?? 500);
+  const iv = (id, dflt) => { const v = parseFloat(document.getElementById(id)?.value); return Number.isFinite(v) ? v : dflt; };
+  const figW = iv('figW', 700), figH = iv('figH', 500);
   const showMaj = document.getElementById('majorGrid')?.checked ?? true;
   const showMin = document.getElementById('minorGrid')?.checked ?? false;
   const th = plotTheme();
+
+  // Plot typography (Phase 6 — completes the Phase 1 deliverable)
+  const fsT = iv('fsTitle', 14), fsA = iv('fsAxis', 12), fsTk = iv('fsTick', 10);
+  const fsL = iv('fsLegend', 11);
+
+  // Frame controls: "auto" follows the background-luminance theme; an
+  // explicit value overrides until the auto box is re-checked
+  const frameAuto  = document.getElementById('frameAuto')?.checked ?? true;
+  const gridAuto   = document.getElementById('gridAuto')?.checked  ?? true;
+  const frameColor = frameAuto ? th.axis : (document.getElementById('frameColor')?.value ?? th.axis);
+  const gridColor  = gridAuto  ? th.grid : (document.getElementById('gridColor')?.value  ?? th.grid);
+  const frameWidth = iv('frameWidth', 1);
+  const gridWidth  = iv('gridWidth', 1);
 
   const xRange = getManualRange('xMin', 'xMax');
   const yRange = getManualRange('yMin', 'yMax');
 
   const axisBase = {
-    showgrid: showMaj, gridcolor: showMaj ? th.grid : 'rgba(0,0,0,0)', gridwidth: 1,
-    minor: { showgrid: showMin, gridcolor: th.minor, gridwidth: 0.5 },
-    zerolinecolor: th.axis, zerolinewidth: 1,
-    linecolor: th.axis, linewidth: 1, mirror: true,
-    tickfont: { family: 'JetBrains Mono,monospace', size: 10, color: th.tick },
-    tickcolor: th.axis,
+    showgrid: showMaj, gridcolor: showMaj ? gridColor : 'rgba(0,0,0,0)', gridwidth: gridWidth,
+    minor: { showgrid: showMin, gridcolor: th.minor, gridwidth: Math.max(0.5, gridWidth / 2) },
+    zerolinecolor: frameColor, zerolinewidth: frameWidth,
+    linecolor: frameColor, linewidth: frameWidth, mirror: true,
+    tickfont: { family: 'JetBrains Mono,monospace', size: fsTk, color: th.tick },
+    tickcolor: frameColor,
   };
+
+  // Dragged legend position persists in state (plotly_relayout hook below);
+  // default is top-left
+  const legendPos = cfg.legendPos ?? { x: 0.01, y: 0.99 };
 
   return {
     paper_bgcolor: th.bg, plot_bgcolor: th.bg,
     width: figW, height: figH,
     font: { family: 'IBM Plex Sans,system-ui,sans-serif', color: th.text, size: 12 },
+    showlegend: cfg.legendShow ?? true,
     title: {
       text: cfg.titleLocked ? document.getElementById('inputTitle').value : autoTitle(),
       x: 0.5, xanchor: 'center', xref: 'paper',
-      font: { size: 14, color: th.title },
+      font: { size: fsT, color: th.title },
     },
     xaxis: {
       ...axisBase,
       range: xRange,
       title: {
         text: cfg.xLabelLocked ? document.getElementById('inputXLabel').value : autoXLabel(),
-        font: { size: 12, color: th.axisTitle },
+        font: { size: fsA, color: th.axisTitle },
       },
     },
     yaxis: {
@@ -1758,15 +1855,19 @@ function buildBaseLayout() {
       range: yRange,
       title: {
         text: cfg.yLabelLocked ? document.getElementById('inputYLabel').value : autoYLabel(),
-        font: { size: 12, color: th.axisTitle },
+        font: { size: fsA, color: th.axisTitle },
       },
     },
     legend: {
-      font: { size: 11, color: th.text },
+      font: { size: fsL, color: th.text },
       bgcolor: th.legendBg, bordercolor: th.legendBorder, borderwidth: 1,
-      x: 0.01, y: 0.99, xanchor: 'left', yanchor: 'top',
+      x: legendPos.x, y: legendPos.y, xanchor: 'left', yanchor: 'top',
     },
-    margin: { l: 60, r: 30, t: 50, b: 60 },
+    // Margins scale with the fonts so large labels are not clipped on export
+    margin: {
+      l: Math.round(28 + fsA + fsTk * 2.4), r: 30,
+      t: Math.round(20 + fsT * 2), b: Math.round(24 + fsA + fsTk * 2),
+    },
   };
 }
 
@@ -1842,9 +1943,13 @@ function downloadPlot(format = 'png') {
 // ── Style presets ─────────────────────────────────────────────────────────
 
 const PRESET_SCHEMA = 'datalab-style-preset-v1';
+// Phase 6 added typography and frame fields — additive, same schema marker;
+// presets saved before then simply lack the keys and leave defaults alone
 const PRESET_FIELDS = ['plotBg', 'cmapSelect', 'markerSize', 'markerOpacity',
-                       'edgeColor', 'edgeWidth', 'figW', 'figH'];
-const PRESET_CHECKS = ['majorGrid', 'minorGrid'];
+                       'edgeColor', 'edgeWidth', 'figW', 'figH',
+                       'fsTitle', 'fsAxis', 'fsTick', 'fsLegend', 'fsAnnot',
+                       'frameColor', 'frameWidth', 'gridColor', 'gridWidth'];
+const PRESET_CHECKS = ['majorGrid', 'minorGrid', 'showLegend', 'frameAuto', 'gridAuto'];
 
 function savePreset() {
   const preset = { _schema: PRESET_SCHEMA };
@@ -1873,11 +1978,21 @@ function loadPresetFile(file) {
       if (el && preset[id] != null) el.checked = preset[id];
     });
     // Sync slider value displays and number twins
-    document.getElementById('markerSizeVal').textContent    = document.getElementById('markerSize').value;
-    document.getElementById('markerOpacityVal').textContent = document.getElementById('markerOpacity').value + '%';
-    document.getElementById('edgeWidthVal').textContent     = document.getElementById('edgeWidth').value;
+    [['markerSize','markerSizeVal',''], ['markerOpacity','markerOpacityVal','%'],
+     ['edgeWidth','edgeWidthVal',''], ['fsTitle','fsTitleVal',''], ['fsAxis','fsAxisVal',''],
+     ['fsTick','fsTickVal',''], ['fsLegend','fsLegendVal',''], ['fsAnnot','fsAnnotVal',''],
+     ['frameWidth','frameWidthVal',''], ['gridWidth','gridWidthVal','']
+    ].forEach(([id, valId, suffix]) => {
+      const el = document.getElementById(id), val = document.getElementById(valId);
+      if (el && val) val.textContent = el.value + suffix;
+    });
     document.getElementById('figWNum').value = document.getElementById('figW').value;
     document.getElementById('figHNum').value = document.getElementById('figH').value;
+    // Frame auto state drives the color inputs' enabled state
+    document.getElementById('frameColor').disabled = document.getElementById('frameAuto').checked;
+    document.getElementById('gridColor').disabled  = document.getElementById('gridAuto').checked;
+    // Legend visibility mirrors into plotConfig (sessions round-trip it)
+    appState.plotConfig.legendShow = document.getElementById('showLegend').checked;
     if (appState.plotRendered) renderPlot();
   };
   reader.readAsText(file);
@@ -1996,6 +2111,10 @@ function applySessionState(st) {
   renderSeriesList();
   updateRenderBtn();
   showDataAlerts(null, []);
+
+  // Mirror session-carried plotConfig flags back into their UI controls
+  const legendCb = document.getElementById('showLegend');
+  if (legendCb) legendCb.checked = appState.plotConfig.legendShow ?? true;
 
   // Rebuild the saved plots strip
   const strip = document.getElementById('savedScroll');
@@ -2734,12 +2853,34 @@ function init() {
   syncSlider('markerSize',    'markerSizeVal',    '');
   syncSlider('markerOpacity', 'markerOpacityVal', '%');
   syncSlider('edgeWidth',     'edgeWidthVal',     '');
+  syncSlider('fsTitle',  'fsTitleVal',  '');
+  syncSlider('fsAxis',   'fsAxisVal',   '');
+  syncSlider('fsTick',   'fsTickVal',   '');
+  syncSlider('fsLegend', 'fsLegendVal', '');
+  syncSlider('fsAnnot',  'fsAnnotVal',  '');
+  syncSlider('frameWidth', 'frameWidthVal', '');
+  syncSlider('gridWidth',  'gridWidthVal',  '');
   syncSliderNum('figW', 'figWNum');
   syncSliderNum('figH', 'figHNum');
 
   // Re-render on style changes
-  ['plotBg','cmapSelect','edgeColor','majorGrid','minorGrid'].forEach(id => {
+  ['plotBg','cmapSelect','edgeColor','majorGrid','minorGrid','frameColor','gridColor'].forEach(id => {
     g(id)?.addEventListener('change', () => { if (appState.plotRendered) renderPlot(); });
+  });
+
+  // Frame "auto" checkboxes: auto = follow the background theme; unchecking
+  // enables the explicit color input (Phase 6, approved design)
+  [['frameAuto', 'frameColor'], ['gridAuto', 'gridColor']].forEach(([autoId, colorId]) => {
+    g(autoId).addEventListener('change', () => {
+      g(colorId).disabled = g(autoId).checked;
+      if (appState.plotRendered) renderPlot();
+    });
+  });
+
+  // Legend visibility lives in plotConfig so sessions round-trip it
+  g('showLegend').addEventListener('change', () => {
+    appState.plotConfig.legendShow = g('showLegend').checked;
+    if (appState.plotRendered) renderPlot();
   });
 
   // beforeunload guard — warn if there are unsaved series or unsaved plot changes

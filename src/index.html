@@ -78,6 +78,7 @@
         <div class="check-row" style="margin-top:10px;">
           <label><input type="checkbox" id="majorGrid" checked /> Major grid</label>
           <label><input type="checkbox" id="minorGrid" /> Minor grid</label>
+          <label><input type="checkbox" id="showLegend" checked /> Legend</label>
         </div>
       </div>
     </details>
@@ -110,10 +111,10 @@
             <span class="slider-val" id="markerOpacityVal">80%</span>
           </div>
         </label>
-        <label class="ctrl-label">Edge color
+        <label class="ctrl-label">Marker edge (color · width)
           <div class="edge-row">
-            <input type="color" class="edge-color" id="edgeColor" value="#333333" />
-            <input type="range" id="edgeWidth" min="0" max="4" step="0.5" value="0.5" />
+            <input type="color" class="edge-color" id="edgeColor" value="#333333" aria-label="Marker edge color" />
+            <input type="range" id="edgeWidth" min="0" max="4" step="0.5" value="0.5" aria-label="Marker edge width" />
             <span class="slider-val" id="edgeWidthVal">0.5</span>
           </div>
         </label>
@@ -139,6 +140,66 @@
           <div class="slider-row">
             <input type="range" id="figH" min="300" max="1200" step="50" value="500" />
             <input type="number" class="slider-num" id="figHNum" value="500" min="300" max="1200" />
+          </div>
+        </label>
+      </div>
+    </details>
+
+    <!-- Plot typography (Phase 6 — completes the Phase 1 deliverable) -->
+    <details class="section">
+      <summary>Plot typography</summary>
+      <div class="details-body">
+        <label class="ctrl-label">Title size
+          <div class="slider-row">
+            <input type="range" id="fsTitle" min="10" max="28" value="14" />
+            <span class="slider-val" id="fsTitleVal">14</span>
+          </div>
+        </label>
+        <label class="ctrl-label">Axis label size
+          <div class="slider-row">
+            <input type="range" id="fsAxis" min="8" max="22" value="12" />
+            <span class="slider-val" id="fsAxisVal">12</span>
+          </div>
+        </label>
+        <label class="ctrl-label">Tick label size
+          <div class="slider-row">
+            <input type="range" id="fsTick" min="6" max="18" value="10" />
+            <span class="slider-val" id="fsTickVal">10</span>
+          </div>
+        </label>
+        <label class="ctrl-label">Legend size
+          <div class="slider-row">
+            <input type="range" id="fsLegend" min="8" max="20" value="11" />
+            <span class="slider-val" id="fsLegendVal">11</span>
+          </div>
+        </label>
+        <label class="ctrl-label">Annotation size
+          <div class="slider-row">
+            <input type="range" id="fsAnnot" min="8" max="20" value="11" />
+            <span class="slider-val" id="fsAnnotVal">11</span>
+          </div>
+        </label>
+      </div>
+    </details>
+
+    <!-- Plot frame (Phase 6) — auto follows the background theme -->
+    <details class="section">
+      <summary>Plot frame</summary>
+      <div class="details-body">
+        <label class="ctrl-label">Axis lines
+          <div class="edge-row">
+            <label class="check-row" style="margin:0"><input type="checkbox" id="frameAuto" checked /> auto</label>
+            <input type="color" class="edge-color" id="frameColor" value="#aaaaaa" disabled aria-label="Axis line color" />
+            <input type="range" id="frameWidth" min="0.5" max="4" step="0.5" value="1" aria-label="Axis line width" />
+            <span class="slider-val" id="frameWidthVal">1</span>
+          </div>
+        </label>
+        <label class="ctrl-label">Gridlines
+          <div class="edge-row">
+            <label class="check-row" style="margin:0"><input type="checkbox" id="gridAuto" checked /> auto</label>
+            <input type="color" class="edge-color" id="gridColor" value="#e0e0e0" disabled aria-label="Gridline color" />
+            <input type="range" id="gridWidth" min="0.5" max="3" step="0.5" value="1" aria-label="Gridline width" />
+            <span class="slider-val" id="gridWidthVal">1</span>
           </div>
         </label>
       </div>

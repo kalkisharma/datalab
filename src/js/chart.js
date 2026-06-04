@@ -110,7 +110,9 @@ function renderPlot() {
       showarrow: false,
       bgcolor: th.annotBg,
       bordercolor: th.annotBorder, borderwidth: 1, borderpad: 8,
-      font: { family: 'JetBrains Mono,monospace', size: 11, color: th.title },
+      font: { family: 'JetBrains Mono,monospace',
+              size: parseFloat(document.getElementById('fsAnnot')?.value) || 11,
+              color: th.title },
       align: 'left',
     }));
     parityResults.forEach(p => srParts.unshift(
@@ -129,6 +131,22 @@ function renderPlot() {
     displaylogo: false,
     edits: { legendPosition: true, annotationPosition: true },
   });
+
+  // Persist a dragged legend so re-renders stop snapping it back to the
+  // default corner (Phase 6). Hook survives react; re-bound after clearPlot
+  // because that replaces the node.
+  const pd = document.getElementById('plotDiv');
+  if (!pd._legendHooked) {
+    pd.on('plotly_relayout', e => {
+      if (e['legend.x'] !== undefined || e['legend.y'] !== undefined) {
+        appState.plotConfig.legendPos = {
+          x: e['legend.x'] ?? appState.plotConfig.legendPos?.x ?? 0.01,
+          y: e['legend.y'] ?? appState.plotConfig.legendPos?.y ?? 0.99,
+        };
+      }
+    });
+    pd._legendHooked = true;
+  }
 
   appState.plotRendered = true;
   document.getElementById('emptyState').classList.add('hidden');
@@ -183,39 +201,57 @@ function plotTheme() {
 
 function buildBaseLayout() {
   const cfg  = appState.plotConfig;
-  const figW = parseInt(document.getElementById('figW')?.value  ?? 700);
-  const figH = parseInt(document.getElementById('figH')?.value  ?? 500);
+  const iv = (id, dflt) => { const v = parseFloat(document.getElementById(id)?.value); return Number.isFinite(v) ? v : dflt; };
+  const figW = iv('figW', 700), figH = iv('figH', 500);
   const showMaj = document.getElementById('majorGrid')?.checked ?? true;
   const showMin = document.getElementById('minorGrid')?.checked ?? false;
   const th = plotTheme();
+
+  // Plot typography (Phase 6 — completes the Phase 1 deliverable)
+  const fsT = iv('fsTitle', 14), fsA = iv('fsAxis', 12), fsTk = iv('fsTick', 10);
+  const fsL = iv('fsLegend', 11);
+
+  // Frame controls: "auto" follows the background-luminance theme; an
+  // explicit value overrides until the auto box is re-checked
+  const frameAuto  = document.getElementById('frameAuto')?.checked ?? true;
+  const gridAuto   = document.getElementById('gridAuto')?.checked  ?? true;
+  const frameColor = frameAuto ? th.axis : (document.getElementById('frameColor')?.value ?? th.axis);
+  const gridColor  = gridAuto  ? th.grid : (document.getElementById('gridColor')?.value  ?? th.grid);
+  const frameWidth = iv('frameWidth', 1);
+  const gridWidth  = iv('gridWidth', 1);
 
   const xRange = getManualRange('xMin', 'xMax');
   const yRange = getManualRange('yMin', 'yMax');
 
   const axisBase = {
-    showgrid: showMaj, gridcolor: showMaj ? th.grid : 'rgba(0,0,0,0)', gridwidth: 1,
-    minor: { showgrid: showMin, gridcolor: th.minor, gridwidth: 0.5 },
-    zerolinecolor: th.axis, zerolinewidth: 1,
-    linecolor: th.axis, linewidth: 1, mirror: true,
-    tickfont: { family: 'JetBrains Mono,monospace', size: 10, color: th.tick },
-    tickcolor: th.axis,
+    showgrid: showMaj, gridcolor: showMaj ? gridColor : 'rgba(0,0,0,0)', gridwidth: gridWidth,
+    minor: { showgrid: showMin, gridcolor: th.minor, gridwidth: Math.max(0.5, gridWidth / 2) },
+    zerolinecolor: frameColor, zerolinewidth: frameWidth,
+    linecolor: frameColor, linewidth: frameWidth, mirror: true,
+    tickfont: { family: 'JetBrains Mono,monospace', size: fsTk, color: th.tick },
+    tickcolor: frameColor,
   };
+
+  // Dragged legend position persists in state (plotly_relayout hook below);
+  // default is top-left
+  const legendPos = cfg.legendPos ?? { x: 0.01, y: 0.99 };
 
   return {
     paper_bgcolor: th.bg, plot_bgcolor: th.bg,
     width: figW, height: figH,
     font: { family: 'IBM Plex Sans,system-ui,sans-serif', color: th.text, size: 12 },
+    showlegend: cfg.legendShow ?? true,
     title: {
       text: cfg.titleLocked ? document.getElementById('inputTitle').value : autoTitle(),
       x: 0.5, xanchor: 'center', xref: 'paper',
-      font: { size: 14, color: th.title },
+      font: { size: fsT, color: th.title },
     },
     xaxis: {
       ...axisBase,
       range: xRange,
       title: {
         text: cfg.xLabelLocked ? document.getElementById('inputXLabel').value : autoXLabel(),
-        font: { size: 12, color: th.axisTitle },
+        font: { size: fsA, color: th.axisTitle },
       },
     },
     yaxis: {
@@ -223,15 +259,19 @@ function buildBaseLayout() {
       range: yRange,
       title: {
         text: cfg.yLabelLocked ? document.getElementById('inputYLabel').value : autoYLabel(),
-        font: { size: 12, color: th.axisTitle },
+        font: { size: fsA, color: th.axisTitle },
       },
     },
     legend: {
-      font: { size: 11, color: th.text },
+      font: { size: fsL, color: th.text },
       bgcolor: th.legendBg, bordercolor: th.legendBorder, borderwidth: 1,
-      x: 0.01, y: 0.99, xanchor: 'left', yanchor: 'top',
+      x: legendPos.x, y: legendPos.y, xanchor: 'left', yanchor: 'top',
     },
-    margin: { l: 60, r: 30, t: 50, b: 60 },
+    // Margins scale with the fonts so large labels are not clipped on export
+    margin: {
+      l: Math.round(28 + fsA + fsTk * 2.4), r: 30,
+      t: Math.round(20 + fsT * 2), b: Math.round(24 + fsA + fsTk * 2),
+    },
   };
 }
 
