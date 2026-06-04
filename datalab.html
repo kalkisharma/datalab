@@ -1003,7 +1003,9 @@ function saveModalSeries() {
   if (!yCol && chartType !== 'histogram')    { err.textContent = 'Y column is required.'; return false; }
 
   const ds    = appState.datasets.find(d => d.id === dsId);
-  const autoName = name || `${chartType} · ${escHtml(ds?.name ?? dsId)}`;
+  // Raw name stored in state per the escaping contract (data.js) — escHtml
+  // here would double-escape at every display site
+  const autoName = name || `${chartType} · ${ds?.name ?? dsId}`;
 
   const series = {
     id:        _editingSeriesId || uid(),
