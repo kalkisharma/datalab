@@ -1,5 +1,36 @@
 # Changelog
 
+## v2.0.0 — Multi-Plot Live Grid
+
+### Features
+- **Multiple live plots side by side.** + Plot adds a panel; the grid
+  auto-arranges (1 full width, 2 side by side, up to 2×2, then 3 columns)
+- Each plot owns its title, axis labels, axis ranges, and legend; the
+  Plot settings panel edits whichever plot is **active** (click a panel)
+- Each series belongs to a plot — the series editor gains a Plot picker
+  and the series list shows plot chips when the grid has several
+- Panels size themselves to their grid cell; the Figure size sliders now
+  set the **export** size. Saves, PNG/SVG export, and the correlation
+  heatmap operate on the active panel
+- Deleting a plot deletes its series (confirmation shown); the last plot
+  cannot be deleted
+
+### Why v2.0.0
+The session state schema changed in a breaking way (per-plot
+configuration, series→plot assignment). **Session files from any v1.x
+load automatically** — they migrate into a single-plot grid with nothing
+lost — but files saved by v2 cannot be read by v1.x.
+
+## Schema
+
+### v2.0.0 (state version 2 — first real migration)
+- `plotConfig` (singleton) replaced by `plots: [{ id, name, plotConfig }]`
+- `series.plotId` added (every series belongs to a plot)
+- `activePlotId` added
+- Migration v1→v2: the old `plotConfig` becomes `plots[0]` ("Plot 1");
+  every series is assigned to it. Newer-version files are refused with a
+  clear message.
+
 ## v1.2.0 — Plot Controls & UI Polish
 
 Sourced from maintainer review of v1.1.0.

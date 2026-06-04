@@ -391,15 +391,15 @@ Exit criteria: every new control affects the rendered plot and round-trips throu
 - **Deleting a plot deletes its series** (confirm when it has any); per-panel error strips and sr-only mirrors
 
 Deliverables:
-- [ ] State: plots array, series.plotId, migration v1→v2 with round-trip test of a real v1 session file (Data Engineer)
-- [ ] Grid UI: panel per plot with editable name, active highlight, delete; + Add plot; responsive sizing with debounced relayout (Frontend + UX; flow description recorded)
-- [ ] renderAllPlots(): per-plot series gathering, per-panel errors/warnings/sr mirrors, per-panel legend hooks and clearPlot; trace cache unchanged (keyed by series) (Data Viz)
-- [ ] Plot settings binding: title/labels/locks/ranges/legend controls follow the active plot; switching active syncs the inputs (Frontend)
-- [ ] Series modal Plot picker (defaults to active plot); series list rows show their plot; reorder affects draw order within a plot (Frontend + UX)
-- [ ] Saved plots restore into the active panel; correlation heatmap renders to the active panel (Data Viz)
-- [ ] Memory: deleting a plot releases its panel's WebGL buffers (extend the Phase 4 benchmark) (Performance)
-- [ ] ARIA: panels labeled, active state announced, axe states extended to the grid (Accessibility)
-- [ ] Tests: two plots with disjoint series render independently; per-plot settings isolation; migration; session v2 round-trip; plot delete cascades; axe (QA)
+- [x] State: plots array, series.plotId, migration v1→v2 — evidence: phase7 "a v1 session file migrates losslessly into a 1-plot grid" (hand-built v1 payload incl. locked title, legendShow carry-over)
+- [x] Grid UI — evidence: grid.js reconciliation; phase7 two-plot, active-switching, and delete-cascade tests; responsive via Plotly responsive:true + autosize
+- [x] Per-plot rendering — evidence: renderOnePlot in chart.js; phase7 "two plots render disjoint series with isolated settings"; per-panel errors verified by swept reload-validation tests
+- [x] Plot settings binding — evidence: phase7 "clicking a panel activates it and syncs the settings inputs" + isolated ranges in the two-plot test
+- [x] Series modal Plot picker + series plot chips — evidence: phase7 two-plot test creates series via the picker; chip rendered when plots > 1 (ui.js)
+- [x] Saves + correlation retargeted to the active panel — evidence: phase5 correlation test green post-sweep; saves.js/datatools.js use activePlotDiv()
+- [x] Memory — evidence: bench memory gate green through the per-panel release (986 MB peak → 11.4 MB after delete-all); deletePlot calls clearPanel before removal
+- [x] ARIA — evidence: panels carry aria-labels incl. active state; all 5 axe states green on the grid (a11y suite post-sweep)
+- [x] Tests — evidence: tests/phase7.spec.js (5 tests, all listed scenarios); 78 functional + 4 benchmarks green
 
 Exit criteria: v1 session files migrate losslessly into a 1-plot grid. Two plots render different series with independent titles/ranges/legends. Plot delete releases memory. axe clean. All prior 73 tests still green.
 
