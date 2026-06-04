@@ -78,6 +78,54 @@ test.describe('release benchmarks', () => {
     expect(med).toBeLessThan(2000);
   });
 
-  // Pending since Phase 1; becomes a binding gate (< 5s) at Phase 3
-  test.fixme('cold render: 10 series × 50k rows < 5s (binding from Phase 3)', async () => {});
+  // Binding from Phase 3 (was pending since Phase 1)
+  test('cold render: 10 series × 50k rows < 5s', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.goto(FILE_URL);
+    const cold = await page.evaluate(() => {
+      const rows = [];
+      for (let i = 0; i < 50000; i++) {
+        rows.push({ x: Math.random() * 100, y: Math.random() * 100,
+                    category: 'c' + (i % 10), value: Math.random() });
+      }
+      appState.datasets.push({ id: 'bench', name: 'bench', rows,
+        headers: ['x', 'y', 'category', 'value'], color: '#4e79a7' });
+      for (let k = 0; k < 10; k++) {
+        appState.series.push({ id: 'bs' + k, name: 'bench ' + k, datasetId: 'bench',
+          chartType: 'scatter', xCol: 'x', yCol: 'y', colorCol: null,
+          filters: [], style: { color: '#4e79a7' }, enabled: true });
+      }
+      const t0 = performance.now(); renderPlot();
+      return performance.now() - t0;
+    });
+    console.log(`cold render: ${cold.toFixed(0)} ms (target < 5000)`);
+    expect(cold).toBeLessThan(5000);
+  });
+
+  // Binding from Phase 3
+  test('filter re-evaluation: 100k rows < 500ms (median of 3)', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.goto(FILE_URL);
+    const times = await page.evaluate(() => {
+      const rows = [];
+      for (let i = 0; i < 100000; i++) {
+        rows.push({ v: Math.random() * 100, site: 'site_' + (i % 12) });
+      }
+      const filters = [
+        { col: 'v',    op: 'in_range', value: { min: 20, max: 80 },        enabled: true },
+        { col: 'site', op: 'in_set',   value: ['site_1', 'site_4', 'site_9'], enabled: true },
+        { col: 'v',    op: 'gte',      value: 25,                           enabled: true },
+      ];
+      const out = [];
+      for (let r = 0; r < 3; r++) {
+        const t = performance.now();
+        applyFilters(rows, filters, 'and');
+        out.push(performance.now() - t);
+      }
+      return out;
+    });
+    const med = median(times);
+    console.log(`filter re-eval: ${times.map(v => v.toFixed(0)).join(', ')} ms — median ${med.toFixed(0)} (target < 500)`);
+    expect(med).toBeLessThan(500);
+  });
 });
