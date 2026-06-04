@@ -23,7 +23,7 @@ async function loadAndRender(page) {
 }
 
 const fullLayout = page => page.evaluate(() => {
-  const fl = document.getElementById('plotDiv')._fullLayout;
+  const fl = activePlotDiv()._fullLayout;
   return {
     titleSize:  fl.title.font.size,
     axisSize:   fl.xaxis.title.font.size,
@@ -118,10 +118,10 @@ test('legend toggle hides it; dragged position survives re-render and session ro
 
   // Simulate a legend drag (Plotly emits plotly_relayout with legend.x/y)
   await page.evaluate(() =>
-    Plotly.relayout('plotDiv', { 'legend.x': 0.55, 'legend.y': 0.45 })
+    Plotly.relayout(activePlotDiv(), { 'legend.x': 0.55, 'legend.y': 0.45 })
   );
   await page.waitForTimeout(300);
-  expect(await page.evaluate(() => appState.plotConfig.legendPos)).toEqual({ x: 0.55, y: 0.45 });
+  expect(await page.evaluate(() => activePlot().plotConfig.legendPos)).toEqual({ x: 0.55, y: 0.45 });
 
   // A style-only re-render must NOT snap it back (the Phase 6 fix)
   await page.evaluate(() => renderPlot());
@@ -138,7 +138,7 @@ test('legend toggle hides it; dragged position survives re-render and session ro
     applySessionState(migrateSessionState(JSON.parse(payload).state));
   }, exported);
   await page.waitForTimeout(700);
-  const pos = await page.evaluate(() => appState.plotConfig.legendPos);
+  const pos = await page.evaluate(() => activePlot().plotConfig.legendPos);
   expect(pos).toEqual({ x: 0.55, y: 0.45 });
 });
 
@@ -160,7 +160,7 @@ test('annotation font slider reaches parity stats annotations', async ({ page })
   });
   await page.waitForTimeout(500);
   const size = await page.evaluate(() =>
-    document.getElementById('plotDiv')._fullLayout.annotations[0].font.size);
+    activePlotDiv()._fullLayout.annotations[0].font.size);
   expect(size).toBe(17);
 });
 

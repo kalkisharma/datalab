@@ -68,7 +68,7 @@ test('reload with missing columns warns and produces a clear render error', asyn
 
   // Debounced re-render surfaces a clear render error, not an all-NaN plot
   await page.waitForTimeout(800);
-  const err = page.locator('#renderErrors .render-error');
+  const err = page.locator('.panel-errors .render-error');
   await expect(err).toBeVisible();
   await expect(err).toContainText('missing');
 });

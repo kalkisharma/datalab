@@ -5,7 +5,7 @@
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; worker-src blob:; object-src 'none'; base-uri 'none'; form-action 'none';" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DataLab v1.2.0</title>
+  <title>DataLab v2.0.0</title>
   <style>
 /* style.css — DataLab design system (adapted from parity-plotting) */
 
@@ -79,6 +79,7 @@ details.section>.details-body{padding:0 16px 14px;}
 .series-badge.histogram{background:rgba(224,92,92,0.15);color:var(--danger);}
 .series-badge.boxplot{background:rgba(90,90,114,0.3);color:var(--text);}
 .series-name{flex:1;font-size:13px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+.series-plotchip{font-family:var(--mono);font-size:10px;color:var(--text3);border:1px solid var(--border2);border-radius:4px;padding:1px 5px;flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .series-edit,.series-del,.series-move{background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;border-radius:3px;line-height:1;flex-shrink:0;transition:color 0.15s;}
 .series-move{color:var(--text3);font-size:12px;}
 .series-move:hover:not(:disabled){color:var(--accent);}
@@ -148,9 +149,22 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
 .empty-icon{font-size:40px;opacity:0.3;}
 .empty-title{font-size:16px;color:var(--text2);}
 .empty-sub{font-size:13px;text-align:center;max-width:280px;line-height:1.6;}
-#plotArea{padding:16px;}
-#plotDiv{border-radius:var(--radius-lg);overflow:hidden;border:1px solid var(--border);}
-#renderErrors{margin-bottom:12px;}
+/* ── Plot grid (Phase 7) ── */
+.plot-grid{flex:1;display:grid;gap:12px;padding:16px;overflow:auto;grid-auto-rows:minmax(320px,1fr);}
+.plot-grid.cols-1{grid-template-columns:1fr;}
+.plot-grid.cols-2{grid-template-columns:1fr 1fr;}
+.plot-grid.cols-3{grid-template-columns:1fr 1fr 1fr;}
+.plot-panel{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;background:var(--surface);min-width:0;min-height:0;}
+.plot-panel.active{border-color:var(--accent);}
+.panel-header{display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--border);background:var(--panel);flex-shrink:0;}
+.panel-name{flex:1;background:transparent;border:none;color:var(--text2);font-family:var(--mono);font-size:12px;letter-spacing:0.06em;outline:none;min-width:0;}
+.panel-name:focus{color:var(--accent);}
+.plot-panel.active .panel-name{color:var(--text);}
+.panel-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:15px;padding:2px 4px;line-height:1;border-radius:3px;flex-shrink:0;transition:color 0.15s;}
+.panel-del:hover{color:var(--danger);}
+.panel-plot{flex:1;min-height:0;}
+.panel-errors{flex-shrink:0;padding:0 10px;}
+.panel-errors .render-error,.panel-errors .render-warning{margin:6px 0;}
 .render-error{background:rgba(224,92,92,0.1);border:1px solid rgba(224,92,92,0.3);color:var(--danger);border-radius:var(--radius);padding:8px 10px;font-size:12px;margin-bottom:6px;}
 .render-warning{background:rgba(232,160,74,0.1);border:1px solid rgba(232,160,74,0.3);color:var(--warn);border-radius:var(--radius);padding:8px 10px;font-size:12px;margin-bottom:6px;}
 #savedStrip{border-top:1px solid var(--border);padding:10px 16px;flex-shrink:0;background:var(--panel);}
@@ -210,8 +224,9 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
 <body>
 
 <header>
-  <span class="logo">DataLab <span>v1.2.0</span></span>
+  <span class="logo">DataLab <span>v2.0.0</span></span>
   <div class="divider"></div>
+  <button class="btn btn-sm" id="addPlotBtn" title="Add a plot panel to the grid">+ Plot</button>
   <button class="btn btn-sm" id="sessionSaveBtn" title="Save full session to a JSON file">💾 Session</button>
   <button class="btn btn-sm" id="sessionLoadBtn" title="Load a saved session">📂 Load</button>
   <input type="file" id="sessionFileInput" accept=".json" class="sr-only" aria-label="Load session file" />
@@ -256,6 +271,7 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
     <details class="section" open>
       <summary>Plot settings</summary>
       <div class="details-body">
+        <div class="ctrl-label" id="activePlotLabel" style="color:var(--accent)">Editing: Plot 1</div>
         <label class="ctrl-label">Title
           <div class="input-lock-row">
             <input type="text" class="ctrl-input" id="inputTitle" placeholder="Auto" />
@@ -425,18 +441,14 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
 
   </div><!-- /left-panel -->
 
-  <!-- ── Main area ─────────────────────────────────── -->
+  <!-- ── Main area: live plot grid (Phase 7) ──────────── -->
   <div class="main-area">
     <div id="emptyState" class="empty-state">
       <div class="empty-icon">◈</div>
       <div class="empty-title">No data yet</div>
       <div class="empty-sub">Drop a CSV into the Datasets panel, then add a series.</div>
     </div>
-    <div id="plotArea" class="hidden">
-      <div id="renderErrors" role="alert" style="display:none"></div>
-      <div id="plotDiv"></div>
-      <span class="sr-only" id="plotAnnotSR" aria-live="polite"></span>
-    </div>
+    <div id="plotGrid" class="plot-grid cols-1 hidden"></div>
   </div>
 
 </div><!-- /main -->
@@ -558,7 +570,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
 // Single source of truth for the app version (STANDARDS.md §3).
 // build.js parses the declaration below — do not rename or reformat it.
-const VERSION = '1.2.0';
+const VERSION = '2.0.0';
 
 // ── appState ──────────────────────────────────────────────────────────────
 //
@@ -587,24 +599,39 @@ const VERSION = '1.2.0';
 // Dataset shape (entries in appState.datasets):
 // { id, name, rows, headers, color }
 //
-const appState = {
-  version:  1,
-  datasets: [],
-  series:   [],
-  plotConfig: {
+// Per-plot configuration (Phase 7: plotConfig went from singleton to one
+// per plot — state version 2, migration in sessions.js)
+function makeDefaultPlotConfig() {
+  return {
     title:        '',
     xLabel:       '',
     yLabel:       '',
-    figWidth:     700,
-    figHeight:    500,
     titleLocked:  false,
     xLabelLocked: false,
     yLabelLocked: false,
-    annotPos:     null,   // { x, y } in paper coords; null = default
-    figInited:    false,  // true after first render sets slider defaults
-    majorGrid:    true,
-    minorGrid:    false,
-  },
+    annotPos:     null,   // { x, y } paper coords; null = default
+    legendShow:   true,
+    legendPos:    null,   // { x, y }; null = default corner
+    xMin: '', xMax: '', yMin: '', yMax: '', // manual axis ranges ('' = auto)
+  };
+}
+
+function makePlot(name) {
+  return {
+    // uid() lives in wiring.js — declared later in the bundle but defined
+    // before any runtime call (function declarations hoist per bundle)
+    id:   typeof uid === 'function' ? uid() : 'p1',
+    name,
+    plotConfig: makeDefaultPlotConfig(),
+  };
+}
+
+const appState = {
+  version:  2,
+  datasets: [],
+  series:   [],   // each series carries plotId (Phase 7)
+  plots:    [{ id: 'p1', name: 'Plot 1', plotConfig: makeDefaultPlotConfig() }],
+  activePlotId: 'p1',
   style: {
     markerSize:    6,
     markerOpacity: 0.8,
@@ -1015,12 +1042,14 @@ function renderSeriesList() {
     item.className = 'series-item';
     item.setAttribute('role', 'listitem');
     item.dataset.sid = s.id;
-    // escHtml applied to: series name, dataset name
+    const plotName = appState.plots.find(p => p.id === s.plotId)?.name ?? '';
+    // escHtml applied to: series name, dataset name, plot name
     item.innerHTML = `
       <input type="checkbox" class="series-ena" ${s.enabled !== false ? 'checked' : ''}
              aria-label="Show series ${escHtml(s.name)}" title="Show/hide on plot" />
       <span class="series-badge ${s.chartType}">${escHtml(s.chartType)}</span>
-      <span class="series-name" title="${escHtml(s.name)} · ${escHtml(dsName)}">${escHtml(s.name)}</span>
+      <span class="series-name" title="${escHtml(s.name)} · ${escHtml(dsName)}${plotName ? ' · ' + escHtml(plotName) : ''}">${escHtml(s.name)}</span>
+      ${appState.plots.length > 1 && plotName ? `<span class="series-plotchip" title="Plot">${escHtml(plotName)}</span>` : ''}
       <button class="series-move" data-dir="-1" aria-label="Move series ${escHtml(s.name)} up"
               title="Move up" ${idx === 0 ? 'disabled' : ''}>↑</button>
       <button class="series-move" data-dir="1" aria-label="Move series ${escHtml(s.name)} down"
@@ -1242,12 +1271,24 @@ function buildModalBody(existing) {
     `<button class="ct-btn ${existing?.chartType === t ? 'active' : ''}" data-ct="${t}">${t}</button>`
   ).join('');
 
+  // Plot picker (Phase 7) — defaults to the active plot
+  const targetPlot = existing?.plotId ?? appState.activePlotId;
+  const plotOptions = appState.plots.map(p =>
+    // escHtml applied to plot name — user-editable string
+    `<option value="${escHtml(p.id)}" ${targetPlot === p.id ? 'selected' : ''}>${escHtml(p.name)}</option>`
+  ).join('');
+
   return `
     <div class="modal-field">
       <label class="modal-label" for="mSeriesName">Name</label>
       <input type="text" class="ctrl-input" id="mSeriesName"
              value="${escHtml(existing?.name || '')}" placeholder="Series name" />
     </div>
+    ${appState.plots.length > 1 ? `
+    <div class="modal-field">
+      <label class="modal-label" for="mPlot">Plot</label>
+      <select id="mPlot">${plotOptions}</select>
+    </div>` : ''}
     <div class="modal-field">
       <label class="modal-label" for="mDataset">Dataset <span class="required">*</span></label>
       <select id="mDataset">${dsOptions}</select>
@@ -1344,6 +1385,7 @@ function saveModalSeries() {
   const series = {
     id:        _editingSeriesId || uid(),
     name:      name || autoName,
+    plotId:    document.getElementById('mPlot')?.value || existing?.plotId || appState.activePlotId,
     datasetId: dsId,
     chartType,
     xCol,
@@ -1594,7 +1636,149 @@ function renderDynamicFields(existing) {
 }
 
 
-// chart.js — renderPlot dispatcher and trace cache
+// grid.js — multi-plot live grid: panel lifecycle, active plot, layout (Phase 7)
+
+function activePlot() {
+  return appState.plots.find(p => p.id === appState.activePlotId) ?? appState.plots[0];
+}
+
+function activePlotDiv() {
+  return document.getElementById('plotDiv-' + activePlot().id);
+}
+
+function plotDivFor(pid) {
+  return document.getElementById('plotDiv-' + pid);
+}
+
+// ── Grid rendering ────────────────────────────────────────────────────────
+// Reconciles panels against appState.plots WITHOUT rebuilding existing
+// panel DOM — destroying a panel's .panel-plot node would kill its live
+// Plotly instance on every chrome update.
+
+function renderPlotGrid() {
+  const grid = document.getElementById('plotGrid');
+
+  // Remove panels whose plot is gone
+  grid.querySelectorAll('.plot-panel').forEach(panel => {
+    if (!appState.plots.some(p => p.id === panel.dataset.pid)) panel.remove();
+  });
+
+  // Create missing panels, update names/active state on existing ones
+  appState.plots.forEach(p => {
+    let panel = grid.querySelector(`.plot-panel[data-pid="${p.id}"]`);
+    if (!panel) {
+      panel = document.createElement('div');
+      panel.className = 'plot-panel';
+      panel.dataset.pid = p.id;
+      // innerHTML: plot name escaped via escHtml() — user-editable string
+      panel.innerHTML = `
+        <div class="panel-header">
+          <input class="panel-name" type="text" value="${escHtml(p.name)}" aria-label="Plot name" />
+          <button class="panel-del" aria-label="Delete plot ${escHtml(p.name)}" title="Delete plot">×</button>
+        </div>
+        <div class="panel-errors"></div>
+        <div class="panel-plot" id="plotDiv-${p.id}"></div>
+        <span class="sr-only" id="plotSR-${p.id}" aria-live="polite"></span>`;
+      panel.addEventListener('click', e => {
+        // Activating must not steal interactions inside the Plotly canvas
+        if (!e.target.closest('.panel-plot')) setActivePlot(p.id);
+      });
+      panel.querySelector('.panel-plot').addEventListener('mousedown', () => setActivePlot(p.id));
+      panel.querySelector('.panel-name').addEventListener('input', e => { p.name = e.target.value || 'Plot'; });
+      panel.querySelector('.panel-del').addEventListener('click', e => { e.stopPropagation(); deletePlot(p.id); });
+      grid.appendChild(panel);
+    } else {
+      const nameEl = panel.querySelector('.panel-name');
+      if (nameEl.value !== p.name && document.activeElement !== nameEl) nameEl.value = p.name;
+    }
+    panel.classList.toggle('active', p.id === appState.activePlotId);
+    panel.setAttribute('aria-label', `Plot panel ${p.name}${p.id === appState.activePlotId ? ', active' : ''}`);
+  });
+
+  // Auto columns: 1 → full width, 2 → side by side, 3-4 → 2×2, 5+ → 3 cols
+  const n = appState.plots.length;
+  grid.className = 'plot-grid cols-' + (n <= 1 ? 1 : n <= 4 ? 2 : 3);
+  if (n > 6) {
+    const box = document.getElementById('dataAlerts');
+    // innerHTML: static text — no user data
+    if (box && !box.textContent.includes('plots is a lot')) {
+      // innerHTML: static literal text only — no user data
+      box.innerHTML += '<div class="alert warn" role="alert">More than 6 plots is a lot for one screen — consider sessions for separate analyses.</div>';
+    }
+  }
+
+  // Column changes resize every live panel
+  appState.plots.forEach(p => {
+    const pd = plotDivFor(p.id);
+    if (pd && pd.data) { try { Plotly.Plots.resize(pd); } catch (e) {} }
+  });
+}
+
+// ── Active plot ───────────────────────────────────────────────────────────
+// The Plot settings panel edits the active plot; switching syncs inputs.
+
+function setActivePlot(pid) {
+  if (appState.activePlotId === pid) return;
+  appState.activePlotId = pid;
+  syncActivePlotInputs();
+  renderPlotGrid();
+}
+
+function syncActivePlotInputs() {
+  const cfg = activePlot().plotConfig;
+  const g = id => document.getElementById(id);
+  g('activePlotLabel').textContent = `Editing: ${activePlot().name}`;
+  g('inputTitle').value  = cfg.title  || '';
+  g('inputXLabel').value = cfg.xLabel || '';
+  g('inputYLabel').value = cfg.yLabel || '';
+  ['xMin', 'xMax', 'yMin', 'yMax'].forEach(k => { g(k).value = cfg[k] ?? ''; });
+  g('showLegend').checked = cfg.legendShow ?? true;
+  updateLockBtn('titleLock',  cfg.titleLocked);
+  updateLockBtn('xLabelLock', cfg.xLabelLocked);
+  updateLockBtn('yLabelLock', cfg.yLabelLocked);
+}
+
+// ── Add / delete ──────────────────────────────────────────────────────────
+
+function addPlot() {
+  const p = makePlot(`Plot ${appState.plots.length + 1}`);
+  appState.plots.push(p);
+  appState.activePlotId = p.id;
+  syncActivePlotInputs();
+  renderPlotGrid();
+  if (appState.plotRendered) debounceRender();
+}
+
+function deletePlot(pid) {
+  if (appState.plots.length <= 1) return; // the grid always has one plot
+  const p = appState.plots.find(x => x.id === pid);
+  const owned = appState.series.filter(s => s.plotId === pid);
+  if (owned.length && !confirm(`Delete "${p.name}" and its ${owned.length} series?`)) return;
+
+  clearPanel(pid); // release the panel's WebGL buffers before removing it
+  appState.series = appState.series.filter(s => s.plotId !== pid);
+  appState.plots  = appState.plots.filter(x => x.id !== pid);
+  if (appState.activePlotId === pid) appState.activePlotId = appState.plots[0].id;
+  syncActivePlotInputs();
+  renderPlotGrid();
+  renderSeriesList();
+  updateRenderBtn();
+  if (appState.plotRendered) debounceRender();
+}
+
+// Purge + node replacement — Plotly.purge alone retains scattergl WebGL
+// buffers (Phase 4 memory profile); same release strategy per panel.
+function clearPanel(pid) {
+  const pd = plotDivFor(pid);
+  if (!pd) return;
+  try { Plotly.purge(pd); } catch (e) { /* nothing rendered */ }
+  pd.replaceWith(pd.cloneNode(false));
+  const sr = document.getElementById('plotSR-' + pid);
+  if (sr) sr.textContent = '';
+}
+
+
+// chart.js — renderPlot dispatcher (per-plot, Phase 7) and trace cache
 // (theme + base layout live in layout.js; PNG/ZIP export in export.js)
 
 const RENDERERS = {
@@ -1611,8 +1795,7 @@ const RENDERERS = {
 // Keyed per series id; the key captures everything a trace depends on:
 // the series definition itself, the revision of every dataset it reads,
 // and the global style panel values that buildMarkerStyle consumes.
-// A style-only re-render (figure size, gridlines, labels) reuses every
-// cached trace and pays only the Plotly.react cost.
+// A style-only re-render reuses every cached trace.
 
 const _traceCache = new Map(); // series.id → { key, result }
 
@@ -1634,34 +1817,51 @@ function buildSeriesResult(s) {
   return result;
 }
 
-// ── renderPlot ────────────────────────────────────────────────────────────
+// ── renderPlot — renders the whole grid ───────────────────────────────────
 
 function renderPlot() {
-  // Prune cache entries for deleted series BEFORE the empty-list return —
-  // deleting the last series must release its cached traces (Phase 4
-  // memory profile found ~160 MB stranded here at 1M rows × 10 series)
+  // Prune cache entries for deleted series BEFORE the empty return —
+  // deleting the last series must release its cached traces (Phase 4)
   for (const id of [..._traceCache.keys()]) {
     if (!appState.series.some(s => s.id === id)) _traceCache.delete(id);
   }
 
   if (!appState.series.length) {
-    if (appState.plotRendered) clearPlot(); // last series deleted → release everything
+    if (appState.plotRendered) clearPlot(); // everything deleted → release all panels
     return;
   }
+
+  renderPlotGrid(); // panels exist before plotting into them
+
+  for (const plot of appState.plots) renderOnePlot(plot);
+
+  appState.plotRendered = true;
+  document.getElementById('emptyState').classList.add('hidden');
+  document.getElementById('plotGrid').classList.remove('hidden');
+  document.getElementById('downloadBtn').style.display    = '';
+  document.getElementById('downloadSvgBtn').style.display = '';
+  document.getElementById('savedStrip').style.display  = appState.savedPlots.filter(Boolean).length ? '' : 'none';
+  document.getElementById('saveBtn').style.display     = '';
+  syncAutoLabels();
+}
+
+function renderOnePlot(plot) {
+  const pd = plotDivFor(plot.id);
+  if (!pd) return;
 
   const traces   = [];
   const errors   = [];
   const warnings = [];
-  let   layout   = buildBaseLayout();
-  const parityResults = []; // one entry per parity series — all annotated, not just the last
-  const srParts = [];       // screen-reader mirror lines (parity stats, normal fits)
+  let   layout   = buildBaseLayout(plot);
+  const parityResults = []; // every parity series annotated, not just the last
+  const srParts = [];       // screen-reader mirror lines
 
   for (const s of appState.series) {
-    if (s.enabled === false) continue; // hidden via series list toggle
+    if ((s.plotId ?? appState.plots[0].id) !== plot.id) continue;
+    if (s.enabled === false) continue;
     if (!RENDERERS[s.chartType]) continue;
 
     // Clear error for missing column refs (e.g. after a dataset reload)
-    // instead of the all-NaN fallthrough the renderer would produce
     const missing = validateSeriesColumns(s, appState.datasets);
     if (missing.length) {
       errors.push({ name: s.name, error: `references missing ${missing.join(', ')} — edit the series or reload the original CSV` });
@@ -1674,33 +1874,27 @@ function renderPlot() {
 
     traces.push(...result.traces);
 
-    // Parity renderers return extra layout (equal axes) and stats annotation
     if (result.layout) Object.assign(layout, result.layout);
     if (result.stats && result.annotSR) parityResults.push({ name: s.name, ...result });
-    if (result.fitAnnot) srParts.push(result.fitAnnot.sr); // histogram normal fit
+    if (result.fitAnnot) srParts.push(result.fitAnnot.sr);
   }
 
-  showRenderErrors(errors, warnings);
-  // Empty traces still render (blank axes) — toggling every series off should
-  // visibly empty the plot, not silently keep the stale one
+  showPanelErrors(plot.id, errors, warnings);
 
-  // Stats annotations — one per parity series, stacked bottom-right.
-  // (Phase 4 fix for the Phase 2/3 known issue: previously only the last
-  // parity series was annotated.) A single parity keeps the draggable
-  // stored position; multiples use fixed stacking so they never overlap.
+  // Stats annotations — one per parity series, stacked; single parity keeps
+  // its draggable stored position
   if (parityResults.length) {
     const fmt = v => isNaN(v) ? 'N/A' : Number(v).toPrecision(4);
     const th  = plotTheme();
     const single = parityResults.length === 1;
-    const base = single ? (appState.plotConfig.annotPos ?? { x: 0.98, y: 0.04 })
+    const base = single ? (plot.plotConfig.annotPos ?? { x: 0.98, y: 0.04 })
                         : { x: 0.98, y: 0.04 };
     layout.annotations = parityResults.map((p, i) => ({
       x: base.x, y: base.y + i * 0.24,
       xref: 'paper', yref: 'paper',
       xanchor: base.x > 0.5 ? 'right' : 'left',
       yanchor: base.y < 0.5 ? 'bottom' : 'top',
-      // Plotly annotation text is rendered as restricted pseudo-HTML; series
-      // names are user data — escHtml applied. Stats are computed numerics.
+      // Series names are user data — escHtml applied (Plotly pseudo-HTML)
       text: (single ? '' : `<b>${escHtml(p.name)}</b><br>`)
         + `NSE = ${fmt(p.stats.nse)}<br>MAE = ${fmt(p.stats.mae)}<br>RMSE = ${fmt(p.stats.rmse)}<br>N = ${p.n}`,
       showarrow: false,
@@ -1716,105 +1910,75 @@ function renderPlot() {
     ));
   }
 
-  // Mirror for screen readers (.sr-only span, aria-live) — parity stats and
-  // histogram normal fits together; cleared when none apply
-  const srEl = document.getElementById('plotAnnotSR');
+  const srEl = document.getElementById('plotSR-' + plot.id);
   if (srEl) srEl.textContent = srParts.join('; ');
 
-  Plotly.react('plotDiv', traces, layout, {
-    responsive: false,
+  Plotly.react(pd, traces, layout, {
+    responsive: true, // panels follow their grid cell
     displayModeBar: true,
     displaylogo: false,
     edits: { legendPosition: true, annotationPosition: true },
   });
 
-  // Persist a dragged legend so re-renders stop snapping it back to the
-  // default corner (Phase 6). Hook survives react; re-bound after clearPlot
-  // because that replaces the node.
-  const pd = document.getElementById('plotDiv');
+  // Persist a dragged legend per plot (Phase 6 behavior, now per panel).
+  // Re-bound after clearPanel because that replaces the node.
   if (!pd._legendHooked) {
     pd.on('plotly_relayout', e => {
       if (e['legend.x'] !== undefined || e['legend.y'] !== undefined) {
-        appState.plotConfig.legendPos = {
-          x: e['legend.x'] ?? appState.plotConfig.legendPos?.x ?? 0.01,
-          y: e['legend.y'] ?? appState.plotConfig.legendPos?.y ?? 0.99,
+        plot.plotConfig.legendPos = {
+          x: e['legend.x'] ?? plot.plotConfig.legendPos?.x ?? 0.01,
+          y: e['legend.y'] ?? plot.plotConfig.legendPos?.y ?? 0.99,
         };
       }
     });
     pd._legendHooked = true;
   }
-
-  appState.plotRendered = true;
-  document.getElementById('emptyState').classList.add('hidden');
-  document.getElementById('plotArea').classList.remove('hidden');
-  document.getElementById('downloadBtn').style.display    = '';
-  document.getElementById('downloadSvgBtn').style.display = '';
-  document.getElementById('savedStrip').style.display  = appState.savedPlots.filter(Boolean).length ? '' : 'none';
-  document.getElementById('saveBtn').style.display     = '';
-  syncTitle(); syncXLabel(); syncYLabel();
 }
 
-// Fully release the plot and return to the empty state. Plotly.purge alone
-// is not enough: scattergl retains WebGL buffers bound to the node past
-// purge (Phase 4 memory profile measured ~150 MB stranded at 1M rows ×
-// 10 series) — replacing the node is the reliable release.
+// Release every panel and return to the empty state (Phase 4 strategy:
+// purge + node replacement, since scattergl retains buffers past purge)
 function clearPlot() {
-  const pd = document.getElementById('plotDiv');
-  try { Plotly.purge(pd); } catch (e) { /* nothing rendered */ }
-  pd.replaceWith(pd.cloneNode(false)); // keeps id/attrs, drops gl context
+  appState.plots.forEach(p => clearPanel(p.id));
   appState.plotRendered = false;
-  document.getElementById('plotArea').classList.add('hidden');
+  document.getElementById('plotGrid').classList.add('hidden');
   document.getElementById('emptyState').classList.remove('hidden');
   document.getElementById('downloadBtn').style.display    = 'none';
   document.getElementById('downloadSvgBtn').style.display = 'none';
-  const srEl = document.getElementById('plotAnnotSR');
-  if (srEl) srEl.textContent = '';
 }
 
-function getManualRange(minId, maxId) {
-  const mn = document.getElementById(minId)?.value;
-  const mx = document.getElementById(maxId)?.value;
-  if (mn === '' && mx === '') return undefined;
-  return [mn === '' ? null : parseFloat(mn), mx === '' ? null : parseFloat(mx)];
+// ── Auto-label helpers (per the ACTIVE plot's inputs) ─────────────────────
+
+function plotSeries(plot) {
+  return appState.series.filter(s => (s.plotId ?? appState.plots[0].id) === plot.id);
 }
 
-// ── Auto-label helpers ────────────────────────────────────────────────────
-
-function autoTitle() {
-  if (!appState.series.length) return 'DataLab';
-  const types = [...new Set(appState.series.map(s => s.chartType))];
+function autoTitle(plot) {
+  const list = plotSeries(plot);
+  if (!list.length) return plot.name;
+  const types = [...new Set(list.map(s => s.chartType))];
   return types.length === 1
-    ? `${types[0].charAt(0).toUpperCase()+types[0].slice(1)} plot`
+    ? `${types[0].charAt(0).toUpperCase() + types[0].slice(1)} plot`
     : 'Multi-series plot';
 }
-function autoXLabel() {
-  const s = appState.series[0];
-  return s?.xCol || '';
-}
-function autoYLabel() {
-  const s = appState.series[0];
-  return s?.yCol || '';
-}
-function syncTitle()  {
-  if (!appState.plotConfig.titleLocked)
-    document.getElementById('inputTitle').value = autoTitle();
-}
-function syncXLabel() {
-  if (!appState.plotConfig.xLabelLocked)
-    document.getElementById('inputXLabel').value = autoXLabel();
-}
-function syncYLabel() {
-  if (!appState.plotConfig.yLabelLocked)
-    document.getElementById('inputYLabel').value = autoYLabel();
+function autoXLabel(plot) { return plotSeries(plot)[0]?.xCol || ''; }
+function autoYLabel(plot) { return plotSeries(plot)[0]?.yCol || ''; }
+
+// Inputs mirror the ACTIVE plot; unlocked fields track their auto values
+function syncAutoLabels() {
+  const plot = activePlot(), cfg = plot.plotConfig;
+  if (!cfg.titleLocked)  { cfg.title  = autoTitle(plot);  document.getElementById('inputTitle').value  = cfg.title; }
+  if (!cfg.xLabelLocked) { cfg.xLabel = autoXLabel(plot); document.getElementById('inputXLabel').value = cfg.xLabel; }
+  if (!cfg.yLabelLocked) { cfg.yLabel = autoYLabel(plot); document.getElementById('inputYLabel').value = cfg.yLabel; }
 }
 
-// ── Render errors display ─────────────────────────────────────────────────
+// ── Per-panel errors ──────────────────────────────────────────────────────
 
-function showRenderErrors(errors, warnings = []) {
-  const box = document.getElementById('renderErrors');
+function showPanelErrors(pid, errors, warnings = []) {
+  const box = document.querySelector(`.plot-panel[data-pid="${pid}"] .panel-errors`);
+  if (!box) return;
   // innerHTML: empty string — no user data
   if (!errors.length && !warnings.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
-  // escHtml applied to series names, error and warning messages — all may contain user data
+  // escHtml applied to series names, error and warning messages — user data
   box.innerHTML =
     errors.map(e =>
       `<div class="render-error" role="alert"><strong>${escHtml(e.name)}:</strong> ${escHtml(e.error)}</div>`
@@ -1853,10 +2017,11 @@ function plotTheme() {
         annotBg: 'rgba(255,255,255,0.88)', annotBorder: '#aaaaaa' };
 }
 
-function buildBaseLayout() {
-  const cfg  = appState.plotConfig;
+function buildBaseLayout(plot) {
+  // Per-plot config (Phase 7); inputs in the left panel mirror the ACTIVE
+  // plot, but every plot renders from its own stored config
+  const cfg  = plot.plotConfig;
   const iv = (id, dflt) => { const v = parseFloat(document.getElementById(id)?.value); return Number.isFinite(v) ? v : dflt; };
-  const figW = iv('figW', 700), figH = iv('figH', 500);
   const showMaj = document.getElementById('majorGrid')?.checked ?? true;
   const showMin = document.getElementById('minorGrid')?.checked ?? false;
   const th = plotTheme();
@@ -1874,8 +2039,11 @@ function buildBaseLayout() {
   const frameWidth = iv('frameWidth', 1);
   const gridWidth  = iv('gridWidth', 1);
 
-  const xRange = getManualRange('xMin', 'xMax');
-  const yRange = getManualRange('yMin', 'yMax');
+  // Manual axis ranges live in the plot's config ('' = auto)
+  const rng = (mn, mx) => (cfg[mn] === '' && cfg[mx] === '') ? undefined
+    : [cfg[mn] === '' ? null : parseFloat(cfg[mn]), cfg[mx] === '' ? null : parseFloat(cfg[mx])];
+  const xRange = rng('xMin', 'xMax');
+  const yRange = rng('yMin', 'yMax');
 
   const axisBase = {
     showgrid: showMaj, gridcolor: showMaj ? gridColor : 'rgba(0,0,0,0)', gridwidth: gridWidth,
@@ -1892,11 +2060,11 @@ function buildBaseLayout() {
 
   return {
     paper_bgcolor: th.bg, plot_bgcolor: th.bg,
-    width: figW, height: figH,
+    autosize: true, // panels fill their grid cell; Figure size = export size
     font: { family: 'IBM Plex Sans,system-ui,sans-serif', color: th.text, size: 12 },
     showlegend: cfg.legendShow ?? true,
     title: {
-      text: cfg.titleLocked ? document.getElementById('inputTitle').value : autoTitle(),
+      text: cfg.titleLocked ? cfg.title : autoTitle(plot),
       x: 0.5, xanchor: 'center', xref: 'paper',
       font: { size: fsT, color: th.title },
     },
@@ -1904,7 +2072,7 @@ function buildBaseLayout() {
       ...axisBase,
       range: xRange,
       title: {
-        text: cfg.xLabelLocked ? document.getElementById('inputXLabel').value : autoXLabel(),
+        text: cfg.xLabelLocked ? cfg.xLabel : autoXLabel(plot),
         font: { size: fsA, color: th.axisTitle },
       },
     },
@@ -1912,7 +2080,7 @@ function buildBaseLayout() {
       ...axisBase,
       range: yRange,
       title: {
-        text: cfg.yLabelLocked ? document.getElementById('inputYLabel').value : autoYLabel(),
+        text: cfg.yLabelLocked ? cfg.yLabel : autoYLabel(plot),
         font: { size: fsA, color: th.axisTitle },
       },
     },
@@ -1935,13 +2103,15 @@ function buildBaseLayout() {
 // ── Export ────────────────────────────────────────────────────────────────
 
 function downloadPlot(format = 'png') {
-  const title    = document.getElementById('inputTitle').value || 'datalab_plot';
+  // Exports the ACTIVE panel; Figure size sliders define the export size
+  // (panels themselves autosize to their grid cell — Phase 7)
+  const title    = activePlot().plotConfig.title || activePlot().name || 'datalab_plot';
   const filename = title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'datalab_plot';
   const w = parseInt(document.getElementById('figW').value);
   const h = parseInt(document.getElementById('figH').value);
   // Note: scattergl traces (WebGL, >10k points) are rasterized inside the
   // SVG by Plotly — vector output applies to axes/text and SVG traces
-  Plotly.downloadImage('plotDiv', { format, width: w, height: h, filename });
+  Plotly.downloadImage(activePlotDiv(), { format, width: w, height: h, filename });
 }
 
 // ── Style presets ─────────────────────────────────────────────────────────
@@ -1995,8 +2165,8 @@ function loadPresetFile(file) {
     // Frame auto state drives the color inputs' enabled state
     document.getElementById('frameColor').disabled = document.getElementById('frameAuto').checked;
     document.getElementById('gridColor').disabled  = document.getElementById('gridAuto').checked;
-    // Legend visibility mirrors into plotConfig (sessions round-trip it)
-    appState.plotConfig.legendShow = document.getElementById('showLegend').checked;
+    // Legend visibility mirrors into the ACTIVE plot's config (Phase 7)
+    activePlot().plotConfig.legendShow = document.getElementById('showLegend').checked;
     if (appState.plotRendered) renderPlot();
   };
   reader.readAsText(file);
@@ -2080,7 +2250,7 @@ function importSessionFile(file) {
       sessionAlert('Not a DataLab session file.'); return;
     }
     const v = payload.state.version ?? 0;
-    if (v > 1) {
+    if (v > 2) {
       sessionAlert(`This session was saved by a newer DataLab (state v${v}) — update the app to load it.`);
       return;
     }
@@ -2089,36 +2259,51 @@ function importSessionFile(file) {
   reader.readAsText(file);
 }
 
-// Migration stubs per state version (STANDARDS.md §3). v1 is current.
+// Migrations per state version (STANDARDS.md §3). v2 is current.
 function migrateSessionState(st) {
-  // v0 → v1: no released v0 files exist; treat as v1
-  st.version = 1;
+  if ((st.version ?? 0) <= 1) {
+    // v1 → v2 (Phase 7 multi-plot): wrap the singleton plotConfig into
+    // plots[0] and assign every series to it — a v1 file loads identically
+    // into a 1-plot grid
+    const pid = 'p1';
+    st.plots = [{
+      id: pid, name: 'Plot 1',
+      plotConfig: { ...makeDefaultPlotConfig(), ...(st.plotConfig ?? {}) },
+    }];
+    (st.series ?? []).forEach(s => { if (!s.plotId) s.plotId = pid; });
+    delete st.plotConfig;
+    st.activePlotId = pid;
+    st.version = 2;
+  }
   return st;
 }
 
 function applySessionState(st) {
-  // Release the outgoing datasets' memoized columns before replacing them
+  // Release the outgoing datasets' memoized columns and every live panel
+  // before replacing them
   appState.datasets.forEach(d => bumpDatasetRev(d.id));
+  appState.plots.forEach(p => clearPanel(p.id));
 
   appState.version      = st.version;
   appState.datasets     = st.datasets   ?? [];
   appState.series       = st.series     ?? [];
-  appState.plotConfig   = { ...appState.plotConfig, ...(st.plotConfig ?? {}) };
-  appState.style        = { ...appState.style,      ...(st.style      ?? {}) };
+  appState.plots        = (st.plots && st.plots.length) ? st.plots
+                          : [{ id: 'p1', name: 'Plot 1', plotConfig: makeDefaultPlotConfig() }];
+  appState.activePlotId = appState.plots.some(p => p.id === st.activePlotId)
+                          ? st.activePlotId : appState.plots[0].id;
+  appState.style        = { ...appState.style, ...(st.style ?? {}) };
   appState.savedPlots   = st.savedPlots ?? [];
   appState.plotRendered = false;
 
   // Imported data invalidates every cache keyed on dataset revisions
   appState.datasets.forEach(d => bumpDatasetRev(d.id));
 
+  renderPlotGrid();
+  syncActivePlotInputs(); // mirrors the active plot's config into the UI
   renderDatasetList();
   renderSeriesList();
   updateRenderBtn();
   showDataAlerts(null, []);
-
-  // Mirror session-carried plotConfig flags back into their UI controls
-  const legendCb = document.getElementById('showLegend');
-  if (legendCb) legendCb.checked = appState.plotConfig.legendShow ?? true;
 
   // Rebuild the saved plots strip
   const strip = document.getElementById('savedScroll');
@@ -2506,10 +2691,8 @@ function renderCorrelation() {
 
   const m  = pearsonMatrix(ds.rows, cols).map(row => row.map(v => Number.isFinite(v) ? v : null));
   const th = plotTheme();
-  const figW = parseInt(document.getElementById('figW')?.value ?? 700);
-  const figH = parseInt(document.getElementById('figH')?.value ?? 500);
-
-  Plotly.react('plotDiv', [{
+  const pd = activePlotDiv();
+  Plotly.react(pd, [{
     type: 'heatmap',
     x: cols, y: cols, z: m,
     zmin: -1, zmax: 1,
@@ -2518,7 +2701,7 @@ function renderCorrelation() {
     hovertemplate: '%{x} × %{y}: r = %{z:.3f}<extra></extra>',
   }], {
     paper_bgcolor: th.bg, plot_bgcolor: th.bg,
-    width: figW, height: figH,
+    autosize: true,
     font: { family: 'IBM Plex Sans,system-ui,sans-serif', color: th.text, size: 12 },
     title: { text: `Correlation — ${ds.name}`, x: 0.5, xanchor: 'center', font: { size: 14, color: th.title } },
     xaxis: { tickfont: { size: 10, color: th.tick } },
@@ -2528,11 +2711,11 @@ function renderCorrelation() {
 
   appState.plotRendered = true;
   document.getElementById('emptyState').classList.add('hidden');
-  document.getElementById('plotArea').classList.remove('hidden');
+  document.getElementById('plotGrid').classList.remove('hidden');
   document.getElementById('downloadBtn').style.display    = '';
   document.getElementById('downloadSvgBtn').style.display = '';
   // Screen reader summary of the matrix
-  const sr = document.getElementById('plotAnnotSR');
+  const sr = document.getElementById('plotSR-' + activePlot().id);
   if (sr) sr.textContent = `Correlation matrix for ${ds.name}: ${cols.length} numeric columns. ` +
     cols.flatMap((a, i) => cols.slice(i + 1).map((b, jo) =>
       `${a} and ${b}: ${m[i][i + 1 + jo] === null ? 'undefined' : m[i][i + 1 + jo].toFixed(3)}`
@@ -2561,7 +2744,7 @@ function exportCleanedCSV() {
 
 async function savePlot() {
   if (!appState.plotRendered) return;
-  const plotDiv = document.getElementById('plotDiv');
+  const plotDiv = activePlotDiv(); // snapshot the active panel (Phase 7)
   const data    = JSON.parse(JSON.stringify(plotDiv._fullData    || []));
   const layout  = JSON.parse(JSON.stringify(plotDiv._fullLayout  || {}));
   const idx     = appState.savedPlots.length;
@@ -2575,7 +2758,7 @@ async function savePlot() {
   document.getElementById('savedStrip').style.display = '';
   document.getElementById('zipBtn').style.display     = '';
   try {
-    const url = await Plotly.toImage('plotDiv', { format: 'png', width: 200, height: 120 });
+    const url = await Plotly.toImage(activePlotDiv(), { format: 'png', width: 200, height: 120 });
     snap.thumb = url;
     const img = document.querySelector(`#saved-card-${idx} .saved-thumb`);
     if (img) {
@@ -2613,11 +2796,11 @@ function mkCard(idx, snap, scroll) {
 function restorePlot(idx) {
   const snap = appState.savedPlots[idx]; if (!snap) return;
   document.getElementById('emptyState').classList.add('hidden');
-  document.getElementById('plotArea').classList.remove('hidden');
-  const pd = document.getElementById('plotDiv');
-  if (snap.layout.width)  { pd.style.width  = snap.layout.width  + 'px'; }
-  if (snap.layout.height) { pd.style.height = snap.layout.height + 'px'; }
-  Plotly.react('plotDiv', snap.data, snap.layout, {
+  document.getElementById('plotGrid').classList.remove('hidden');
+  // Restores into the ACTIVE panel (Phase 7); autosize overrides any fixed
+  // size stored in older snapshots
+  const pd = activePlotDiv();
+  Plotly.react(pd, snap.data, { ...snap.layout, autosize: true, width: undefined, height: undefined }, {
     responsive: false, displayModeBar: true, displaylogo: false,
     edits: { legendPosition: true, annotationPosition: true },
   });
@@ -2822,36 +3005,49 @@ function init() {
     if (e.key === 'Escape' && !g('helpOverlay').classList.contains('hidden')) closeHelp();
   });
 
-  // Reset axis ranges
+  // + Plot (Phase 7 grid)
+  g('addPlotBtn').addEventListener('click', addPlot);
+
+  // Manual axis ranges live in the ACTIVE plot's config
+  ['xMin','xMax','yMin','yMax'].forEach(id => {
+    g(id).addEventListener('input', () => {
+      activePlot().plotConfig[id] = g(id).value;
+      if (appState.plotRendered) debounceRender();
+    });
+  });
   g('resetRangesBtn').addEventListener('click', () => {
-    ['xMin','xMax','yMin','yMax'].forEach(id => { if (g(id)) g(id).value = ''; });
+    ['xMin','xMax','yMin','yMax'].forEach(id => {
+      g(id).value = '';
+      activePlot().plotConfig[id] = '';
+    });
     if (appState.plotRendered) renderPlot();
   });
 
-  // Title / axis label lock buttons
-  g('titleLock').addEventListener('click', () => {
-    appState.plotConfig.titleLocked = !appState.plotConfig.titleLocked;
-    updateLockBtn('titleLock', appState.plotConfig.titleLocked);
-    if (!appState.plotConfig.titleLocked) syncTitle();
-    if (appState.plotRendered) renderPlot();
-  });
-  g('xLabelLock').addEventListener('click', () => {
-    appState.plotConfig.xLabelLocked = !appState.plotConfig.xLabelLocked;
-    updateLockBtn('xLabelLock', appState.plotConfig.xLabelLocked);
-    if (!appState.plotConfig.xLabelLocked) syncXLabel();
-    if (appState.plotRendered) renderPlot();
-  });
-  g('yLabelLock').addEventListener('click', () => {
-    appState.plotConfig.yLabelLocked = !appState.plotConfig.yLabelLocked;
-    updateLockBtn('yLabelLock', appState.plotConfig.yLabelLocked);
-    if (!appState.plotConfig.yLabelLocked) syncYLabel();
-    if (appState.plotRendered) renderPlot();
-  });
+  // Title / axis label lock buttons (active plot)
+  [['titleLock', 'titleLocked'], ['xLabelLock', 'xLabelLocked'], ['yLabelLock', 'yLabelLocked']]
+    .forEach(([btnId, flag]) => {
+      g(btnId).addEventListener('click', () => {
+        const cfg = activePlot().plotConfig;
+        cfg[flag] = !cfg[flag];
+        updateLockBtn(btnId, cfg[flag]);
+        if (!cfg[flag]) syncAutoLabels();
+        if (appState.plotRendered) renderPlot();
+      });
+    });
 
-  // Title / label inputs — re-render on change
-  ['inputTitle','inputXLabel','inputYLabel'].forEach(id => {
-    g(id)?.addEventListener('input', () => { if (appState.plotRendered) debounceRender(); });
-  });
+  // Title / label inputs write through to the active plot; typing locks the
+  // field so the auto value stops overwriting it
+  [['inputTitle', 'title', 'titleLocked', 'titleLock'],
+   ['inputXLabel', 'xLabel', 'xLabelLocked', 'xLabelLock'],
+   ['inputYLabel', 'yLabel', 'yLabelLocked', 'yLabelLock']]
+    .forEach(([inputId, key, flag, btnId]) => {
+      g(inputId).addEventListener('input', () => {
+        const cfg = activePlot().plotConfig;
+        cfg[key] = g(inputId).value;
+        if (!cfg[flag]) { cfg[flag] = true; updateLockBtn(btnId, true); }
+        if (appState.plotRendered) debounceRender();
+      });
+    });
 
   // Sliders
   syncSlider('markerSize',    'markerSizeVal',    '');
@@ -2881,9 +3077,9 @@ function init() {
     });
   });
 
-  // Legend visibility lives in plotConfig so sessions round-trip it
+  // Legend visibility is per plot (active) so sessions round-trip it
   g('showLegend').addEventListener('change', () => {
-    appState.plotConfig.legendShow = g('showLegend').checked;
+    activePlot().plotConfig.legendShow = g('showLegend').checked;
     if (appState.plotRendered) renderPlot();
   });
 
@@ -2895,9 +3091,8 @@ function init() {
     }
   });
 
-  updateLockBtn('titleLock',  false);
-  updateLockBtn('xLabelLock', false);
-  updateLockBtn('yLabelLock', false);
+  renderPlotGrid();
+  syncActivePlotInputs();
   renderSeriesList();
 }
 

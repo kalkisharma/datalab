@@ -184,36 +184,49 @@ function init() {
     if (e.key === 'Escape' && !g('helpOverlay').classList.contains('hidden')) closeHelp();
   });
 
-  // Reset axis ranges
+  // + Plot (Phase 7 grid)
+  g('addPlotBtn').addEventListener('click', addPlot);
+
+  // Manual axis ranges live in the ACTIVE plot's config
+  ['xMin','xMax','yMin','yMax'].forEach(id => {
+    g(id).addEventListener('input', () => {
+      activePlot().plotConfig[id] = g(id).value;
+      if (appState.plotRendered) debounceRender();
+    });
+  });
   g('resetRangesBtn').addEventListener('click', () => {
-    ['xMin','xMax','yMin','yMax'].forEach(id => { if (g(id)) g(id).value = ''; });
+    ['xMin','xMax','yMin','yMax'].forEach(id => {
+      g(id).value = '';
+      activePlot().plotConfig[id] = '';
+    });
     if (appState.plotRendered) renderPlot();
   });
 
-  // Title / axis label lock buttons
-  g('titleLock').addEventListener('click', () => {
-    appState.plotConfig.titleLocked = !appState.plotConfig.titleLocked;
-    updateLockBtn('titleLock', appState.plotConfig.titleLocked);
-    if (!appState.plotConfig.titleLocked) syncTitle();
-    if (appState.plotRendered) renderPlot();
-  });
-  g('xLabelLock').addEventListener('click', () => {
-    appState.plotConfig.xLabelLocked = !appState.plotConfig.xLabelLocked;
-    updateLockBtn('xLabelLock', appState.plotConfig.xLabelLocked);
-    if (!appState.plotConfig.xLabelLocked) syncXLabel();
-    if (appState.plotRendered) renderPlot();
-  });
-  g('yLabelLock').addEventListener('click', () => {
-    appState.plotConfig.yLabelLocked = !appState.plotConfig.yLabelLocked;
-    updateLockBtn('yLabelLock', appState.plotConfig.yLabelLocked);
-    if (!appState.plotConfig.yLabelLocked) syncYLabel();
-    if (appState.plotRendered) renderPlot();
-  });
+  // Title / axis label lock buttons (active plot)
+  [['titleLock', 'titleLocked'], ['xLabelLock', 'xLabelLocked'], ['yLabelLock', 'yLabelLocked']]
+    .forEach(([btnId, flag]) => {
+      g(btnId).addEventListener('click', () => {
+        const cfg = activePlot().plotConfig;
+        cfg[flag] = !cfg[flag];
+        updateLockBtn(btnId, cfg[flag]);
+        if (!cfg[flag]) syncAutoLabels();
+        if (appState.plotRendered) renderPlot();
+      });
+    });
 
-  // Title / label inputs — re-render on change
-  ['inputTitle','inputXLabel','inputYLabel'].forEach(id => {
-    g(id)?.addEventListener('input', () => { if (appState.plotRendered) debounceRender(); });
-  });
+  // Title / label inputs write through to the active plot; typing locks the
+  // field so the auto value stops overwriting it
+  [['inputTitle', 'title', 'titleLocked', 'titleLock'],
+   ['inputXLabel', 'xLabel', 'xLabelLocked', 'xLabelLock'],
+   ['inputYLabel', 'yLabel', 'yLabelLocked', 'yLabelLock']]
+    .forEach(([inputId, key, flag, btnId]) => {
+      g(inputId).addEventListener('input', () => {
+        const cfg = activePlot().plotConfig;
+        cfg[key] = g(inputId).value;
+        if (!cfg[flag]) { cfg[flag] = true; updateLockBtn(btnId, true); }
+        if (appState.plotRendered) debounceRender();
+      });
+    });
 
   // Sliders
   syncSlider('markerSize',    'markerSizeVal',    '');
@@ -243,9 +256,9 @@ function init() {
     });
   });
 
-  // Legend visibility lives in plotConfig so sessions round-trip it
+  // Legend visibility is per plot (active) so sessions round-trip it
   g('showLegend').addEventListener('change', () => {
-    appState.plotConfig.legendShow = g('showLegend').checked;
+    activePlot().plotConfig.legendShow = g('showLegend').checked;
     if (appState.plotRendered) renderPlot();
   });
 
@@ -257,9 +270,8 @@ function init() {
     }
   });
 
-  updateLockBtn('titleLock',  false);
-  updateLockBtn('xLabelLock', false);
-  updateLockBtn('yLabelLock', false);
+  renderPlotGrid();
+  syncActivePlotInputs();
   renderSeriesList();
 }
 

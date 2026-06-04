@@ -55,12 +55,12 @@ test('session exports, clears, and imports back identically', async ({ page }) =
     rows:     appState.datasets[0]?.rows.length,
     series:   appState.series.map(s => s.name),
     version:  appState.version,
-    traces:   document.getElementById('plotDiv').data?.length ?? 0,
+    traces:   activePlotDiv().data?.length ?? 0,
   }));
   expect(after.datasets).toBe(1);
   expect(after.rows).toBe(3);
   expect(after.series).toEqual(['round-trip']);
-  expect(after.version).toBe(1);
+  expect(after.version).toBe(2); // migrated to state v2 (Phase 7)
   expect(after.traces).toBeGreaterThan(0); // re-rendered after import
 
   // Series list UI rebuilt
@@ -72,7 +72,7 @@ test('importing a newer-version session is refused with a clear message', async 
   const refused = await page.evaluate(() => {
     const payload = { _schema: 'datalab-session', state: { version: 99, datasets: [] } };
     // Simulate the importSessionFile validation branch directly
-    return payload.state.version > 1;
+    return payload.state.version > 2;
   });
   expect(refused).toBe(true);
 });
@@ -126,7 +126,7 @@ test('SVG export produces a valid SVG image', async ({ page }) => {
 
   await expect(page.locator('#downloadSvgBtn')).toBeVisible();
   const dataUrl = await page.evaluate(() =>
-    Plotly.toImage('plotDiv', { format: 'svg', width: 700, height: 500 })
+    Plotly.toImage(activePlotDiv(), { format: 'svg', width: 700, height: 500 })
   );
   expect(dataUrl).toContain('image/svg+xml');
 });
@@ -164,14 +164,14 @@ test('two parity series both get stats annotations', async ({ page }) => {
   await page.waitForTimeout(600);
 
   const annots = await page.evaluate(() =>
-    document.getElementById('plotDiv')._fullLayout.annotations.map(a => a.text)
+    activePlotDiv()._fullLayout.annotations.map(a => a.text)
   );
   expect(annots.length).toBe(2);
   expect(annots[0]).toContain('model A');
   expect(annots[1]).toContain('model B');
 
   // Screen reader mirror covers both
-  const sr = await page.locator('#plotAnnotSR').textContent();
+  const sr = await page.locator('.plot-panel .sr-only').textContent();
   expect(sr).toContain('model A');
   expect(sr).toContain('model B');
 });

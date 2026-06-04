@@ -26,7 +26,7 @@ async function addSeries(page, chartType, name) {
 }
 
 async function traceCount(page) {
-  return page.evaluate(() => document.getElementById('plotDiv').data?.length ?? 0);
+  return page.evaluate(() => activePlotDiv().data?.length ?? 0);
 }
 
 test('toggling a series off removes its trace; back on restores it', async ({ page }) => {
@@ -85,7 +85,7 @@ test('per-series style overrides persist and apply to the trace', async ({ page 
   await page.click('#renderBtn');
   await page.waitForTimeout(800);
   const markerSize = await page.evaluate(() =>
-    document.getElementById('plotDiv').data[0].marker.size
+    activePlotDiv().data[0].marker.size
   );
   expect(markerSize).toBe(15);
 });

@@ -13,6 +13,7 @@
 <header>
   <span class="logo">DataLab <span>v%%VERSION%%</span></span>
   <div class="divider"></div>
+  <button class="btn btn-sm" id="addPlotBtn" title="Add a plot panel to the grid">+ Plot</button>
   <button class="btn btn-sm" id="sessionSaveBtn" title="Save full session to a JSON file">💾 Session</button>
   <button class="btn btn-sm" id="sessionLoadBtn" title="Load a saved session">📂 Load</button>
   <input type="file" id="sessionFileInput" accept=".json" class="sr-only" aria-label="Load session file" />
@@ -57,6 +58,7 @@
     <details class="section" open>
       <summary>Plot settings</summary>
       <div class="details-body">
+        <div class="ctrl-label" id="activePlotLabel" style="color:var(--accent)">Editing: Plot 1</div>
         <label class="ctrl-label">Title
           <div class="input-lock-row">
             <input type="text" class="ctrl-input" id="inputTitle" placeholder="Auto" />
@@ -226,18 +228,14 @@
 
   </div><!-- /left-panel -->
 
-  <!-- ── Main area ─────────────────────────────────── -->
+  <!-- ── Main area: live plot grid (Phase 7) ──────────── -->
   <div class="main-area">
     <div id="emptyState" class="empty-state">
       <div class="empty-icon">◈</div>
       <div class="empty-title">No data yet</div>
       <div class="empty-sub">Drop a CSV into the Datasets panel, then add a series.</div>
     </div>
-    <div id="plotArea" class="hidden">
-      <div id="renderErrors" role="alert" style="display:none"></div>
-      <div id="plotDiv"></div>
-      <span class="sr-only" id="plotAnnotSR" aria-live="polite"></span>
-    </div>
+    <div id="plotGrid" class="plot-grid cols-1 hidden"></div>
   </div>
 
 </div><!-- /main -->

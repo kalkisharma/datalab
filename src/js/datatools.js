@@ -157,10 +157,8 @@ function renderCorrelation() {
 
   const m  = pearsonMatrix(ds.rows, cols).map(row => row.map(v => Number.isFinite(v) ? v : null));
   const th = plotTheme();
-  const figW = parseInt(document.getElementById('figW')?.value ?? 700);
-  const figH = parseInt(document.getElementById('figH')?.value ?? 500);
-
-  Plotly.react('plotDiv', [{
+  const pd = activePlotDiv();
+  Plotly.react(pd, [{
     type: 'heatmap',
     x: cols, y: cols, z: m,
     zmin: -1, zmax: 1,
@@ -169,7 +167,7 @@ function renderCorrelation() {
     hovertemplate: '%{x} × %{y}: r = %{z:.3f}<extra></extra>',
   }], {
     paper_bgcolor: th.bg, plot_bgcolor: th.bg,
-    width: figW, height: figH,
+    autosize: true,
     font: { family: 'IBM Plex Sans,system-ui,sans-serif', color: th.text, size: 12 },
     title: { text: `Correlation — ${ds.name}`, x: 0.5, xanchor: 'center', font: { size: 14, color: th.title } },
     xaxis: { tickfont: { size: 10, color: th.tick } },
@@ -179,11 +177,11 @@ function renderCorrelation() {
 
   appState.plotRendered = true;
   document.getElementById('emptyState').classList.add('hidden');
-  document.getElementById('plotArea').classList.remove('hidden');
+  document.getElementById('plotGrid').classList.remove('hidden');
   document.getElementById('downloadBtn').style.display    = '';
   document.getElementById('downloadSvgBtn').style.display = '';
   // Screen reader summary of the matrix
-  const sr = document.getElementById('plotAnnotSR');
+  const sr = document.getElementById('plotSR-' + activePlot().id);
   if (sr) sr.textContent = `Correlation matrix for ${ds.name}: ${cols.length} numeric columns. ` +
     cols.flatMap((a, i) => cols.slice(i + 1).map((b, jo) =>
       `${a} and ${b}: ${m[i][i + 1 + jo] === null ? 'undefined' : m[i][i + 1 + jo].toFixed(3)}`

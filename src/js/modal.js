@@ -51,12 +51,24 @@ function buildModalBody(existing) {
     `<button class="ct-btn ${existing?.chartType === t ? 'active' : ''}" data-ct="${t}">${t}</button>`
   ).join('');
 
+  // Plot picker (Phase 7) — defaults to the active plot
+  const targetPlot = existing?.plotId ?? appState.activePlotId;
+  const plotOptions = appState.plots.map(p =>
+    // escHtml applied to plot name — user-editable string
+    `<option value="${escHtml(p.id)}" ${targetPlot === p.id ? 'selected' : ''}>${escHtml(p.name)}</option>`
+  ).join('');
+
   return `
     <div class="modal-field">
       <label class="modal-label" for="mSeriesName">Name</label>
       <input type="text" class="ctrl-input" id="mSeriesName"
              value="${escHtml(existing?.name || '')}" placeholder="Series name" />
     </div>
+    ${appState.plots.length > 1 ? `
+    <div class="modal-field">
+      <label class="modal-label" for="mPlot">Plot</label>
+      <select id="mPlot">${plotOptions}</select>
+    </div>` : ''}
     <div class="modal-field">
       <label class="modal-label" for="mDataset">Dataset <span class="required">*</span></label>
       <select id="mDataset">${dsOptions}</select>
@@ -153,6 +165,7 @@ function saveModalSeries() {
   const series = {
     id:        _editingSeriesId || uid(),
     name:      name || autoName,
+    plotId:    document.getElementById('mPlot')?.value || existing?.plotId || appState.activePlotId,
     datasetId: dsId,
     chartType,
     xCol,

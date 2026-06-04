@@ -84,12 +84,12 @@ test('load CSV, add scatter series, render produces SVG', async ({ page }) => {
     await page.waitForTimeout(1000);
 
     // Plotly should have produced an SVG inside plotDiv
-    const svgCount = await page.locator('#plotDiv svg').count();
+    const svgCount = await page.locator('.panel-plot svg').count();
     expect(svgCount).toBeGreaterThan(0);
 
     // Plot background defaults to white; foreground adapts to luminance
     const layout = await page.evaluate(() => {
-      const fl = document.getElementById('plotDiv')._fullLayout;
+      const fl = activePlotDiv()._fullLayout;
       return { paper: fl.paper_bgcolor, plot: fl.plot_bgcolor, font: fl.font.color };
     });
     expect(layout.paper).toBe('#ffffff');
@@ -103,7 +103,7 @@ test('load CSV, add scatter series, render produces SVG', async ({ page }) => {
     });
     await page.waitForTimeout(400);
     const dark = await page.evaluate(() => {
-      const fl = document.getElementById('plotDiv')._fullLayout;
+      const fl = activePlotDiv()._fullLayout;
       return { paper: fl.paper_bgcolor, font: fl.font.color };
     });
     expect(dark.paper).toBe('#13131a');

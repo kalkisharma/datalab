@@ -2,7 +2,7 @@
 
 // Single source of truth for the app version (STANDARDS.md §3).
 // build.js parses the declaration below — do not rename or reformat it.
-const VERSION = '1.2.0';
+const VERSION = '2.0.0';
 
 // ── appState ──────────────────────────────────────────────────────────────
 //
@@ -31,24 +31,39 @@ const VERSION = '1.2.0';
 // Dataset shape (entries in appState.datasets):
 // { id, name, rows, headers, color }
 //
-const appState = {
-  version:  1,
-  datasets: [],
-  series:   [],
-  plotConfig: {
+// Per-plot configuration (Phase 7: plotConfig went from singleton to one
+// per plot — state version 2, migration in sessions.js)
+function makeDefaultPlotConfig() {
+  return {
     title:        '',
     xLabel:       '',
     yLabel:       '',
-    figWidth:     700,
-    figHeight:    500,
     titleLocked:  false,
     xLabelLocked: false,
     yLabelLocked: false,
-    annotPos:     null,   // { x, y } in paper coords; null = default
-    figInited:    false,  // true after first render sets slider defaults
-    majorGrid:    true,
-    minorGrid:    false,
-  },
+    annotPos:     null,   // { x, y } paper coords; null = default
+    legendShow:   true,
+    legendPos:    null,   // { x, y }; null = default corner
+    xMin: '', xMax: '', yMin: '', yMax: '', // manual axis ranges ('' = auto)
+  };
+}
+
+function makePlot(name) {
+  return {
+    // uid() lives in wiring.js — declared later in the bundle but defined
+    // before any runtime call (function declarations hoist per bundle)
+    id:   typeof uid === 'function' ? uid() : 'p1',
+    name,
+    plotConfig: makeDefaultPlotConfig(),
+  };
+}
+
+const appState = {
+  version:  2,
+  datasets: [],
+  series:   [],   // each series carries plotId (Phase 7)
+  plots:    [{ id: 'p1', name: 'Plot 1', plotConfig: makeDefaultPlotConfig() }],
+  activePlotId: 'p1',
   style: {
     markerSize:    6,
     markerOpacity: 0.8,

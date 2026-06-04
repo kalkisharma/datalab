@@ -3,13 +3,15 @@
 // ── Export ────────────────────────────────────────────────────────────────
 
 function downloadPlot(format = 'png') {
-  const title    = document.getElementById('inputTitle').value || 'datalab_plot';
+  // Exports the ACTIVE panel; Figure size sliders define the export size
+  // (panels themselves autosize to their grid cell — Phase 7)
+  const title    = activePlot().plotConfig.title || activePlot().name || 'datalab_plot';
   const filename = title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'datalab_plot';
   const w = parseInt(document.getElementById('figW').value);
   const h = parseInt(document.getElementById('figH').value);
   // Note: scattergl traces (WebGL, >10k points) are rasterized inside the
   // SVG by Plotly — vector output applies to axes/text and SVG traces
-  Plotly.downloadImage('plotDiv', { format, width: w, height: h, filename });
+  Plotly.downloadImage(activePlotDiv(), { format, width: w, height: h, filename });
 }
 
 // ── Style presets ─────────────────────────────────────────────────────────
@@ -63,8 +65,8 @@ function loadPresetFile(file) {
     // Frame auto state drives the color inputs' enabled state
     document.getElementById('frameColor').disabled = document.getElementById('frameAuto').checked;
     document.getElementById('gridColor').disabled  = document.getElementById('gridAuto').checked;
-    // Legend visibility mirrors into plotConfig (sessions round-trip it)
-    appState.plotConfig.legendShow = document.getElementById('showLegend').checked;
+    // Legend visibility mirrors into the ACTIVE plot's config (Phase 7)
+    activePlot().plotConfig.legendShow = document.getElementById('showLegend').checked;
     if (appState.plotRendered) renderPlot();
   };
   reader.readAsText(file);

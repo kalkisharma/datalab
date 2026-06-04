@@ -25,10 +25,11 @@ function plotTheme() {
         annotBg: 'rgba(255,255,255,0.88)', annotBorder: '#aaaaaa' };
 }
 
-function buildBaseLayout() {
-  const cfg  = appState.plotConfig;
+function buildBaseLayout(plot) {
+  // Per-plot config (Phase 7); inputs in the left panel mirror the ACTIVE
+  // plot, but every plot renders from its own stored config
+  const cfg  = plot.plotConfig;
   const iv = (id, dflt) => { const v = parseFloat(document.getElementById(id)?.value); return Number.isFinite(v) ? v : dflt; };
-  const figW = iv('figW', 700), figH = iv('figH', 500);
   const showMaj = document.getElementById('majorGrid')?.checked ?? true;
   const showMin = document.getElementById('minorGrid')?.checked ?? false;
   const th = plotTheme();
@@ -46,8 +47,11 @@ function buildBaseLayout() {
   const frameWidth = iv('frameWidth', 1);
   const gridWidth  = iv('gridWidth', 1);
 
-  const xRange = getManualRange('xMin', 'xMax');
-  const yRange = getManualRange('yMin', 'yMax');
+  // Manual axis ranges live in the plot's config ('' = auto)
+  const rng = (mn, mx) => (cfg[mn] === '' && cfg[mx] === '') ? undefined
+    : [cfg[mn] === '' ? null : parseFloat(cfg[mn]), cfg[mx] === '' ? null : parseFloat(cfg[mx])];
+  const xRange = rng('xMin', 'xMax');
+  const yRange = rng('yMin', 'yMax');
 
   const axisBase = {
     showgrid: showMaj, gridcolor: showMaj ? gridColor : 'rgba(0,0,0,0)', gridwidth: gridWidth,
@@ -64,11 +68,11 @@ function buildBaseLayout() {
 
   return {
     paper_bgcolor: th.bg, plot_bgcolor: th.bg,
-    width: figW, height: figH,
+    autosize: true, // panels fill their grid cell; Figure size = export size
     font: { family: 'IBM Plex Sans,system-ui,sans-serif', color: th.text, size: 12 },
     showlegend: cfg.legendShow ?? true,
     title: {
-      text: cfg.titleLocked ? document.getElementById('inputTitle').value : autoTitle(),
+      text: cfg.titleLocked ? cfg.title : autoTitle(plot),
       x: 0.5, xanchor: 'center', xref: 'paper',
       font: { size: fsT, color: th.title },
     },
@@ -76,7 +80,7 @@ function buildBaseLayout() {
       ...axisBase,
       range: xRange,
       title: {
-        text: cfg.xLabelLocked ? document.getElementById('inputXLabel').value : autoXLabel(),
+        text: cfg.xLabelLocked ? cfg.xLabel : autoXLabel(plot),
         font: { size: fsA, color: th.axisTitle },
       },
     },
@@ -84,7 +88,7 @@ function buildBaseLayout() {
       ...axisBase,
       range: yRange,
       title: {
-        text: cfg.yLabelLocked ? document.getElementById('inputYLabel').value : autoYLabel(),
+        text: cfg.yLabelLocked ? cfg.yLabel : autoYLabel(plot),
         font: { size: fsA, color: th.axisTitle },
       },
     },

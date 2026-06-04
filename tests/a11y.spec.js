@@ -65,7 +65,7 @@ test('axe: loaded data + rendered plot has no violations', async ({ page }) => {
   // plot canvas itself, audit everything we author around it
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa'])
-    .exclude('#plotDiv')
+    .exclude('.panel-plot')
     .analyze();
   if (results.violations.length) {
     results.violations.forEach(v => console.log(`${v.id}: ${v.help} — ${v.nodes[0]?.target}`));

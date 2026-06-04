@@ -32,7 +32,7 @@ function importSessionFile(file) {
       sessionAlert('Not a DataLab session file.'); return;
     }
     const v = payload.state.version ?? 0;
-    if (v > 1) {
+    if (v > 2) {
       sessionAlert(`This session was saved by a newer DataLab (state v${v}) — update the app to load it.`);
       return;
     }
@@ -41,36 +41,51 @@ function importSessionFile(file) {
   reader.readAsText(file);
 }
 
-// Migration stubs per state version (STANDARDS.md §3). v1 is current.
+// Migrations per state version (STANDARDS.md §3). v2 is current.
 function migrateSessionState(st) {
-  // v0 → v1: no released v0 files exist; treat as v1
-  st.version = 1;
+  if ((st.version ?? 0) <= 1) {
+    // v1 → v2 (Phase 7 multi-plot): wrap the singleton plotConfig into
+    // plots[0] and assign every series to it — a v1 file loads identically
+    // into a 1-plot grid
+    const pid = 'p1';
+    st.plots = [{
+      id: pid, name: 'Plot 1',
+      plotConfig: { ...makeDefaultPlotConfig(), ...(st.plotConfig ?? {}) },
+    }];
+    (st.series ?? []).forEach(s => { if (!s.plotId) s.plotId = pid; });
+    delete st.plotConfig;
+    st.activePlotId = pid;
+    st.version = 2;
+  }
   return st;
 }
 
 function applySessionState(st) {
-  // Release the outgoing datasets' memoized columns before replacing them
+  // Release the outgoing datasets' memoized columns and every live panel
+  // before replacing them
   appState.datasets.forEach(d => bumpDatasetRev(d.id));
+  appState.plots.forEach(p => clearPanel(p.id));
 
   appState.version      = st.version;
   appState.datasets     = st.datasets   ?? [];
   appState.series       = st.series     ?? [];
-  appState.plotConfig   = { ...appState.plotConfig, ...(st.plotConfig ?? {}) };
-  appState.style        = { ...appState.style,      ...(st.style      ?? {}) };
+  appState.plots        = (st.plots && st.plots.length) ? st.plots
+                          : [{ id: 'p1', name: 'Plot 1', plotConfig: makeDefaultPlotConfig() }];
+  appState.activePlotId = appState.plots.some(p => p.id === st.activePlotId)
+                          ? st.activePlotId : appState.plots[0].id;
+  appState.style        = { ...appState.style, ...(st.style ?? {}) };
   appState.savedPlots   = st.savedPlots ?? [];
   appState.plotRendered = false;
 
   // Imported data invalidates every cache keyed on dataset revisions
   appState.datasets.forEach(d => bumpDatasetRev(d.id));
 
+  renderPlotGrid();
+  syncActivePlotInputs(); // mirrors the active plot's config into the UI
   renderDatasetList();
   renderSeriesList();
   updateRenderBtn();
   showDataAlerts(null, []);
-
-  // Mirror session-carried plotConfig flags back into their UI controls
-  const legendCb = document.getElementById('showLegend');
-  if (legendCb) legendCb.checked = appState.plotConfig.legendShow ?? true;
 
   // Rebuild the saved plots strip
   const strip = document.getElementById('savedScroll');

@@ -1,4 +1,4 @@
-// chart.js — renderPlot dispatcher and trace cache
+// chart.js — renderPlot dispatcher (per-plot, Phase 7) and trace cache
 // (theme + base layout live in layout.js; PNG/ZIP export in export.js)
 
 const RENDERERS = {
@@ -15,8 +15,7 @@ const RENDERERS = {
 // Keyed per series id; the key captures everything a trace depends on:
 // the series definition itself, the revision of every dataset it reads,
 // and the global style panel values that buildMarkerStyle consumes.
-// A style-only re-render (figure size, gridlines, labels) reuses every
-// cached trace and pays only the Plotly.react cost.
+// A style-only re-render reuses every cached trace.
 
 const _traceCache = new Map(); // series.id → { key, result }
 
@@ -38,34 +37,51 @@ function buildSeriesResult(s) {
   return result;
 }
 
-// ── renderPlot ────────────────────────────────────────────────────────────
+// ── renderPlot — renders the whole grid ───────────────────────────────────
 
 function renderPlot() {
-  // Prune cache entries for deleted series BEFORE the empty-list return —
-  // deleting the last series must release its cached traces (Phase 4
-  // memory profile found ~160 MB stranded here at 1M rows × 10 series)
+  // Prune cache entries for deleted series BEFORE the empty return —
+  // deleting the last series must release its cached traces (Phase 4)
   for (const id of [..._traceCache.keys()]) {
     if (!appState.series.some(s => s.id === id)) _traceCache.delete(id);
   }
 
   if (!appState.series.length) {
-    if (appState.plotRendered) clearPlot(); // last series deleted → release everything
+    if (appState.plotRendered) clearPlot(); // everything deleted → release all panels
     return;
   }
+
+  renderPlotGrid(); // panels exist before plotting into them
+
+  for (const plot of appState.plots) renderOnePlot(plot);
+
+  appState.plotRendered = true;
+  document.getElementById('emptyState').classList.add('hidden');
+  document.getElementById('plotGrid').classList.remove('hidden');
+  document.getElementById('downloadBtn').style.display    = '';
+  document.getElementById('downloadSvgBtn').style.display = '';
+  document.getElementById('savedStrip').style.display  = appState.savedPlots.filter(Boolean).length ? '' : 'none';
+  document.getElementById('saveBtn').style.display     = '';
+  syncAutoLabels();
+}
+
+function renderOnePlot(plot) {
+  const pd = plotDivFor(plot.id);
+  if (!pd) return;
 
   const traces   = [];
   const errors   = [];
   const warnings = [];
-  let   layout   = buildBaseLayout();
-  const parityResults = []; // one entry per parity series — all annotated, not just the last
-  const srParts = [];       // screen-reader mirror lines (parity stats, normal fits)
+  let   layout   = buildBaseLayout(plot);
+  const parityResults = []; // every parity series annotated, not just the last
+  const srParts = [];       // screen-reader mirror lines
 
   for (const s of appState.series) {
-    if (s.enabled === false) continue; // hidden via series list toggle
+    if ((s.plotId ?? appState.plots[0].id) !== plot.id) continue;
+    if (s.enabled === false) continue;
     if (!RENDERERS[s.chartType]) continue;
 
     // Clear error for missing column refs (e.g. after a dataset reload)
-    // instead of the all-NaN fallthrough the renderer would produce
     const missing = validateSeriesColumns(s, appState.datasets);
     if (missing.length) {
       errors.push({ name: s.name, error: `references missing ${missing.join(', ')} — edit the series or reload the original CSV` });
@@ -78,33 +94,27 @@ function renderPlot() {
 
     traces.push(...result.traces);
 
-    // Parity renderers return extra layout (equal axes) and stats annotation
     if (result.layout) Object.assign(layout, result.layout);
     if (result.stats && result.annotSR) parityResults.push({ name: s.name, ...result });
-    if (result.fitAnnot) srParts.push(result.fitAnnot.sr); // histogram normal fit
+    if (result.fitAnnot) srParts.push(result.fitAnnot.sr);
   }
 
-  showRenderErrors(errors, warnings);
-  // Empty traces still render (blank axes) — toggling every series off should
-  // visibly empty the plot, not silently keep the stale one
+  showPanelErrors(plot.id, errors, warnings);
 
-  // Stats annotations — one per parity series, stacked bottom-right.
-  // (Phase 4 fix for the Phase 2/3 known issue: previously only the last
-  // parity series was annotated.) A single parity keeps the draggable
-  // stored position; multiples use fixed stacking so they never overlap.
+  // Stats annotations — one per parity series, stacked; single parity keeps
+  // its draggable stored position
   if (parityResults.length) {
     const fmt = v => isNaN(v) ? 'N/A' : Number(v).toPrecision(4);
     const th  = plotTheme();
     const single = parityResults.length === 1;
-    const base = single ? (appState.plotConfig.annotPos ?? { x: 0.98, y: 0.04 })
+    const base = single ? (plot.plotConfig.annotPos ?? { x: 0.98, y: 0.04 })
                         : { x: 0.98, y: 0.04 };
     layout.annotations = parityResults.map((p, i) => ({
       x: base.x, y: base.y + i * 0.24,
       xref: 'paper', yref: 'paper',
       xanchor: base.x > 0.5 ? 'right' : 'left',
       yanchor: base.y < 0.5 ? 'bottom' : 'top',
-      // Plotly annotation text is rendered as restricted pseudo-HTML; series
-      // names are user data — escHtml applied. Stats are computed numerics.
+      // Series names are user data — escHtml applied (Plotly pseudo-HTML)
       text: (single ? '' : `<b>${escHtml(p.name)}</b><br>`)
         + `NSE = ${fmt(p.stats.nse)}<br>MAE = ${fmt(p.stats.mae)}<br>RMSE = ${fmt(p.stats.rmse)}<br>N = ${p.n}`,
       showarrow: false,
@@ -120,105 +130,75 @@ function renderPlot() {
     ));
   }
 
-  // Mirror for screen readers (.sr-only span, aria-live) — parity stats and
-  // histogram normal fits together; cleared when none apply
-  const srEl = document.getElementById('plotAnnotSR');
+  const srEl = document.getElementById('plotSR-' + plot.id);
   if (srEl) srEl.textContent = srParts.join('; ');
 
-  Plotly.react('plotDiv', traces, layout, {
-    responsive: false,
+  Plotly.react(pd, traces, layout, {
+    responsive: true, // panels follow their grid cell
     displayModeBar: true,
     displaylogo: false,
     edits: { legendPosition: true, annotationPosition: true },
   });
 
-  // Persist a dragged legend so re-renders stop snapping it back to the
-  // default corner (Phase 6). Hook survives react; re-bound after clearPlot
-  // because that replaces the node.
-  const pd = document.getElementById('plotDiv');
+  // Persist a dragged legend per plot (Phase 6 behavior, now per panel).
+  // Re-bound after clearPanel because that replaces the node.
   if (!pd._legendHooked) {
     pd.on('plotly_relayout', e => {
       if (e['legend.x'] !== undefined || e['legend.y'] !== undefined) {
-        appState.plotConfig.legendPos = {
-          x: e['legend.x'] ?? appState.plotConfig.legendPos?.x ?? 0.01,
-          y: e['legend.y'] ?? appState.plotConfig.legendPos?.y ?? 0.99,
+        plot.plotConfig.legendPos = {
+          x: e['legend.x'] ?? plot.plotConfig.legendPos?.x ?? 0.01,
+          y: e['legend.y'] ?? plot.plotConfig.legendPos?.y ?? 0.99,
         };
       }
     });
     pd._legendHooked = true;
   }
-
-  appState.plotRendered = true;
-  document.getElementById('emptyState').classList.add('hidden');
-  document.getElementById('plotArea').classList.remove('hidden');
-  document.getElementById('downloadBtn').style.display    = '';
-  document.getElementById('downloadSvgBtn').style.display = '';
-  document.getElementById('savedStrip').style.display  = appState.savedPlots.filter(Boolean).length ? '' : 'none';
-  document.getElementById('saveBtn').style.display     = '';
-  syncTitle(); syncXLabel(); syncYLabel();
 }
 
-// Fully release the plot and return to the empty state. Plotly.purge alone
-// is not enough: scattergl retains WebGL buffers bound to the node past
-// purge (Phase 4 memory profile measured ~150 MB stranded at 1M rows ×
-// 10 series) — replacing the node is the reliable release.
+// Release every panel and return to the empty state (Phase 4 strategy:
+// purge + node replacement, since scattergl retains buffers past purge)
 function clearPlot() {
-  const pd = document.getElementById('plotDiv');
-  try { Plotly.purge(pd); } catch (e) { /* nothing rendered */ }
-  pd.replaceWith(pd.cloneNode(false)); // keeps id/attrs, drops gl context
+  appState.plots.forEach(p => clearPanel(p.id));
   appState.plotRendered = false;
-  document.getElementById('plotArea').classList.add('hidden');
+  document.getElementById('plotGrid').classList.add('hidden');
   document.getElementById('emptyState').classList.remove('hidden');
   document.getElementById('downloadBtn').style.display    = 'none';
   document.getElementById('downloadSvgBtn').style.display = 'none';
-  const srEl = document.getElementById('plotAnnotSR');
-  if (srEl) srEl.textContent = '';
 }
 
-function getManualRange(minId, maxId) {
-  const mn = document.getElementById(minId)?.value;
-  const mx = document.getElementById(maxId)?.value;
-  if (mn === '' && mx === '') return undefined;
-  return [mn === '' ? null : parseFloat(mn), mx === '' ? null : parseFloat(mx)];
+// ── Auto-label helpers (per the ACTIVE plot's inputs) ─────────────────────
+
+function plotSeries(plot) {
+  return appState.series.filter(s => (s.plotId ?? appState.plots[0].id) === plot.id);
 }
 
-// ── Auto-label helpers ────────────────────────────────────────────────────
-
-function autoTitle() {
-  if (!appState.series.length) return 'DataLab';
-  const types = [...new Set(appState.series.map(s => s.chartType))];
+function autoTitle(plot) {
+  const list = plotSeries(plot);
+  if (!list.length) return plot.name;
+  const types = [...new Set(list.map(s => s.chartType))];
   return types.length === 1
-    ? `${types[0].charAt(0).toUpperCase()+types[0].slice(1)} plot`
+    ? `${types[0].charAt(0).toUpperCase() + types[0].slice(1)} plot`
     : 'Multi-series plot';
 }
-function autoXLabel() {
-  const s = appState.series[0];
-  return s?.xCol || '';
-}
-function autoYLabel() {
-  const s = appState.series[0];
-  return s?.yCol || '';
-}
-function syncTitle()  {
-  if (!appState.plotConfig.titleLocked)
-    document.getElementById('inputTitle').value = autoTitle();
-}
-function syncXLabel() {
-  if (!appState.plotConfig.xLabelLocked)
-    document.getElementById('inputXLabel').value = autoXLabel();
-}
-function syncYLabel() {
-  if (!appState.plotConfig.yLabelLocked)
-    document.getElementById('inputYLabel').value = autoYLabel();
+function autoXLabel(plot) { return plotSeries(plot)[0]?.xCol || ''; }
+function autoYLabel(plot) { return plotSeries(plot)[0]?.yCol || ''; }
+
+// Inputs mirror the ACTIVE plot; unlocked fields track their auto values
+function syncAutoLabels() {
+  const plot = activePlot(), cfg = plot.plotConfig;
+  if (!cfg.titleLocked)  { cfg.title  = autoTitle(plot);  document.getElementById('inputTitle').value  = cfg.title; }
+  if (!cfg.xLabelLocked) { cfg.xLabel = autoXLabel(plot); document.getElementById('inputXLabel').value = cfg.xLabel; }
+  if (!cfg.yLabelLocked) { cfg.yLabel = autoYLabel(plot); document.getElementById('inputYLabel').value = cfg.yLabel; }
 }
 
-// ── Render errors display ─────────────────────────────────────────────────
+// ── Per-panel errors ──────────────────────────────────────────────────────
 
-function showRenderErrors(errors, warnings = []) {
-  const box = document.getElementById('renderErrors');
+function showPanelErrors(pid, errors, warnings = []) {
+  const box = document.querySelector(`.plot-panel[data-pid="${pid}"] .panel-errors`);
+  if (!box) return;
   // innerHTML: empty string — no user data
   if (!errors.length && !warnings.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
-  // escHtml applied to series names, error and warning messages — all may contain user data
+  // escHtml applied to series names, error and warning messages — user data
   box.innerHTML =
     errors.map(e =>
       `<div class="render-error" role="alert"><strong>${escHtml(e.name)}:</strong> ${escHtml(e.error)}</div>`

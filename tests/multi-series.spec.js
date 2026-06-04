@@ -69,11 +69,11 @@ test('exit criteria: 3 CSVs, 6 series, reorder, edit, render', async ({ page }) 
   // Render all 6 — parity contributes extra traces (y=x line, bands)
   await page.click('#renderBtn');
   await page.waitForTimeout(1500);
-  const traceCount = await page.evaluate(() => document.getElementById('plotDiv').data.length);
+  const traceCount = await page.evaluate(() => activePlotDiv().data.length);
   expect(traceCount).toBeGreaterThanOrEqual(6);
 
   // No render errors — NaN holes must not break anything
-  await expect(page.locator('#renderErrors .render-error')).toHaveCount(0);
+  await expect(page.locator('.panel-errors .render-error')).toHaveCount(0);
 
   // Reorder: move s6 up; edit s2's name — both must survive a re-render
   await page.locator('.series-item').last().locator('.series-move[data-dir="-1"]').click();
@@ -88,6 +88,6 @@ test('exit criteria: 3 CSVs, 6 series, reorder, edit, render', async ({ page }) 
   expect(await page.evaluate(() => appState.series[1].name)).toBe('s2 renamed');
 
   // Parity stats annotation exists and is mirrored for screen readers
-  const sr = await page.locator('#plotAnnotSR').textContent();
+  const sr = await page.locator('.plot-panel .sr-only').textContent();
   expect(sr).toContain('NSE');
 });

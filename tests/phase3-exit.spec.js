@@ -119,9 +119,9 @@ test('all 5 chart types render together from realistic CSVs', async ({ page }) =
 
   // All five render without errors (overlaying them is statistically odd but
   // must not break — the Data Scientist's concern is correctness, not taste)
-  await expect(page.locator('#renderErrors .render-error')).toHaveCount(0);
+  await expect(page.locator('.panel-errors .render-error')).toHaveCount(0);
   const types = await page.evaluate(() =>
-    document.getElementById('plotDiv').data.map(t => t.type)
+    activePlotDiv().data.map(t => t.type)
   );
   expect(types).toContain('histogram');
   expect(types).toContain('box');

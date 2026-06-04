@@ -165,12 +165,14 @@ function renderSeriesList() {
     item.className = 'series-item';
     item.setAttribute('role', 'listitem');
     item.dataset.sid = s.id;
-    // escHtml applied to: series name, dataset name
+    const plotName = appState.plots.find(p => p.id === s.plotId)?.name ?? '';
+    // escHtml applied to: series name, dataset name, plot name
     item.innerHTML = `
       <input type="checkbox" class="series-ena" ${s.enabled !== false ? 'checked' : ''}
              aria-label="Show series ${escHtml(s.name)}" title="Show/hide on plot" />
       <span class="series-badge ${s.chartType}">${escHtml(s.chartType)}</span>
-      <span class="series-name" title="${escHtml(s.name)} · ${escHtml(dsName)}">${escHtml(s.name)}</span>
+      <span class="series-name" title="${escHtml(s.name)} · ${escHtml(dsName)}${plotName ? ' · ' + escHtml(plotName) : ''}">${escHtml(s.name)}</span>
+      ${appState.plots.length > 1 && plotName ? `<span class="series-plotchip" title="Plot">${escHtml(plotName)}</span>` : ''}
       <button class="series-move" data-dir="-1" aria-label="Move series ${escHtml(s.name)} up"
               title="Move up" ${idx === 0 ? 'disabled' : ''}>↑</button>
       <button class="series-move" data-dir="1" aria-label="Move series ${escHtml(s.name)} down"

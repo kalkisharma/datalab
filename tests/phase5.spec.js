@@ -176,7 +176,7 @@ test('correlation heatmap renders to the plot area with unit diagonal', async ({
   await page.waitForTimeout(600);
 
   await expect(page.locator('#dataToolsOverlay')).toHaveClass(/hidden/); // closed itself
-  const z = await page.evaluate(() => document.getElementById('plotDiv').data[0].z);
+  const z = await page.evaluate(() => activePlotDiv().data[0].z);
   expect(z[0][0]).toBe(1);
   expect(z[1][1]).toBe(1);
   expect(z[0][1]).toBeCloseTo(1, 10);   // a–b perfectly correlated
@@ -204,14 +204,14 @@ test('histogram normal fit overlays a correctly scaled curve', async ({ page }) 
   await page.waitForTimeout(800);
 
   const out = await page.evaluate(() => {
-    const gd = document.getElementById('plotDiv');
+    const gd = activePlotDiv();
     const fit = gd.data.find(t => t.mode === 'lines');
     const series = appState.series[0];
     return {
       hasFit: !!fit,
       name: fit?.name,
       peakX: fit ? fit.x[fit.y.indexOf(Math.max(...fit.y))] : null,
-      sr: document.getElementById('plotAnnotSR').textContent,
+      sr: document.querySelector('.plot-panel .sr-only').textContent,
     };
   });
   expect(out.hasFit).toBe(true);

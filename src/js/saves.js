@@ -2,7 +2,7 @@
 
 async function savePlot() {
   if (!appState.plotRendered) return;
-  const plotDiv = document.getElementById('plotDiv');
+  const plotDiv = activePlotDiv(); // snapshot the active panel (Phase 7)
   const data    = JSON.parse(JSON.stringify(plotDiv._fullData    || []));
   const layout  = JSON.parse(JSON.stringify(plotDiv._fullLayout  || {}));
   const idx     = appState.savedPlots.length;
@@ -16,7 +16,7 @@ async function savePlot() {
   document.getElementById('savedStrip').style.display = '';
   document.getElementById('zipBtn').style.display     = '';
   try {
-    const url = await Plotly.toImage('plotDiv', { format: 'png', width: 200, height: 120 });
+    const url = await Plotly.toImage(activePlotDiv(), { format: 'png', width: 200, height: 120 });
     snap.thumb = url;
     const img = document.querySelector(`#saved-card-${idx} .saved-thumb`);
     if (img) {
@@ -54,11 +54,11 @@ function mkCard(idx, snap, scroll) {
 function restorePlot(idx) {
   const snap = appState.savedPlots[idx]; if (!snap) return;
   document.getElementById('emptyState').classList.add('hidden');
-  document.getElementById('plotArea').classList.remove('hidden');
-  const pd = document.getElementById('plotDiv');
-  if (snap.layout.width)  { pd.style.width  = snap.layout.width  + 'px'; }
-  if (snap.layout.height) { pd.style.height = snap.layout.height + 'px'; }
-  Plotly.react('plotDiv', snap.data, snap.layout, {
+  document.getElementById('plotGrid').classList.remove('hidden');
+  // Restores into the ACTIVE panel (Phase 7); autosize overrides any fixed
+  // size stored in older snapshots
+  const pd = activePlotDiv();
+  Plotly.react(pd, snap.data, { ...snap.layout, autosize: true, width: undefined, height: undefined }, {
     responsive: false, displayModeBar: true, displaylogo: false,
     edits: { legendPosition: true, annotationPosition: true },
   });
