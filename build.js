@@ -59,6 +59,8 @@ const appJs = [
   'src/js/chart.js',
   'src/js/export.js',
   'src/js/sessions.js',
+  'src/js/stats.js',
+  'src/js/datatools.js',
   'src/js/saves.js',
   'src/js/wiring.js',
   'src/js/renderers/shared.js',

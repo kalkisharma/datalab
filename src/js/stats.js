@@ -1,0 +1,207 @@
+// stats.js — statistical engine and cleaning operations (Phase 5)
+//
+// The Data Scientist owns the correctness of everything in this file.
+// Methodology notes are inline at each function; tests pin the outputs to
+// hand-computed reference values (tests/phase5.spec.js).
+
+// ── Missing-value guard ───────────────────────────────────────────────────
+// Number(null) and Number('') coerce to 0 — which would silently turn
+// missing values into zeros and corrupt every statistic computed here.
+// (Caught by the reference-value tests; same rule colVals uses.)
+function finiteOrNaN(v) {
+  if (v === null || v === undefined || v === '') return NaN;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+// ── Quantile ──────────────────────────────────────────────────────────────
+// Linear interpolation between order statistics (R type 7) — the same
+// convention the Freedman-Diaconis helper in histogram.js uses.
+/**
+ * @param {number[]} sorted - ascending finite values
+ * @param {number}   p      - 0..1
+ * @returns {number}
+ */
+function quantile(sorted, p) {
+  const n = sorted.length;
+  if (!n) return NaN;
+  const i = (n - 1) * p, lo = Math.floor(i), hi = Math.ceil(i);
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (i - lo);
+}
+
+// ── Summary statistics ────────────────────────────────────────────────────
+// std is the SAMPLE standard deviation (n−1 denominator, Bessel's
+// correction) — these are summaries of a sample, not a full population.
+/**
+ * @param {object[]} rows
+ * @param {string}   col
+ * @returns {object|null} null when the column has no finite values
+ */
+function summaryStats(rows, col) {
+  const raw = rows.map(r => r[col]);
+  const v = raw.map(finiteOrNaN).filter(Number.isFinite).sort((a, b) => a - b);
+  const n = v.length;
+  const missing = raw.length - n;
+  if (!n) return null;
+  const mean = v.reduce((a, b) => a + b, 0) / n;
+  const std  = n > 1 ? Math.sqrt(v.reduce((s, x) => s + (x - mean) ** 2, 0) / (n - 1)) : 0;
+  return {
+    n, missing, mean, std,
+    min: v[0], p25: quantile(v, 0.25), median: quantile(v, 0.5),
+    p75: quantile(v, 0.75), max: v[n - 1],
+  };
+}
+
+// ── Pearson correlation ───────────────────────────────────────────────────
+// Pairwise-complete deletion: each cell uses only the rows where BOTH
+// columns are finite. Different cells may therefore be computed on
+// different subsets — standard for missing data, but worth knowing when
+// missingness is not random.
+/**
+ * @param {object[]} rows
+ * @param {string[]} cols - numeric column names
+ * @returns {number[][]} symmetric matrix, diagonal 1, NaN when < 2 pairs
+ */
+function pearsonMatrix(rows, cols) {
+  const vals = cols.map(c => rows.map(r => finiteOrNaN(r[c])));
+  const m = cols.map(() => new Array(cols.length).fill(NaN));
+  for (let i = 0; i < cols.length; i++) {
+    m[i][i] = 1;
+    for (let j = i + 1; j < cols.length; j++) {
+      const xs = [], ys = [];
+      for (let k = 0; k < rows.length; k++) {
+        if (Number.isFinite(vals[i][k]) && Number.isFinite(vals[j][k])) {
+          xs.push(vals[i][k]); ys.push(vals[j][k]);
+        }
+      }
+      const r = pearsonR(xs, ys);
+      m[i][j] = r; m[j][i] = r;
+    }
+  }
+  return m;
+}
+
+function pearsonR(xs, ys) {
+  const n = xs.length;
+  if (n < 2) return NaN;
+  const mx = xs.reduce((a, b) => a + b, 0) / n;
+  const my = ys.reduce((a, b) => a + b, 0) / n;
+  let sxy = 0, sxx = 0, syy = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = xs[i] - mx, dy = ys[i] - my;
+    sxy += dx * dy; sxx += dx * dx; syy += dy * dy;
+  }
+  return (sxx === 0 || syy === 0) ? NaN : sxy / Math.sqrt(sxx * syy);
+}
+
+// ── Normal distribution fit ───────────────────────────────────────────────
+// Maximum-likelihood-style fit using the sample mean and SAMPLE std (n−1).
+// Overlay scaling belongs to the caller: counts ≈ pdf(x) · n · binWidth.
+/**
+ * @param {number[]} vals - finite values
+ * @returns {{ mu: number, sigma: number, n: number }|null}
+ */
+function fitNormal(vals) {
+  const v = vals.filter(Number.isFinite);
+  const n = v.length;
+  if (n < 2) return null;
+  const mu = v.reduce((a, b) => a + b, 0) / n;
+  const sigma = Math.sqrt(v.reduce((s, x) => s + (x - mu) ** 2, 0) / (n - 1));
+  return { mu, sigma, n };
+}
+
+function normalPdf(x, mu, sigma) {
+  if (sigma === 0) return NaN;
+  const z = (x - mu) / sigma;
+  return Math.exp(-0.5 * z * z) / (sigma * Math.sqrt(2 * Math.PI));
+}
+
+// ── Cleaning operations ───────────────────────────────────────────────────
+// All operations mutate the dataset in place; CALLERS must bump the dataset
+// revision and re-validate series afterwards (the Data Tools modal does).
+
+/**
+ * Rename a column. Row keys are rewritten; series references are the
+ * caller's responsibility (renameColumnRefs).
+ * @returns {boolean} false if the new name collides
+ */
+function renameColumn(ds, oldName, newName) {
+  if (!newName || ds.headers.includes(newName)) return false;
+  ds.headers = ds.headers.map(h => h === oldName ? newName : h);
+  for (const r of ds.rows) { r[newName] = r[oldName]; delete r[oldName]; }
+  if (ds.dateFormats?.[oldName]) {
+    ds.dateFormats[newName] = ds.dateFormats[oldName];
+    delete ds.dateFormats[oldName];
+  }
+  return true;
+}
+
+// Follow a rename through every series referencing the dataset's column —
+// without this, renaming breaks plots that were built on the old name.
+function renameColumnRefs(seriesList, dsId, oldName, newName) {
+  let touched = 0;
+  for (const s of seriesList) {
+    const own  = s.datasetId === dsId;
+    const join = s.joinDatasetId === dsId;
+    if (!own && !join) continue;
+    let hit = false;
+    if (own) {
+      for (const k of ['xCol', 'colorCol', 'zCol']) {
+        if (s[k] === oldName) { s[k] = newName; hit = true; }
+      }
+      if (s.chartType !== 'parity' && s.yCol === oldName) { s.yCol = newName; hit = true; }
+      (s.filters || []).forEach(f => { if (f.col === oldName) { f.col = newName; hit = true; } });
+    }
+    if (join && s.chartType === 'parity' && s.yCol === oldName) { s.yCol = newName; hit = true; }
+    if (s.joinKey === oldName && (own || join)) { s.joinKey = newName; hit = true; }
+    if (hit) touched++;
+  }
+  return touched;
+}
+
+// Drop = remove from headers only; row values stay (cheap at 1M rows) but
+// are invisible to pickers and excluded from CSV export (unparse uses the
+// header list as its column set).
+function dropColumn(ds, col) {
+  ds.headers = ds.headers.filter(h => h !== col);
+}
+
+/** @returns {number} count of values that could not be parsed (set to null) */
+function castNumeric(ds, col) {
+  let failed = 0;
+  for (const r of ds.rows) {
+    const v = r[col];
+    if (v === null || v === undefined || v === '') { r[col] = null; continue; }
+    const n = Number(v);
+    if (Number.isFinite(n)) r[col] = n;
+    else { r[col] = null; failed++; }
+  }
+  return failed;
+}
+
+/**
+ * @param {'drop'|'mean'|'median'|'value'} mode
+ * @param {*} [fillValue] - used when mode === 'value'
+ * @returns {number} rows dropped or values filled
+ */
+function handleMissing(ds, col, mode, fillValue) {
+  const isMissing = v => v === null || v === undefined || v === '' ||
+                         (typeof v === 'number' && !Number.isFinite(v));
+  if (mode === 'drop') {
+    const before = ds.rows.length;
+    ds.rows = ds.rows.filter(r => !isMissing(r[col]));
+    return before - ds.rows.length;
+  }
+  let fill;
+  if (mode === 'value') fill = fillValue;
+  else {
+    const stats = summaryStats(ds.rows, col);
+    if (!stats) return 0;
+    fill = mode === 'mean' ? stats.mean : stats.median;
+  }
+  let filled = 0;
+  for (const r of ds.rows) {
+    if (isMissing(r[col])) { r[col] = fill; filled++; }
+  }
+  return filled;
+}

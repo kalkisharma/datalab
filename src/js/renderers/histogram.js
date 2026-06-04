@@ -56,17 +56,47 @@ function buildHistogramTrace(series, datasets) {
     ? Math.min(500, series.binCount)
     : fdBinCount(xV);
 
-  return {
-    traces: [{
-      type: 'histogram',
-      x: xV,
-      nbinsx: bins,
-      name: series.name || 'Histogram',
-      marker: { color: series.style?.color ?? (ds.color ?? '#5b8dee') },
-      opacity: series.style?.opacity
-        ?? (Number(document.getElementById('markerOpacity')?.value ?? 80) / 100),
-      hovertemplate: `${series.xCol}: %{x}<br>count: %{y}<extra></extra>`,
-    }],
-    error: null,
-  };
+  const traces = [{
+    type: 'histogram',
+    x: xV,
+    nbinsx: bins,
+    name: series.name || 'Histogram',
+    marker: { color: series.style?.color ?? (ds.color ?? '#5b8dee') },
+    opacity: series.style?.opacity
+      ?? (Number(document.getElementById('markerOpacity')?.value ?? 80) / 100),
+    hovertemplate: `${series.xCol}: %{x}<br>count: %{y}<extra></extra>`,
+  }];
+
+  // Normal fit overlay (Phase 5, Data Scientist spec): the pdf is scaled by
+  // n·binWidth so the curve lives on the COUNT axis the bars use — plotting
+  // the raw density against counts is the classic scaling mistake.
+  let fitAnnot = null;
+  if (series.fitNormal) {
+    const fit = fitNormal(xV);
+    if (fit && fit.sigma > 0) {
+      const lo = Math.min(...xV), hi = Math.max(...xV);
+      const binWidth = (hi - lo) / bins;
+      const cx = [], cy = [];
+      for (let i = 0; i <= 200; i++) {
+        const x = lo + (hi - lo) * i / 200;
+        cx.push(x);
+        cy.push(normalPdf(x, fit.mu, fit.sigma) * fit.n * binWidth);
+      }
+      const f = v => Number(v).toPrecision(4);
+      traces.push({
+        type: 'scatter', mode: 'lines',
+        x: cx, y: cy,
+        name: `Normal fit (μ=${f(fit.mu)}, σ=${f(fit.sigma)})`,
+        line: { color: '#d55e00', width: 2 },
+        hoverinfo: 'skip',
+      });
+      fitAnnot = {
+        // Series name is user data — caller inserts text into a Plotly
+        // annotation (restricted pseudo-HTML) → escHtml at build site (chart.js)
+        sr: `${series.name} normal fit: mu=${f(fit.mu)}, sigma=${f(fit.sigma)}, n=${fit.n}`,
+      };
+    }
+  }
+
+  return { traces, error: null, fitAnnot };
 }

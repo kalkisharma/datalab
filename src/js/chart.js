@@ -58,6 +58,7 @@ function renderPlot() {
   const warnings = [];
   let   layout   = buildBaseLayout();
   const parityResults = []; // one entry per parity series — all annotated, not just the last
+  const srParts = [];       // screen-reader mirror lines (parity stats, normal fits)
 
   for (const s of appState.series) {
     if (s.enabled === false) continue; // hidden via series list toggle
@@ -80,6 +81,7 @@ function renderPlot() {
     // Parity renderers return extra layout (equal axes) and stats annotation
     if (result.layout) Object.assign(layout, result.layout);
     if (result.stats && result.annotSR) parityResults.push({ name: s.name, ...result });
+    if (result.fitAnnot) srParts.push(result.fitAnnot.sr); // histogram normal fit
   }
 
   showRenderErrors(errors, warnings);
@@ -111,14 +113,15 @@ function renderPlot() {
       font: { family: 'JetBrains Mono,monospace', size: 11, color: th.title },
       align: 'left',
     }));
-    // Mirror for screen readers (.sr-only span, aria-live)
-    const srEl = document.getElementById('plotAnnotSR');
-    if (srEl) {
-      srEl.textContent = parityResults.map(p =>
-        `${p.name} statistics: NSE=${fmt(p.stats.nse)}, MAE=${fmt(p.stats.mae)}, RMSE=${fmt(p.stats.rmse)}, N=${p.n}`
-      ).join('; ');
-    }
+    parityResults.forEach(p => srParts.unshift(
+      `${p.name} statistics: NSE=${fmt(p.stats.nse)}, MAE=${fmt(p.stats.mae)}, RMSE=${fmt(p.stats.rmse)}, N=${p.n}`
+    ));
   }
+
+  // Mirror for screen readers (.sr-only span, aria-live) — parity stats and
+  // histogram normal fits together; cleared when none apply
+  const srEl = document.getElementById('plotAnnotSR');
+  if (srEl) srEl.textContent = srParts.join('; ');
 
   Plotly.react('plotDiv', traces, layout, {
     responsive: false,

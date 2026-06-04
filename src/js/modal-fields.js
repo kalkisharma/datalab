@@ -88,6 +88,9 @@ function renderDynamicFields(existing) {
         <label class="modal-label" for="mBinCount">Bin count <span class="field-hint" style="margin:0">(blank = auto, Freedman-Diaconis)</span></label>
         <input type="number" class="ctrl-input" id="mBinCount" min="1" max="500"
                value="${existing?.binCount ?? ''}" placeholder="auto" />
+      </div>
+      <div class="check-row">
+        <label><input type="checkbox" id="mFitNormal" ${existing?.fitNormal ? 'checked' : ''} /> Fit normal distribution (overlay with μ, σ)</label>
       </div>`;
   } else if (chartType === 'boxplot') {
     html = `

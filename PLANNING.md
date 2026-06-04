@@ -346,17 +346,25 @@ Exit criteria: No ARIA violations. Screen reader tested. No memory leaks. Sessio
 
 ---
 
-### Phase 5+ — Data Cleaning + Statistics `(future, not scoped yet)`
+### Phase 5 — Data Cleaning + Statistics `v1.1.0`
+**Goal:** Summary stats, correlation, cleaning ops, normal fit, CSV export.
+**Data Scientist is primary owner** — requirements and acceptance criteria below are theirs; no feature ships without their correctness sign-off.
 
-**Data Scientist is primary owner of this phase** — defines requirements, validates correctness, and signs off before any statistical feature ships.
+- [ ] `stats.js`: `summaryStats` (n, missing, mean, median, sample std n-1, min/P25/P75/max, linear-interpolation quantiles), `pearsonMatrix` (pairwise-complete deletion, documented), `fitNormal` (sample mean/std) — each pinned to hand-computed reference values in tests (Data Scientist)
+- [ ] Data Tools modal per dataset (Σ button on the chip): summary stats table, cleaning operations, correlation button, CSV export (Frontend + UX; flow description recorded)
+- [ ] Cleaning ops: rename column (series references follow), drop column, cast to numeric (reports unparseable count), missing values (drop rows / fill mean / fill median / fill constant); every op bumps the dataset revision and re-validates series (Data Engineer)
+- [ ] Correlation heatmap rendered to the plot area: symmetric −1…+1 scale, diagonal 1 (Data Viz + Data Scientist)
+- [ ] Histogram series gains "Fit normal" option: overlay scaled pdf × n × binWidth, μ/σ annotation with .sr-only mirror (Data Viz + Data Scientist)
+- [ ] Export cleaned CSV via Papa.unparse, current headers only (Data Engineer)
+- [ ] ARIA pass on the Data Tools modal; axe states extended (Accessibility)
+- [ ] Tests: statistical reference values, cleaning op behaviors incl. rename follow-through, correlation properties, fit overlay scaling (QA + Data Scientist)
 
-- Column rename, drop, reorder
-- Type casting (string → numeric, datetime parsing)
-- Missing value handling (fill, drop, flag)
-- Summary statistics panel (mean, median, std, percentiles, histogram per column)
-- Correlation matrix
-- Distribution fitting
-- Export cleaned CSV
+Exit criteria: stats match hand-computed references. Rename follows through to series. Correlation symmetric with unit diagonal. Fit overlay integrates to n. CSV round-trips. axe clean. Data Scientist sign-off.
+
+### Phase 6+ — Future `(not scoped)`
+- Additional distributions (lognormal, Weibull), distribution comparison tests
+- Type casting to datetime; column reorder
+- Interpolated (non-gridded) contours
 
 ---
 

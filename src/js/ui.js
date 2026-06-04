@@ -75,6 +75,8 @@ function renderDatasetList() {
       <input class="dataset-name" type="text" value="${escHtml(ds.name)}"
              aria-label="Dataset name" data-dsid="${ds.id}" />
       <span class="dataset-info">${ds.rows.length}r·${ds.headers.length}c</span>
+      <button class="dataset-tools" aria-label="Data tools for ${escHtml(ds.name)}"
+              data-dsid="${ds.id}" title="Data tools — stats, cleaning, correlation">Σ</button>
       <button class="dataset-del" aria-label="Remove dataset ${escHtml(ds.name)}"
               data-dsid="${ds.id}" title="Remove">×</button>
     </div>`).join('');
@@ -90,6 +92,9 @@ function renderDatasetList() {
   });
   list.querySelectorAll('.dataset-color').forEach(dot => {
     dot.addEventListener('click', () => editDatasetColor(dot.dataset.dsid));
+  });
+  list.querySelectorAll('.dataset-tools').forEach(btn => {
+    btn.addEventListener('click', () => openDataTools(btn.dataset.dsid));
   });
 }
 

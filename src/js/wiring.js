@@ -159,6 +159,17 @@ function init() {
     e.target.value = '';
   });
 
+  // Data Tools modal
+  g('dtClose').addEventListener('click', closeDataTools);
+  g('dtCorrBtn').addEventListener('click', renderCorrelation);
+  g('dtExportBtn').addEventListener('click', exportCleanedCSV);
+  g('dataToolsOverlay').addEventListener('click', e => {
+    if (e.target === g('dataToolsOverlay')) closeDataTools();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !g('dataToolsOverlay').classList.contains('hidden')) closeDataTools();
+  });
+
   // Keyboard shortcuts reference (focus managed like other dialogs)
   let _helpTrigger = null;
   const closeHelp = () => { g('helpOverlay').classList.add('hidden'); _helpTrigger?.focus?.(); };

@@ -88,3 +88,11 @@ test('axe: help dialog open has no violations', async ({ page }) => {
   await page.waitForTimeout(200);
   expect(await audit(page, 'help')).toHaveLength(0);
 });
+
+test('axe: data tools modal open has no violations', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'a,b,site\n1,2,x\n3,4,y\n5,6,x', '_a11y3.csv');
+  await page.click('.dataset-tools');
+  await page.waitForTimeout(300);
+  expect(await audit(page, 'data-tools')).toHaveLength(0);
+});

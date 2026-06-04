@@ -206,6 +206,22 @@
   </div>
 </div>
 
+<!-- Data Tools (Phase 5) — per-dataset stats, cleaning, correlation, export -->
+<div id="dataToolsOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="dtTitle">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <span class="modal-title" id="dtTitle">Data Tools</span>
+      <button class="modal-close" id="dtClose" aria-label="Close data tools">×</button>
+    </div>
+    <div class="modal-body" id="dtBody"></div>
+    <div class="modal-footer">
+      <span class="modal-error" id="dtMsg" role="status" style="color:var(--text2)"></span>
+      <button class="btn btn-sm" id="dtCorrBtn">Correlation matrix</button>
+      <button class="btn btn-sm" id="dtExportBtn">Export CSV</button>
+    </div>
+  </div>
+</div>
+
 <!-- Keyboard shortcuts reference (Phase 4) -->
 <div id="helpOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
   <div class="modal" style="max-width:440px">

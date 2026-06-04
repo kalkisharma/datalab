@@ -159,6 +159,7 @@ function saveModalSeries() {
     yCol,
     zCol:      zCol || null,                                  // contour only
     binCount:  Number(document.getElementById('mBinCount')?.value) || null, // histogram only
+    fitNormal: document.getElementById('mFitNormal')?.checked ?? false,     // histogram only
     colorCol:  document.getElementById('mColorCol')?.value || null,
     filters:   _modalFilters.map(f => ({ ...f })),
     filterLogic: document.getElementById('mFilterLogic')?.value || 'and',
