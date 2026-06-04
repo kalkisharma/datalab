@@ -163,6 +163,28 @@ function renderDynamicFields(existing) {
       </div>`;
   }
 
+  // Style overrides (all chart types) — blank number fields inherit the
+  // global Style panel values; color defaults to the series/dataset color
+  const curColor = existing?.style?.color ?? ds.color ?? '#5b8dee';
+  const showLineWidth = chartType === 'line'; // parity's main trace is markers — no line width
+  html += `
+    <div class="modal-section-title">Style</div>
+    <div class="modal-field">
+      <label class="modal-label">Color</label>
+      <input type="color" class="edge-color" id="mStyleColor" value="${escHtml(curColor)}" />
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">Marker size <span class="field-hint" style="margin:0">(blank = global)</span></label>
+      <input type="number" class="ctrl-input" id="mStyleMarkerSize" min="1" max="30"
+             value="${existing?.style?.markerSize ?? ''}" placeholder="global" />
+    </div>
+    ${showLineWidth ? `
+    <div class="modal-field">
+      <label class="modal-label">Line width <span class="field-hint" style="margin:0">(blank = global)</span></label>
+      <input type="number" class="ctrl-input" id="mStyleLineWidth" min="0.5" max="10" step="0.5"
+             value="${existing?.style?.lineWidth ?? ''}" placeholder="global" />
+    </div>` : ''}`;
+
   // Filters (all chart types)
   html += `
     <div class="modal-section-title">Filters <span class="filter-count" id="mFilterCount"></span></div>
@@ -213,6 +235,15 @@ function saveModalSeries() {
   // here would double-escape at every display site
   const autoName = name || `${chartType} · ${ds?.name ?? dsId}`;
 
+  // Style overrides: blank number fields = inherit global Style panel values
+  const style = { color: document.getElementById('mStyleColor')?.value || undefined };
+  const ms = document.getElementById('mStyleMarkerSize')?.value;
+  const lw = document.getElementById('mStyleLineWidth')?.value;
+  if (ms !== '' && ms != null) style.markerSize = Number(ms);
+  if (lw !== '' && lw != null) style.lineWidth  = Number(lw);
+
+  const existing = _editingSeriesId ? appState.series.find(s => s.id === _editingSeriesId) : null;
+
   const series = {
     id:        _editingSeriesId || uid(),
     name:      name || autoName,
@@ -222,7 +253,8 @@ function saveModalSeries() {
     yCol,
     colorCol:  document.getElementById('mColorCol')?.value || null,
     filters:   _modalFilters.map(f => ({ ...f })),
-    style:     {},
+    style,
+    enabled:   existing?.enabled ?? true, // preserve visibility toggle across edits
   };
 
   // Parity-specific fields
@@ -239,13 +271,12 @@ function saveModalSeries() {
     const idx = appState.series.findIndex(s => s.id === _editingSeriesId);
     if (idx >= 0) appState.series[idx] = series;
   } else {
-    // Assign dataset color to series if no override
-    series.style.color = ds?.color ?? PALETTE[appState.series.length % PALETTE.length];
     appState.series.push(series);
   }
 
   renderSeriesList();
   updateRenderBtn();
   closeModal();
+  if (appState.plotRendered) debounceRender();
   return true;
 }

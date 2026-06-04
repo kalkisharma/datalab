@@ -17,6 +17,7 @@ function renderPlot() {
   let   parityAnnot = null;
 
   for (const s of appState.series) {
+    if (s.enabled === false) continue; // hidden via series list toggle
     const renderer = RENDERERS[s.chartType];
     if (!renderer) continue;
 
@@ -31,7 +32,8 @@ function renderPlot() {
   }
 
   showRenderErrors(errors);
-  if (!traces.length) return;
+  // Empty traces still render (blank axes) — toggling every series off should
+  // visibly empty the plot, not silently keep the stale one
 
   // Stats annotation for parity
   if (parityAnnot) {

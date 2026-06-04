@@ -109,7 +109,7 @@ function renderSeriesList() {
   empty.style.display = 'none';
   list.querySelectorAll('.series-item').forEach(el => el.remove());
 
-  appState.series.forEach(s => {
+  appState.series.forEach((s, idx) => {
     const ds = appState.datasets.find(d => d.id === s.datasetId);
     const dsName = ds ? ds.name : '?';
     const item = document.createElement('div');
@@ -118,18 +118,44 @@ function renderSeriesList() {
     item.dataset.sid = s.id;
     // escHtml applied to: series name, dataset name
     item.innerHTML = `
+      <input type="checkbox" class="series-ena" ${s.enabled !== false ? 'checked' : ''}
+             aria-label="Show series ${escHtml(s.name)}" title="Show/hide on plot" />
       <span class="series-badge ${s.chartType}">${escHtml(s.chartType)}</span>
       <span class="series-name" title="${escHtml(s.name)} · ${escHtml(dsName)}">${escHtml(s.name)}</span>
+      <button class="series-move" data-dir="-1" aria-label="Move series ${escHtml(s.name)} up"
+              title="Move up" ${idx === 0 ? 'disabled' : ''}>↑</button>
+      <button class="series-move" data-dir="1" aria-label="Move series ${escHtml(s.name)} down"
+              title="Move down" ${idx === appState.series.length - 1 ? 'disabled' : ''}>↓</button>
       <button class="series-edit" aria-label="Edit series ${escHtml(s.name)}" title="Edit">✎</button>
       <button class="series-del"  aria-label="Delete series ${escHtml(s.name)}" title="Delete">×</button>`;
+    item.querySelector('.series-ena').addEventListener('change', e => {
+      s.enabled = e.target.checked;
+      if (appState.plotRendered) debounceRender();
+    });
+    item.querySelectorAll('.series-move').forEach(btn => {
+      btn.addEventListener('click', () => moveSeries(s.id, parseInt(btn.dataset.dir)));
+    });
     item.querySelector('.series-edit').addEventListener('click', () => openModal(s.id));
     item.querySelector('.series-del').addEventListener('click', () => {
       appState.series = appState.series.filter(x => x.id !== s.id);
       renderSeriesList();
       updateRenderBtn();
+      if (appState.plotRendered) debounceRender();
     });
     list.insertBefore(item, document.getElementById('seriesEmpty'));
   });
+}
+
+// Swap a series with its neighbor; row order = trace draw order on the plot
+function moveSeries(id, dir) {
+  const i = appState.series.findIndex(s => s.id === id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= appState.series.length) return;
+  [appState.series[i], appState.series[j]] = [appState.series[j], appState.series[i]];
+  renderSeriesList();
+  // Keep keyboard focus on the moved row's button so repeated moves work without re-tabbing
+  document.querySelector(`.series-item[data-sid="${id}"] .series-move[data-dir="${dir}"]`)?.focus();
+  if (appState.plotRendered) debounceRender();
 }
 
 function updateRenderBtn() {

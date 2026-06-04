@@ -65,7 +65,11 @@ details.section>.details-body{padding:0 16px 14px;}
 .series-badge.histogram{background:rgba(224,92,92,0.15);color:var(--danger);}
 .series-badge.boxplot{background:rgba(90,90,114,0.3);color:var(--text2);}
 .series-name{flex:1;font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
-.series-edit,.series-del{background:none;border:none;cursor:pointer;font-size:12px;padding:2px 4px;border-radius:3px;line-height:1;flex-shrink:0;transition:color 0.15s;}
+.series-edit,.series-del,.series-move{background:none;border:none;cursor:pointer;font-size:12px;padding:2px 4px;border-radius:3px;line-height:1;flex-shrink:0;transition:color 0.15s;}
+.series-move{color:var(--text3);font-size:11px;}
+.series-move:hover:not(:disabled){color:var(--accent);}
+.series-move:disabled{opacity:0.2;cursor:default;pointer-events:none;}
+.series-ena{flex-shrink:0;}
 .series-edit{color:var(--text3);}
 .series-edit:hover{color:var(--accent);}
 .series-del{color:var(--text3);}
@@ -706,7 +710,7 @@ function renderSeriesList() {
   empty.style.display = 'none';
   list.querySelectorAll('.series-item').forEach(el => el.remove());
 
-  appState.series.forEach(s => {
+  appState.series.forEach((s, idx) => {
     const ds = appState.datasets.find(d => d.id === s.datasetId);
     const dsName = ds ? ds.name : '?';
     const item = document.createElement('div');
@@ -715,18 +719,44 @@ function renderSeriesList() {
     item.dataset.sid = s.id;
     // escHtml applied to: series name, dataset name
     item.innerHTML = `
+      <input type="checkbox" class="series-ena" ${s.enabled !== false ? 'checked' : ''}
+             aria-label="Show series ${escHtml(s.name)}" title="Show/hide on plot" />
       <span class="series-badge ${s.chartType}">${escHtml(s.chartType)}</span>
       <span class="series-name" title="${escHtml(s.name)} · ${escHtml(dsName)}">${escHtml(s.name)}</span>
+      <button class="series-move" data-dir="-1" aria-label="Move series ${escHtml(s.name)} up"
+              title="Move up" ${idx === 0 ? 'disabled' : ''}>↑</button>
+      <button class="series-move" data-dir="1" aria-label="Move series ${escHtml(s.name)} down"
+              title="Move down" ${idx === appState.series.length - 1 ? 'disabled' : ''}>↓</button>
       <button class="series-edit" aria-label="Edit series ${escHtml(s.name)}" title="Edit">✎</button>
       <button class="series-del"  aria-label="Delete series ${escHtml(s.name)}" title="Delete">×</button>`;
+    item.querySelector('.series-ena').addEventListener('change', e => {
+      s.enabled = e.target.checked;
+      if (appState.plotRendered) debounceRender();
+    });
+    item.querySelectorAll('.series-move').forEach(btn => {
+      btn.addEventListener('click', () => moveSeries(s.id, parseInt(btn.dataset.dir)));
+    });
     item.querySelector('.series-edit').addEventListener('click', () => openModal(s.id));
     item.querySelector('.series-del').addEventListener('click', () => {
       appState.series = appState.series.filter(x => x.id !== s.id);
       renderSeriesList();
       updateRenderBtn();
+      if (appState.plotRendered) debounceRender();
     });
     list.insertBefore(item, document.getElementById('seriesEmpty'));
   });
+}
+
+// Swap a series with its neighbor; row order = trace draw order on the plot
+function moveSeries(id, dir) {
+  const i = appState.series.findIndex(s => s.id === id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= appState.series.length) return;
+  [appState.series[i], appState.series[j]] = [appState.series[j], appState.series[i]];
+  renderSeriesList();
+  // Keep keyboard focus on the moved row's button so repeated moves work without re-tabbing
+  document.querySelector(`.series-item[data-sid="${id}"] .series-move[data-dir="${dir}"]`)?.focus();
+  if (appState.plotRendered) debounceRender();
 }
 
 function updateRenderBtn() {
@@ -959,6 +989,28 @@ function renderDynamicFields(existing) {
       </div>`;
   }
 
+  // Style overrides (all chart types) — blank number fields inherit the
+  // global Style panel values; color defaults to the series/dataset color
+  const curColor = existing?.style?.color ?? ds.color ?? '#5b8dee';
+  const showLineWidth = chartType === 'line'; // parity's main trace is markers — no line width
+  html += `
+    <div class="modal-section-title">Style</div>
+    <div class="modal-field">
+      <label class="modal-label">Color</label>
+      <input type="color" class="edge-color" id="mStyleColor" value="${escHtml(curColor)}" />
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">Marker size <span class="field-hint" style="margin:0">(blank = global)</span></label>
+      <input type="number" class="ctrl-input" id="mStyleMarkerSize" min="1" max="30"
+             value="${existing?.style?.markerSize ?? ''}" placeholder="global" />
+    </div>
+    ${showLineWidth ? `
+    <div class="modal-field">
+      <label class="modal-label">Line width <span class="field-hint" style="margin:0">(blank = global)</span></label>
+      <input type="number" class="ctrl-input" id="mStyleLineWidth" min="0.5" max="10" step="0.5"
+             value="${existing?.style?.lineWidth ?? ''}" placeholder="global" />
+    </div>` : ''}`;
+
   // Filters (all chart types)
   html += `
     <div class="modal-section-title">Filters <span class="filter-count" id="mFilterCount"></span></div>
@@ -1009,6 +1061,15 @@ function saveModalSeries() {
   // here would double-escape at every display site
   const autoName = name || `${chartType} · ${ds?.name ?? dsId}`;
 
+  // Style overrides: blank number fields = inherit global Style panel values
+  const style = { color: document.getElementById('mStyleColor')?.value || undefined };
+  const ms = document.getElementById('mStyleMarkerSize')?.value;
+  const lw = document.getElementById('mStyleLineWidth')?.value;
+  if (ms !== '' && ms != null) style.markerSize = Number(ms);
+  if (lw !== '' && lw != null) style.lineWidth  = Number(lw);
+
+  const existing = _editingSeriesId ? appState.series.find(s => s.id === _editingSeriesId) : null;
+
   const series = {
     id:        _editingSeriesId || uid(),
     name:      name || autoName,
@@ -1018,7 +1079,8 @@ function saveModalSeries() {
     yCol,
     colorCol:  document.getElementById('mColorCol')?.value || null,
     filters:   _modalFilters.map(f => ({ ...f })),
-    style:     {},
+    style,
+    enabled:   existing?.enabled ?? true, // preserve visibility toggle across edits
   };
 
   // Parity-specific fields
@@ -1035,14 +1097,13 @@ function saveModalSeries() {
     const idx = appState.series.findIndex(s => s.id === _editingSeriesId);
     if (idx >= 0) appState.series[idx] = series;
   } else {
-    // Assign dataset color to series if no override
-    series.style.color = ds?.color ?? PALETTE[appState.series.length % PALETTE.length];
     appState.series.push(series);
   }
 
   renderSeriesList();
   updateRenderBtn();
   closeModal();
+  if (appState.plotRendered) debounceRender();
   return true;
 }
 
@@ -1066,6 +1127,7 @@ function renderPlot() {
   let   parityAnnot = null;
 
   for (const s of appState.series) {
+    if (s.enabled === false) continue; // hidden via series list toggle
     const renderer = RENDERERS[s.chartType];
     if (!renderer) continue;
 
@@ -1080,7 +1142,8 @@ function renderPlot() {
   }
 
   showRenderErrors(errors);
-  if (!traces.length) return;
+  // Empty traces still render (blank axes) — toggling every series off should
+  // visibly empty the plot, not silently keep the stale one
 
   // Stats annotation for parity
   if (parityAnnot) {
@@ -1607,7 +1670,8 @@ function buildMarkerStyle(seriesStyle, colorOverride) {
     opacity: s.opacity       ?? (Number(document.getElementById('markerOpacity')?.value ?? 80) / 100),
     line: {
       color: s.edgeColor ?? document.getElementById('edgeColor')?.value ?? '#ffffff',
-      width: s.lineWidth  ?? Number(document.getElementById('edgeWidth')?.value  ?? 0.5),
+      // edgeWidth, not lineWidth — lineWidth is the line-trace width (schema, state.js)
+      width: s.edgeWidth ?? Number(document.getElementById('edgeWidth')?.value ?? 0.5),
     },
   };
   if (colorOverride !== undefined) {
