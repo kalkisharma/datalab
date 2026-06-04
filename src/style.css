@@ -130,6 +130,7 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
 #plotDiv{border-radius:var(--radius-lg);overflow:hidden;border:1px solid var(--border);}
 #renderErrors{margin-bottom:12px;}
 .render-error{background:rgba(224,92,92,0.1);border:1px solid rgba(224,92,92,0.3);color:var(--danger);border-radius:var(--radius);padding:8px 10px;font-size:11px;margin-bottom:6px;}
+.render-warning{background:rgba(232,160,74,0.1);border:1px solid rgba(232,160,74,0.3);color:var(--warn);border-radius:var(--radius);padding:8px 10px;font-size:11px;margin-bottom:6px;}
 #savedStrip{border-top:1px solid var(--border);padding:10px 16px;flex-shrink:0;background:var(--panel);}
 .saved-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
 .saved-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;}
@@ -170,6 +171,8 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
 .filter-col{flex:2;min-width:0;}
 .filter-op{flex:1;min-width:60px;}
 .filter-val{flex:2;min-width:0;}
+.filter-val-cell{display:flex;gap:4px;flex:2;min-width:0;}
+.filter-val-cell .filter-val{flex:1;width:100%;min-width:0;}
 .filter-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0 4px;line-height:1;transition:color 0.15s;flex-shrink:0;}
 .filter-del:hover{color:var(--danger);}
 .filter-ena{cursor:pointer;flex-shrink:0;}

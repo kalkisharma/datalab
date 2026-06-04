@@ -139,6 +139,7 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
 #plotDiv{border-radius:var(--radius-lg);overflow:hidden;border:1px solid var(--border);}
 #renderErrors{margin-bottom:12px;}
 .render-error{background:rgba(224,92,92,0.1);border:1px solid rgba(224,92,92,0.3);color:var(--danger);border-radius:var(--radius);padding:8px 10px;font-size:11px;margin-bottom:6px;}
+.render-warning{background:rgba(232,160,74,0.1);border:1px solid rgba(232,160,74,0.3);color:var(--warn);border-radius:var(--radius);padding:8px 10px;font-size:11px;margin-bottom:6px;}
 #savedStrip{border-top:1px solid var(--border);padding:10px 16px;flex-shrink:0;background:var(--panel);}
 .saved-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
 .saved-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;}
@@ -179,6 +180,8 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
 .filter-col{flex:2;min-width:0;}
 .filter-op{flex:1;min-width:60px;}
 .filter-val{flex:2;min-width:0;}
+.filter-val-cell{display:flex;gap:4px;flex:2;min-width:0;}
+.filter-val-cell .filter-val{flex:1;width:100%;min-width:0;}
 .filter-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0 4px;line-height:1;transition:color 0.15s;flex-shrink:0;}
 .filter-del:hover{color:var(--danger);}
 .filter-ena{cursor:pointer;flex-shrink:0;}
@@ -369,6 +372,24 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
       <span class="modal-error" id="modalError" role="alert"></span>
       <button class="btn" id="modalCancel">Cancel</button>
       <button class="btn btn-primary" id="modalSave">Save series</button>
+    </div>
+  </div>
+</div>
+
+<!-- Date format prompt (Phase 3) — opens over the series modal when a
+     datetime column's slash format cannot be auto-detected -->
+<div id="dateFmtOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="dateFmtTitle">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <span class="modal-title" id="dateFmtTitle">Date format</span>
+      <button class="modal-close" id="dateFmtClose" aria-label="Cancel and return to series editor">×</button>
+    </div>
+    <div class="modal-body">
+      <p id="dateFmtText" style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6"></p>
+      <div class="check-row" style="gap:8px">
+        <button class="btn btn-primary" id="dateFmtMDY">MM/DD/YYYY</button>
+        <button class="btn btn-primary" id="dateFmtDMY">DD/MM/YYYY</button>
+      </div>
     </div>
   </div>
 </div>
@@ -578,6 +599,56 @@ function parseCSV(file, cb) {
   });
 }
 
+// ── Datetime handling (Phase 3) ───────────────────────────────────────────
+//
+// Supported formats: ISO 8601 (unambiguous), MM/DD/YYYY, DD/MM/YYYY.
+// Slash format is detected from the data: any first component > 12 proves
+// DD/MM, any second component > 12 proves MM/DD. If neither occurs the
+// format is ambiguous and the user is prompted once per dataset+column;
+// the choice is stored in ds.dateFormats[col] ('MDY' | 'DMY' | 'ISO').
+
+const DT_SLASH = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/;
+
+/**
+ * @param {Array} vals - raw column values
+ * @returns {'ISO'|'MDY'|'DMY'|'ambiguous'|null}
+ */
+function detectDateFormat(vals) {
+  let sawISO = false, sawSlash = false, firstOver12 = false, secondOver12 = false;
+  for (const v of vals) {
+    if (v == null || v === '') continue;
+    const s = String(v).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) { sawISO = true; continue; }
+    const m = DT_SLASH.exec(s);
+    if (!m) continue;
+    sawSlash = true;
+    if (+m[1] > 12) firstOver12 = true;
+    if (+m[2] > 12) secondOver12 = true;
+  }
+  if (!sawSlash) return sawISO ? 'ISO' : null;
+  if (firstOver12 && !secondOver12) return 'DMY';
+  if (secondOver12 && !firstOver12) return 'MDY';
+  return 'ambiguous'; // includes contradictory data — let the user decide
+}
+
+/**
+ * @param {*} v
+ * @param {'ISO'|'MDY'|'DMY'} fmt
+ * @returns {string|null} ISO date string, or null if unparseable
+ */
+function parseDateValue(v, fmt) {
+  if (v == null || v === '') return null;
+  const s = String(v).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s; // ISO passthrough
+  const m = DT_SLASH.exec(s);
+  if (!m) return null;
+  let a = +m[1], b = +m[2], y = +m[3];
+  if (y < 100) y += 2000;
+  const [mo, d] = fmt === 'DMY' ? [b, a] : [a, b];
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
 // ── validateSeriesColumns ─────────────────────────────────────────────────
 
 // Checks every column reference a series holds against the current dataset
@@ -610,6 +681,7 @@ function validateSeriesColumns(s, datasets) {
   } else {
     check(s.yCol, 'Y column', ds.headers);
     check(s.colorCol, 'color column', ds.headers);
+    check(s.zCol, 'Z column', ds.headers);
   }
   (s.filters || []).forEach(f => {
     if (f.enabled !== false) check(f.col, 'filter column', ds.headers);
@@ -848,6 +920,11 @@ function updateRenderBtn() {
 
 
 // filters.js — filter row UI inside the series modal (state lives in _modalFilters)
+//
+// Value cell adapts to the operator (Phase 3):
+//   scalar ops (eq/neq/lt/gt/lte/gte) → one text input
+//   in_range                          → min + max number inputs ({ min, max })
+//   in_set                            → comma-separated text input (string[])
 
 let _modalFilters = [];
 
@@ -859,29 +936,70 @@ function renderFilterList(filters, ds) {
   _modalFilters.forEach((f, i) => appendFilterRow(list, f, i, ds));
 }
 
+function filterValueCellHTML(f) {
+  // escHtml applied to all user-entered filter values
+  if (f.op === 'in_range') {
+    const v = (f.value && typeof f.value === 'object' && !Array.isArray(f.value)) ? f.value : {};
+    return `<input type="number" class="filter-val fv-min" value="${escHtml(String(v.min ?? ''))}" placeholder="min" aria-label="Range minimum" />
+            <input type="number" class="filter-val fv-max" value="${escHtml(String(v.max ?? ''))}" placeholder="max" aria-label="Range maximum" />`;
+  }
+  if (f.op === 'in_set') {
+    const v = Array.isArray(f.value) ? f.value.join(', ') : '';
+    return `<input type="text" class="filter-val fv-set" value="${escHtml(v)}" placeholder="a, b, c" aria-label="Set values, comma separated" />`;
+  }
+  return `<input type="text" class="filter-val fv-scalar" value="${escHtml(String(f.value ?? ''))}" placeholder="Value" aria-label="Filter value" />`;
+}
+
+function wireFilterValueCell(row, i) {
+  row.querySelector('.fv-scalar')?.addEventListener('input', e => { _modalFilters[i].value = e.target.value; });
+  row.querySelector('.fv-set')?.addEventListener('input', e => {
+    _modalFilters[i].value = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+  });
+  const syncRange = () => {
+    _modalFilters[i].value = {
+      min: row.querySelector('.fv-min')?.value ?? '',
+      max: row.querySelector('.fv-max')?.value ?? '',
+    };
+  };
+  row.querySelector('.fv-min')?.addEventListener('input', syncRange);
+  row.querySelector('.fv-max')?.addEventListener('input', syncRange);
+}
+
 function appendFilterRow(list, f, i, ds) {
   const colOptions = (ds?.headers || []).map(c =>
     `<option value="${escHtml(c)}" ${f.col===c?'selected':''}>${escHtml(c)}</option>`
   ).join('');
   const row = document.createElement('div');
   row.className = 'filter-row';
-  // innerHTML: column names escaped via escHtml() in colOptions; filter value escaped via escHtml()
+  // innerHTML: column names escaped via escHtml() in colOptions; filter values escaped in filterValueCellHTML()
   row.innerHTML = `
     <input type="checkbox" class="filter-ena" ${f.enabled!==false?'checked':''} aria-label="Enable filter" />
-    <select class="filter-col"><option value="">Column…</option>${colOptions}</select>
-    <select class="filter-op">
+    <select class="filter-col" aria-label="Filter column"><option value="">Column…</option>${colOptions}</select>
+    <select class="filter-op" aria-label="Filter operator">
       <option value="eq"  ${f.op==='eq' ?'selected':''}>= </option>
       <option value="neq" ${f.op==='neq'?'selected':''}>≠ </option>
       <option value="lt"  ${f.op==='lt' ?'selected':''}>< </option>
       <option value="gt"  ${f.op==='gt' ?'selected':''}>> </option>
       <option value="lte" ${f.op==='lte'?'selected':''}>≤ </option>
       <option value="gte" ${f.op==='gte'?'selected':''}>≥ </option>
+      <option value="in_range" ${f.op==='in_range'?'selected':''}>in range</option>
+      <option value="in_set"   ${f.op==='in_set'  ?'selected':''}>in set</option>
     </select>
-    <input type="text" class="filter-val" value="${escHtml(String(f.value??''))}" placeholder="Value" />
+    <span class="filter-val-cell">${filterValueCellHTML(f)}</span>
     <button class="filter-del" aria-label="Remove filter">×</button>`;
   row.querySelector('.filter-col').addEventListener('change', e => { _modalFilters[i].col = e.target.value; });
-  row.querySelector('.filter-op' ).addEventListener('change', e => { _modalFilters[i].op  = e.target.value; });
-  row.querySelector('.filter-val').addEventListener('input',  e => { _modalFilters[i].value = e.target.value; });
+  row.querySelector('.filter-op').addEventListener('change', e => {
+    _modalFilters[i].op = e.target.value;
+    // Operator family changed → reset the value and swap the value cell
+    _modalFilters[i].value = e.target.value === 'in_range' ? { min: '', max: '' }
+                           : e.target.value === 'in_set'   ? []
+                           : '';
+    const cell = row.querySelector('.filter-val-cell');
+    // innerHTML: filter values escaped in filterValueCellHTML()
+    cell.innerHTML = filterValueCellHTML(_modalFilters[i]);
+    wireFilterValueCell(row, i);
+  });
+  wireFilterValueCell(row, i);
   row.querySelector('.filter-ena').addEventListener('change', e => { _modalFilters[i].enabled = e.target.checked; });
   row.querySelector('.filter-del').addEventListener('click',  () => {
     _modalFilters.splice(i, 1);
@@ -1007,11 +1125,12 @@ function renderDynamicFields(existing) {
   const numericCols = cols.filter(c => classifyColumn(ds.rows, c) === 'numeric');
   const allCols     = cols;
 
-  function colOptions(selected, includeAll) {
+  function colOptions(selected, includeAll, allowDatetime = false) {
     const list = includeAll ? allCols : numericCols;
     return list.map(c => {
       const type = classifyColumn(ds.rows, c);
-      const disabled = type === 'datetime' ? 'disabled title="Datetime columns supported in Phase 3"' : '';
+      const disabled = (type === 'datetime' && !allowDatetime)
+        ? 'disabled title="Datetime not supported for this field"' : '';
       // escHtml applied to column name in option text
       return `<option value="${escHtml(c)}" ${selected === c ? 'selected':''} ${disabled}>${escHtml(c)}${type==='datetime'?' (datetime)':''}</option>`;
     }).join('');
@@ -1024,7 +1143,7 @@ function renderDynamicFields(existing) {
       <div class="modal-section-title">Columns</div>
       <div class="modal-field">
         <label class="modal-label" for="mXCol">X column <span class="required">*</span></label>
-        <select id="mXCol">${colOptions(existing?.xCol, true)}</select>
+        <select id="mXCol">${colOptions(existing?.xCol, true, true)}</select>
       </div>
       <div class="modal-field">
         <label class="modal-label" for="mYCol">Y column <span class="required">*</span></label>
@@ -1069,6 +1188,46 @@ function renderDynamicFields(existing) {
         <label><input type="checkbox" id="mBand5"  ${existing?.band5 ?'checked':''} /> ±5%</label>
         <label><input type="checkbox" id="mBand10" ${existing?.band10??true?'checked':''} /> ±10%</label>
       </div>`;
+  } else if (chartType === 'histogram') {
+    html = `
+      <div class="modal-section-title">Columns</div>
+      <div class="modal-field">
+        <label class="modal-label" for="mXCol">Column (numeric) <span class="required">*</span></label>
+        <select id="mXCol">${colOptions(existing?.xCol, false)}</select>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mBinCount">Bin count <span class="field-hint" style="margin:0">(blank = auto, Freedman-Diaconis)</span></label>
+        <input type="number" class="ctrl-input" id="mBinCount" min="1" max="500"
+               value="${existing?.binCount ?? ''}" placeholder="auto" />
+      </div>`;
+  } else if (chartType === 'boxplot') {
+    html = `
+      <div class="modal-section-title">Columns</div>
+      <div class="modal-field">
+        <label class="modal-label" for="mYCol">Y column (numeric) <span class="required">*</span></label>
+        <select id="mYCol">${colOptions(existing?.yCol, false)}</select>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mXCol">Group by X (optional, categorical)</label>
+        <select id="mXCol"><option value="">None</option>${colOptions(existing?.xCol, true)}</select>
+        <div class="field-hint">One box per unique X value (max 50 before a readability warning).</div>
+      </div>`;
+  } else if (chartType === 'contour') {
+    html = `
+      <div class="modal-section-title">Columns</div>
+      <div class="modal-field">
+        <label class="modal-label" for="mXCol">X column (numeric) <span class="required">*</span></label>
+        <select id="mXCol">${colOptions(existing?.xCol, false)}</select>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mYCol">Y column (numeric) <span class="required">*</span></label>
+        <select id="mYCol">${colOptions(existing?.yCol, false)}</select>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mZCol">Z column (numeric) <span class="required">*</span></label>
+        <select id="mZCol">${colOptions(existing?.zCol, false)}</select>
+        <div class="field-hint">Contour needs pre-gridded data: every combination of the unique X and Y values exactly once (e.g. a parameter sweep). Scattered points need gridding first.</div>
+      </div>`;
   }
 
   // Style overrides (all chart types) — blank number fields inherit the
@@ -1096,6 +1255,13 @@ function renderDynamicFields(existing) {
   // Filters (all chart types)
   html += `
     <div class="modal-section-title">Filters <span class="filter-count" id="mFilterCount"></span></div>
+    <div class="modal-field">
+      <label class="modal-label" for="mFilterLogic">Combine filters with</label>
+      <select id="mFilterLogic">
+        <option value="and" ${(existing?.filterLogic ?? 'and') === 'and' ? 'selected' : ''}>AND — every filter must match</option>
+        <option value="or"  ${existing?.filterLogic === 'or' ? 'selected' : ''}>OR — any filter may match</option>
+      </select>
+    </div>
     <div class="filter-list" id="mFilterList"></div>
     <button class="btn btn-sm" id="mAddFilter">+ Add filter</button>`;
 
@@ -1130,15 +1296,38 @@ function saveModalSeries() {
   if (!dsId)      { err.textContent = 'Please select a dataset.';   return false; }
   if (!chartType) { err.textContent = 'Please select a chart type.'; return false; }
 
-  const xColEl = document.getElementById('mXCol');
-  const yColEl = document.getElementById('mYCol');
-  const xCol   = xColEl?.value || '';
-  const yCol   = yColEl?.value || '';
+  const xCol = document.getElementById('mXCol')?.value || '';
+  const yCol = document.getElementById('mYCol')?.value || '';
+  const zCol = document.getElementById('mZCol')?.value || '';
 
-  if ((chartType !== 'histogram') && !xCol) { err.textContent = 'X column is required.'; return false; }
-  if (!yCol && chartType !== 'histogram')    { err.textContent = 'Y column is required.'; return false; }
+  // Required columns vary by chart type (see modal field matrix, PLANNING.md)
+  if (chartType === 'histogram') {
+    if (!xCol) { err.textContent = 'A numeric column is required.'; return false; }
+  } else if (chartType === 'boxplot') {
+    if (!yCol) { err.textContent = 'Y column is required.'; return false; }
+  } else {
+    if (!xCol) { err.textContent = 'X column is required.'; return false; }
+    if (!yCol) { err.textContent = 'Y column is required.'; return false; }
+    if (chartType === 'contour' && !zCol) { err.textContent = 'Z column is required.'; return false; }
+  }
 
   const ds    = appState.datasets.find(d => d.id === dsId);
+
+  // Datetime X (scatter/line): resolve the column's date format before the
+  // series is saved. Ambiguous slash dates open the format prompt; the save
+  // resumes from its callback. Stored per dataset+column — asked once.
+  if ((chartType === 'scatter' || chartType === 'line') && xCol && ds
+      && classifyColumn(ds.rows, xCol) === 'datetime'
+      && !(ds.dateFormats && ds.dateFormats[xCol])) {
+    const det = detectDateFormat(ds.rows.map(r => r[xCol]));
+    if (det === 'ambiguous') {
+      showDateFormatPrompt(ds, xCol, () => saveModalSeries());
+      return false; // resumed by the prompt callback
+    }
+    ds.dateFormats = ds.dateFormats || {};
+    ds.dateFormats[xCol] = det || 'ISO';
+  }
+
   // Raw name stored in state per the escaping contract (data.js) — escHtml
   // here would double-escape at every display site
   const autoName = name || `${chartType} · ${ds?.name ?? dsId}`;
@@ -1159,8 +1348,11 @@ function saveModalSeries() {
     chartType,
     xCol,
     yCol,
+    zCol:      zCol || null,                                  // contour only
+    binCount:  Number(document.getElementById('mBinCount')?.value) || null, // histogram only
     colorCol:  document.getElementById('mColorCol')?.value || null,
     filters:   _modalFilters.map(f => ({ ...f })),
+    filterLogic: document.getElementById('mFilterLogic')?.value || 'and',
     style,
     enabled:   existing?.enabled ?? true, // preserve visibility toggle across edits
   };
@@ -1189,6 +1381,44 @@ function saveModalSeries() {
   return true;
 }
 
+// ── Date format prompt ────────────────────────────────────────────────────
+
+let _dateFmtAC = null;
+
+function showDateFormatPrompt(ds, col, onDone) {
+  const overlay = document.getElementById('dateFmtOverlay');
+  const text    = document.getElementById('dateFmtText');
+  const prev    = document.activeElement;
+
+  const samples = ds.rows.map(r => r[col]).filter(v => v != null && v !== '').slice(0, 3);
+  // textContent — no HTML interpretation, no escaping needed
+  text.textContent = `The dates in "${col}" are ambiguous (e.g. ${samples.join(', ')}). Which format are they?`;
+
+  _dateFmtAC?.abort();
+  _dateFmtAC = new AbortController();
+  const sig = _dateFmtAC.signal;
+
+  const close = () => { overlay.classList.add('hidden'); _dateFmtAC.abort(); };
+  const choose = fmt => {
+    ds.dateFormats = ds.dateFormats || {};
+    ds.dateFormats[col] = fmt;
+    bumpDatasetRev(ds.id); // cached traces depend on the parse format
+    close();
+    onDone();
+  };
+  const cancel = () => { close(); prev?.focus?.(); }; // back to the series modal, unsaved
+
+  document.getElementById('dateFmtMDY').addEventListener('click', () => choose('MDY'), { signal: sig });
+  document.getElementById('dateFmtDMY').addEventListener('click', () => choose('DMY'), { signal: sig });
+  document.getElementById('dateFmtClose').addEventListener('click', cancel, { signal: sig });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.stopPropagation(); cancel(); }
+  }, { signal: sig, capture: true });
+
+  overlay.classList.remove('hidden');
+  document.getElementById('dateFmtMDY').focus(); // ARIA: focus first action
+}
+
 
 // chart.js — renderPlot dispatcher, PNG export, and ZIP export
 
@@ -1196,6 +1426,9 @@ const RENDERERS = {
   scatter:   buildScatterTrace,
   line:      buildLineTrace,
   parity:    buildParityTrace,
+  contour:   buildContourTrace,
+  histogram: buildHistogramTrace,
+  boxplot:   buildBoxplotTrace,
 };
 
 // ── Trace cache (Phase 2, Performance) ────────────────────────────────────
@@ -1236,9 +1469,10 @@ function renderPlot() {
     if (!appState.series.some(s => s.id === id)) _traceCache.delete(id);
   }
 
-  const traces  = [];
-  const errors  = [];
-  let   layout  = buildBaseLayout();
+  const traces   = [];
+  const errors   = [];
+  const warnings = [];
+  let   layout   = buildBaseLayout();
   let   parityAnnot = null;
 
   for (const s of appState.series) {
@@ -1255,6 +1489,7 @@ function renderPlot() {
 
     const result = buildSeriesResult(s);
     if (result.error) { errors.push({ name: s.name, error: result.error }); continue; }
+    if (result.warning) warnings.push({ name: s.name, warning: result.warning });
 
     traces.push(...result.traces);
 
@@ -1263,7 +1498,7 @@ function renderPlot() {
     if (result.stats && result.annotSR) parityAnnot = result;
   }
 
-  showRenderErrors(errors);
+  showRenderErrors(errors, warnings);
   // Empty traces still render (blank axes) — toggling every series off should
   // visibly empty the plot, not silently keep the stale one
 
@@ -1427,14 +1662,18 @@ function syncYLabel() {
 
 // ── Render errors display ─────────────────────────────────────────────────
 
-function showRenderErrors(errors) {
+function showRenderErrors(errors, warnings = []) {
   const box = document.getElementById('renderErrors');
   // innerHTML: empty string — no user data
-  if (!errors.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
-  // escHtml applied to series name and error message — both may contain user data
-  box.innerHTML = errors.map(e =>
-    `<div class="render-error" role="alert"><strong>${escHtml(e.name)}:</strong> ${escHtml(e.error)}</div>`
-  ).join('');
+  if (!errors.length && !warnings.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  // escHtml applied to series names, error and warning messages — all may contain user data
+  box.innerHTML =
+    errors.map(e =>
+      `<div class="render-error" role="alert"><strong>${escHtml(e.name)}:</strong> ${escHtml(e.error)}</div>`
+    ).join('') +
+    warnings.map(w =>
+      `<div class="render-warning" role="alert"><strong>${escHtml(w.name)}:</strong> ${escHtml(w.warning)}</div>`
+    ).join('');
   box.style.display = '';
 }
 
@@ -1780,12 +2019,15 @@ document.addEventListener('DOMContentLoaded', init);
 //
 // Every renderer exports a function with this signature:
 //
-//   buildTrace(series, datasets) → { traces: Plotly.Data[], error: string | null }
+//   buildTrace(series, datasets) → { traces: Plotly.Data[], error: string | null, warning?: string | null }
 //
 //   series   — one entry from appState.series
 //   datasets — the full appState.datasets array
 //   traces   — array of Plotly trace objects (may be empty if error is set)
 //   error    — human-readable message if the series cannot render, else null
+//   warning  — optional non-blocking message (rendering proceeds); same
+//              escaping rules as error. Added Phase 3 (EL + Data Viz review)
+//              for the boxplot >50-categories case.
 //
 // Rules:
 //   - Error messages may contain user data (column names, dataset names).
@@ -1847,6 +2089,30 @@ function colVals(rows, col) {
     const n = Number(v);
     return (v === null || v === undefined || v === '' || !Number.isFinite(n)) ? NaN : n;
   });
+}
+
+/**
+ * Datetime X pairs: converts X with the dataset's stored (or detected)
+ * format and drops pairs TOGETHER — a null date or non-finite Y removes the
+ * whole pair (same pairing rule as parity, Phase 1 finding).
+ * @returns {{ xV: string[], yV: number[] } | { error: string }}
+ */
+function datetimeXY(ds, rows, xCol, yCol) {
+  let fmt = ds.dateFormats?.[xCol];
+  if (!fmt) {
+    const det = detectDateFormat(rows.map(r => r[xCol]));
+    if (det === 'ambiguous') {
+      return { error: `Date format for "${xCol}" is ambiguous — edit the series to choose MM/DD or DD/MM.` };
+    }
+    fmt = det || 'ISO';
+  }
+  const xV = [], yV = [];
+  for (const r of rows) {
+    const d = parseDateValue(r[xCol], fmt);
+    const y = Number(r[yCol]);
+    if (d !== null && Number.isFinite(y)) { xV.push(d); yV.push(y); }
+  }
+  return { xV, yV };
 }
 
 /**
@@ -1913,15 +2179,22 @@ function buildScatterTrace(series, datasets) {
   const ds = datasets.find(d => d.id === series.datasetId);
   if (!ds) return { traces: [], error: 'Dataset not found.' };
 
-  const rows = applyFilters(ds.rows, series.filters || []);
+  const rows = applyFilters(ds.rows, series.filters || [], series.filterLogic || 'and');
   if (!rows.length) return { traces: [], error: 'No rows pass the active filters.' };
 
   if (!series.xCol || !series.yCol) return { traces: [], error: 'X and Y columns are required.' };
 
-  // Memoized extraction only valid on the unfiltered dataset rows
-  const unfiltered = rows === ds.rows;
-  const xV = unfiltered ? colValsCached(ds, series.xCol) : colVals(rows, series.xCol);
-  const yV = unfiltered ? colValsCached(ds, series.yCol) : colVals(rows, series.yCol);
+  let xV, yV;
+  if (classifyColumn(ds.rows, series.xCol) === 'datetime') {
+    const dt = datetimeXY(ds, rows, series.xCol, series.yCol);
+    if (dt.error) return { traces: [], error: dt.error };
+    ({ xV, yV } = dt);
+  } else {
+    // Memoized extraction only valid on the unfiltered dataset rows
+    const unfiltered = rows === ds.rows;
+    xV = unfiltered ? colValsCached(ds, series.xCol) : colVals(rows, series.xCol);
+    yV = unfiltered ? colValsCached(ds, series.yCol) : colVals(rows, series.yCol);
+  }
 
   let markerColor;
   if (series.colorCol) {
@@ -1965,15 +2238,25 @@ function buildLineTrace(series, datasets) {
   const ds = datasets.find(d => d.id === series.datasetId);
   if (!ds) return { traces: [], error: 'Dataset not found.' };
 
-  const rows = applyFilters(ds.rows, series.filters || []);
+  const rows = applyFilters(ds.rows, series.filters || [], series.filterLogic || 'and');
   if (!rows.length) return { traces: [], error: 'No rows pass the active filters.' };
 
   if (!series.xCol || !series.yCol) return { traces: [], error: 'X and Y columns are required.' };
 
-  // Memoized extraction only valid on the unfiltered dataset rows
-  const unfiltered = rows === ds.rows;
-  const xV = unfiltered ? colValsCached(ds, series.xCol) : colVals(rows, series.xCol);
-  const yV = unfiltered ? colValsCached(ds, series.yCol) : colVals(rows, series.yCol);
+  let xV, yV;
+  if (classifyColumn(ds.rows, series.xCol) === 'datetime') {
+    const dt = datetimeXY(ds, rows, series.xCol, series.yCol);
+    if (dt.error) return { traces: [], error: dt.error };
+    // Lines must be drawn in time order or they zigzag back through time
+    const order = dt.xV.map((_, i) => i).sort((a, b) => dt.xV[a] < dt.xV[b] ? -1 : 1);
+    xV = order.map(i => dt.xV[i]);
+    yV = order.map(i => dt.yV[i]);
+  } else {
+    // Memoized extraction only valid on the unfiltered dataset rows
+    const unfiltered = rows === ds.rows;
+    xV = unfiltered ? colValsCached(ds, series.xCol) : colVals(rows, series.xCol);
+    yV = unfiltered ? colValsCached(ds, series.yCol) : colVals(rows, series.yCol);
+  }
 
   const color = series.style?.color ?? (ds.color ?? '#5b8dee');
   const lineWidth = series.style?.lineWidth ?? 2;
@@ -2026,8 +2309,8 @@ function buildParityTrace(series, datasets) {
   const { mA, mB } = innerJoinRows(ds.rows, joinDs.rows, series.joinKey);
   if (!mA.length) return { traces: [], error: 'No rows matched on the join key. Check key column values.', layout: null };
 
-  const rowsA = applyFilters(mA, series.filters || []);
-  const rowsB = applyFilters(mB, series.filters || []);
+  const rowsA = applyFilters(mA, series.filters || [], series.filterLogic || 'and');
+  const rowsB = applyFilters(mB, series.filters || [], series.filterLogic || 'and');
   if (!rowsA.length) return { traces: [], error: 'No rows pass the active filters.', layout: null };
 
   // Pairs must be filtered TOGETHER — independent filtering would misalign
@@ -2142,12 +2425,225 @@ function buildBandTraces(mn, mx, pct, name) {
 
 
 // contour.js — contour plot renderer (requires pre-gridded x, y, z columns)
+//
+// Log scale guidance: contour axes are usually linear; log axes only when
+// the grid itself was generated logarithmically (the grid check below is
+// spacing-agnostic, so log-spaced grids validate fine).
+//
+// Data requirement (Data Scientist guidance, Phase 3): the three columns
+// must form a complete rectangular grid — every combination of the unique
+// X values and unique Y values appears exactly once, as produced by
+// parameter sweeps and structured simulations. Scattered (x, y, z) points
+// would need interpolation onto a grid first; interpolated contour support
+// is explicitly deferred to Phase 5+.
+
+/**
+ * @param {object}   series
+ * @param {object[]} datasets
+ * @returns {{ traces: object[], error: string|null }}
+ */
+function buildContourTrace(series, datasets) {
+  const ds = datasets.find(d => d.id === series.datasetId);
+  if (!ds) return { traces: [], error: 'Dataset not found.' };
+
+  const rows = applyFilters(ds.rows, series.filters || [], series.filterLogic || 'and');
+  if (!rows.length) return { traces: [], error: 'No rows pass the active filters.' };
+
+  for (const [col, label] of [[series.xCol, 'X'], [series.yCol, 'Y'], [series.zCol, 'Z']]) {
+    if (!col) return { traces: [], error: `${label} column is required — contour needs three numeric columns.` };
+    if (classifyColumn(ds.rows, col) !== 'numeric') {
+      return { traces: [], error: `Column "${col}" is not numeric — contour needs numeric X, Y, and Z.` };
+    }
+  }
+
+  // Collect complete (x, y, z) triples only
+  const pts = [];
+  for (const r of rows) {
+    const x = Number(r[series.xCol]), y = Number(r[series.yCol]), z = Number(r[series.zCol]);
+    if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) pts.push([x, y, z]);
+  }
+  if (!pts.length) return { traces: [], error: 'No complete numeric (X, Y, Z) rows found.' };
+
+  // Grid validation: unique X × unique Y must cover the points exactly once
+  const ux = [...new Set(pts.map(p => p[0]))].sort((a, b) => a - b);
+  const uy = [...new Set(pts.map(p => p[1]))].sort((a, b) => a - b);
+  if (ux.length * uy.length !== pts.length) {
+    return { traces: [], error:
+      `Contour requires pre-gridded data: every (X, Y) combination exactly once. ` +
+      `Found ${ux.length} unique X × ${uy.length} unique Y but ${pts.length} rows. ` +
+      `Scattered points need gridding first (interpolated contours planned for a later phase).` };
+  }
+
+  // Build the z matrix: z[yi][xi]
+  const xi = new Map(ux.map((v, i) => [v, i]));
+  const yi = new Map(uy.map((v, i) => [v, i]));
+  const z  = uy.map(() => new Array(ux.length).fill(null));
+  for (const [x, y, zv] of pts) {
+    const r = yi.get(y), c = xi.get(x);
+    if (z[r][c] !== null) {
+      return { traces: [], error: `Duplicate grid point at (${x}, ${y}) — contour data must have each (X, Y) pair once.` };
+    }
+    z[r][c] = zv;
+  }
+  if (z.some(row => row.includes(null))) {
+    return { traces: [], error: 'Grid has holes — every (X, Y) combination needs a Z value.' };
+  }
+
+  return {
+    traces: [{
+      type: 'contour',
+      x: ux, y: uy, z,
+      name: series.name || 'Contour',
+      colorscale: document.getElementById('cmapSelect')?.value ?? 'Viridis',
+      contours: { coloring: 'heatmap' },
+      colorbar: { title: { text: series.zCol } },
+      hovertemplate: `${series.xCol}: %{x}<br>${series.yCol}: %{y}<br>${series.zCol}: %{z}<extra></extra>`,
+    }],
+    error: null,
+  };
+}
 
 
 // histogram.js — histogram renderer (Freedman-Diaconis bin count, computed at render time)
+//
+// Log scale guidance: linear count axis by default. A log Y axis is
+// appropriate for heavy-tailed distributions where rare bins vanish next to
+// the mode; a log X axis only when the variable itself spans decades.
+// Data Scientist: FD rule reviewed and approved for Phase 3.
+//
+// Binning (Data Scientist sign-off): Freedman-Diaconis — bin width
+// 2·IQR/n^(1/3) — is the default because it adapts to both spread and
+// sample size and resists outliers. Computed on demand at render time from
+// the filtered column values; never cached in state (STANDARDS.md §19).
+// Falls back to Sturges (log2(n)+1) when IQR is 0 (heavily repeated
+// values). User-configurable via series.binCount (blank = FD). Capped at
+// 500 bins to keep degenerate column choices renderable.
+
+/**
+ * @param {number[]} vals - finite numeric values
+ * @returns {number} bin count
+ */
+function fdBinCount(vals) {
+  const v = vals.filter(Number.isFinite).sort((a, b) => a - b);
+  const n = v.length;
+  if (n < 2) return 1;
+  const q = p => {
+    const i = (n - 1) * p, lo = Math.floor(i), hi = Math.ceil(i);
+    return v[lo] + (v[hi] - v[lo]) * (i - lo);
+  };
+  const iqr   = q(0.75) - q(0.25);
+  const range = v[n - 1] - v[0];
+  if (range === 0) return 1;
+  if (iqr === 0) return Math.min(500, Math.ceil(Math.log2(n) + 1)); // Sturges fallback
+  return Math.max(1, Math.min(500, Math.ceil(range / (2 * iqr / Math.cbrt(n)))));
+}
+
+/**
+ * @param {object}   series
+ * @param {object[]} datasets
+ * @returns {{ traces: object[], error: string|null }}
+ */
+function buildHistogramTrace(series, datasets) {
+  const ds = datasets.find(d => d.id === series.datasetId);
+  if (!ds) return { traces: [], error: 'Dataset not found.' };
+
+  const rows = applyFilters(ds.rows, series.filters || [], series.filterLogic || 'and');
+  if (!rows.length) return { traces: [], error: 'No rows pass the active filters.' };
+
+  if (!series.xCol) return { traces: [], error: 'A numeric column is required.' };
+  if (classifyColumn(ds.rows, series.xCol) !== 'numeric') {
+    return { traces: [], error: `Column "${series.xCol}" is not numeric — histograms need a numeric column.` };
+  }
+
+  const xV = colVals(rows, series.xCol).filter(Number.isFinite);
+  if (!xV.length) return { traces: [], error: `No finite numeric values in "${series.xCol}".` };
+
+  const bins = (series.binCount && series.binCount > 0)
+    ? Math.min(500, series.binCount)
+    : fdBinCount(xV);
+
+  return {
+    traces: [{
+      type: 'histogram',
+      x: xV,
+      nbinsx: bins,
+      name: series.name || 'Histogram',
+      marker: { color: series.style?.color ?? (ds.color ?? '#5b8dee') },
+      opacity: series.style?.opacity
+        ?? (Number(document.getElementById('markerOpacity')?.value ?? 80) / 100),
+      hovertemplate: `${series.xCol}: %{x}<br>count: %{y}<extra></extra>`,
+    }],
+    error: null,
+  };
+}
 
 
 // boxplot.js — box plot renderer (numeric Y, optional categorical X, max 50 categories)
+//
+// Log scale guidance: log Y is appropriate when category medians span
+// decades — otherwise the smallest boxes flatten to lines. X is
+// categorical, never log.
+//
+// Whiskers and outliers (Data Scientist sign-off, Phase 3): Plotly's
+// defaults are the Tukey convention — box spans Q1–Q3 (linear-interpolated
+// quartiles), whiskers extend to the most extreme points within 1.5·IQR of
+// the box, points beyond are drawn individually as outliers
+// (boxpoints: 'outliers'). This matches the standard textbook definition;
+// no custom whisker math is introduced.
+
+const BOXPLOT_MAX_CATEGORIES = 50;
+
+/**
+ * @param {object}   series
+ * @param {object[]} datasets
+ * @returns {{ traces: object[], error: string|null, warning: string|null }}
+ */
+function buildBoxplotTrace(series, datasets) {
+  const ds = datasets.find(d => d.id === series.datasetId);
+  if (!ds) return { traces: [], error: 'Dataset not found.', warning: null };
+
+  const rows = applyFilters(ds.rows, series.filters || [], series.filterLogic || 'and');
+  if (!rows.length) return { traces: [], error: 'No rows pass the active filters.', warning: null };
+
+  if (!series.yCol) return { traces: [], error: 'A numeric Y column is required.', warning: null };
+  if (classifyColumn(ds.rows, series.yCol) !== 'numeric') {
+    return { traces: [], error: `Column "${series.yCol}" is not numeric — box plots need a numeric Y.`, warning: null };
+  }
+
+  const trace = {
+    type: 'box',
+    name: series.name || 'Box plot',
+    marker: { color: series.style?.color ?? (ds.color ?? '#5b8dee') },
+    boxpoints: 'outliers', // Tukey: points beyond 1.5·IQR drawn individually
+  };
+
+  let warning = null;
+
+  if (series.xCol) {
+    // Grouped: one box per category. Pairs kept together — a row only
+    // contributes when its Y is finite.
+    const xs = [], ys = [];
+    for (const r of rows) {
+      const y = Number(r[series.yCol]);
+      if (!Number.isFinite(y)) continue;
+      xs.push(String(r[series.xCol] ?? '(blank)'));
+      ys.push(y);
+    }
+    if (!ys.length) return { traces: [], error: `No finite numeric values in "${series.yCol}".`, warning: null };
+    const nCats = new Set(xs).size;
+    if (nCats > BOXPLOT_MAX_CATEGORIES) {
+      warning = `"${series.xCol}" has ${nCats} categories — more than ${BOXPLOT_MAX_CATEGORIES} makes box plots unreadable. Consider filtering or a different X column.`;
+    }
+    trace.x = xs;
+    trace.y = ys;
+  } else {
+    const ys = colVals(rows, series.yCol).filter(Number.isFinite);
+    if (!ys.length) return { traces: [], error: `No finite numeric values in "${series.yCol}".`, warning: null };
+    trace.y = ys;
+  }
+
+  return { traces: [trace], error: null, warning };
+}
 
 </script>
 </body>

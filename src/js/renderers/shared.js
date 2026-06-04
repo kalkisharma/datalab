@@ -4,12 +4,15 @@
 //
 // Every renderer exports a function with this signature:
 //
-//   buildTrace(series, datasets) → { traces: Plotly.Data[], error: string | null }
+//   buildTrace(series, datasets) → { traces: Plotly.Data[], error: string | null, warning?: string | null }
 //
 //   series   — one entry from appState.series
 //   datasets — the full appState.datasets array
 //   traces   — array of Plotly trace objects (may be empty if error is set)
 //   error    — human-readable message if the series cannot render, else null
+//   warning  — optional non-blocking message (rendering proceeds); same
+//              escaping rules as error. Added Phase 3 (EL + Data Viz review)
+//              for the boxplot >50-categories case.
 //
 // Rules:
 //   - Error messages may contain user data (column names, dataset names).
@@ -71,6 +74,30 @@ function colVals(rows, col) {
     const n = Number(v);
     return (v === null || v === undefined || v === '' || !Number.isFinite(n)) ? NaN : n;
   });
+}
+
+/**
+ * Datetime X pairs: converts X with the dataset's stored (or detected)
+ * format and drops pairs TOGETHER — a null date or non-finite Y removes the
+ * whole pair (same pairing rule as parity, Phase 1 finding).
+ * @returns {{ xV: string[], yV: number[] } | { error: string }}
+ */
+function datetimeXY(ds, rows, xCol, yCol) {
+  let fmt = ds.dateFormats?.[xCol];
+  if (!fmt) {
+    const det = detectDateFormat(rows.map(r => r[xCol]));
+    if (det === 'ambiguous') {
+      return { error: `Date format for "${xCol}" is ambiguous — edit the series to choose MM/DD or DD/MM.` };
+    }
+    fmt = det || 'ISO';
+  }
+  const xV = [], yV = [];
+  for (const r of rows) {
+    const d = parseDateValue(r[xCol], fmt);
+    const y = Number(r[yCol]);
+    if (d !== null && Number.isFinite(y)) { xV.push(d); yV.push(y); }
+  }
+  return { xV, yV };
 }
 
 /**

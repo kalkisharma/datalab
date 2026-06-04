@@ -195,6 +195,24 @@
   </div>
 </div>
 
+<!-- Date format prompt (Phase 3) — opens over the series modal when a
+     datetime column's slash format cannot be auto-detected -->
+<div id="dateFmtOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="dateFmtTitle">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <span class="modal-title" id="dateFmtTitle">Date format</span>
+      <button class="modal-close" id="dateFmtClose" aria-label="Cancel and return to series editor">×</button>
+    </div>
+    <div class="modal-body">
+      <p id="dateFmtText" style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6"></p>
+      <div class="check-row" style="gap:8px">
+        <button class="btn btn-primary" id="dateFmtMDY">MM/DD/YYYY</button>
+        <button class="btn btn-primary" id="dateFmtDMY">DD/MM/YYYY</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- INJECT:LIBS -->
 <script>
 /* INJECT:SCRIPT */

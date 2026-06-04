@@ -13,15 +13,25 @@ function buildLineTrace(series, datasets) {
   const ds = datasets.find(d => d.id === series.datasetId);
   if (!ds) return { traces: [], error: 'Dataset not found.' };
 
-  const rows = applyFilters(ds.rows, series.filters || []);
+  const rows = applyFilters(ds.rows, series.filters || [], series.filterLogic || 'and');
   if (!rows.length) return { traces: [], error: 'No rows pass the active filters.' };
 
   if (!series.xCol || !series.yCol) return { traces: [], error: 'X and Y columns are required.' };
 
-  // Memoized extraction only valid on the unfiltered dataset rows
-  const unfiltered = rows === ds.rows;
-  const xV = unfiltered ? colValsCached(ds, series.xCol) : colVals(rows, series.xCol);
-  const yV = unfiltered ? colValsCached(ds, series.yCol) : colVals(rows, series.yCol);
+  let xV, yV;
+  if (classifyColumn(ds.rows, series.xCol) === 'datetime') {
+    const dt = datetimeXY(ds, rows, series.xCol, series.yCol);
+    if (dt.error) return { traces: [], error: dt.error };
+    // Lines must be drawn in time order or they zigzag back through time
+    const order = dt.xV.map((_, i) => i).sort((a, b) => dt.xV[a] < dt.xV[b] ? -1 : 1);
+    xV = order.map(i => dt.xV[i]);
+    yV = order.map(i => dt.yV[i]);
+  } else {
+    // Memoized extraction only valid on the unfiltered dataset rows
+    const unfiltered = rows === ds.rows;
+    xV = unfiltered ? colValsCached(ds, series.xCol) : colVals(rows, series.xCol);
+    yV = unfiltered ? colValsCached(ds, series.yCol) : colVals(rows, series.yCol);
+  }
 
   const color = series.style?.color ?? (ds.color ?? '#5b8dee');
   const lineWidth = series.style?.lineWidth ?? 2;

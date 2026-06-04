@@ -88,6 +88,56 @@ function parseCSV(file, cb) {
   });
 }
 
+// ── Datetime handling (Phase 3) ───────────────────────────────────────────
+//
+// Supported formats: ISO 8601 (unambiguous), MM/DD/YYYY, DD/MM/YYYY.
+// Slash format is detected from the data: any first component > 12 proves
+// DD/MM, any second component > 12 proves MM/DD. If neither occurs the
+// format is ambiguous and the user is prompted once per dataset+column;
+// the choice is stored in ds.dateFormats[col] ('MDY' | 'DMY' | 'ISO').
+
+const DT_SLASH = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/;
+
+/**
+ * @param {Array} vals - raw column values
+ * @returns {'ISO'|'MDY'|'DMY'|'ambiguous'|null}
+ */
+function detectDateFormat(vals) {
+  let sawISO = false, sawSlash = false, firstOver12 = false, secondOver12 = false;
+  for (const v of vals) {
+    if (v == null || v === '') continue;
+    const s = String(v).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) { sawISO = true; continue; }
+    const m = DT_SLASH.exec(s);
+    if (!m) continue;
+    sawSlash = true;
+    if (+m[1] > 12) firstOver12 = true;
+    if (+m[2] > 12) secondOver12 = true;
+  }
+  if (!sawSlash) return sawISO ? 'ISO' : null;
+  if (firstOver12 && !secondOver12) return 'DMY';
+  if (secondOver12 && !firstOver12) return 'MDY';
+  return 'ambiguous'; // includes contradictory data — let the user decide
+}
+
+/**
+ * @param {*} v
+ * @param {'ISO'|'MDY'|'DMY'} fmt
+ * @returns {string|null} ISO date string, or null if unparseable
+ */
+function parseDateValue(v, fmt) {
+  if (v == null || v === '') return null;
+  const s = String(v).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s; // ISO passthrough
+  const m = DT_SLASH.exec(s);
+  if (!m) return null;
+  let a = +m[1], b = +m[2], y = +m[3];
+  if (y < 100) y += 2000;
+  const [mo, d] = fmt === 'DMY' ? [b, a] : [a, b];
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
 // ── validateSeriesColumns ─────────────────────────────────────────────────
 
 // Checks every column reference a series holds against the current dataset
@@ -120,6 +170,7 @@ function validateSeriesColumns(s, datasets) {
   } else {
     check(s.yCol, 'Y column', ds.headers);
     check(s.colorCol, 'color column', ds.headers);
+    check(s.zCol, 'Z column', ds.headers);
   }
   (s.filters || []).forEach(f => {
     if (f.enabled !== false) check(f.col, 'filter column', ds.headers);

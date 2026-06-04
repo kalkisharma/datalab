@@ -30,8 +30,8 @@ function buildParityTrace(series, datasets) {
   const { mA, mB } = innerJoinRows(ds.rows, joinDs.rows, series.joinKey);
   if (!mA.length) return { traces: [], error: 'No rows matched on the join key. Check key column values.', layout: null };
 
-  const rowsA = applyFilters(mA, series.filters || []);
-  const rowsB = applyFilters(mB, series.filters || []);
+  const rowsA = applyFilters(mA, series.filters || [], series.filterLogic || 'and');
+  const rowsB = applyFilters(mB, series.filters || [], series.filterLogic || 'and');
   if (!rowsA.length) return { traces: [], error: 'No rows pass the active filters.', layout: null };
 
   // Pairs must be filtered TOGETHER — independent filtering would misalign

@@ -99,11 +99,12 @@ function renderDynamicFields(existing) {
   const numericCols = cols.filter(c => classifyColumn(ds.rows, c) === 'numeric');
   const allCols     = cols;
 
-  function colOptions(selected, includeAll) {
+  function colOptions(selected, includeAll, allowDatetime = false) {
     const list = includeAll ? allCols : numericCols;
     return list.map(c => {
       const type = classifyColumn(ds.rows, c);
-      const disabled = type === 'datetime' ? 'disabled title="Datetime columns supported in Phase 3"' : '';
+      const disabled = (type === 'datetime' && !allowDatetime)
+        ? 'disabled title="Datetime not supported for this field"' : '';
       // escHtml applied to column name in option text
       return `<option value="${escHtml(c)}" ${selected === c ? 'selected':''} ${disabled}>${escHtml(c)}${type==='datetime'?' (datetime)':''}</option>`;
     }).join('');
@@ -116,7 +117,7 @@ function renderDynamicFields(existing) {
       <div class="modal-section-title">Columns</div>
       <div class="modal-field">
         <label class="modal-label" for="mXCol">X column <span class="required">*</span></label>
-        <select id="mXCol">${colOptions(existing?.xCol, true)}</select>
+        <select id="mXCol">${colOptions(existing?.xCol, true, true)}</select>
       </div>
       <div class="modal-field">
         <label class="modal-label" for="mYCol">Y column <span class="required">*</span></label>
@@ -161,6 +162,46 @@ function renderDynamicFields(existing) {
         <label><input type="checkbox" id="mBand5"  ${existing?.band5 ?'checked':''} /> ±5%</label>
         <label><input type="checkbox" id="mBand10" ${existing?.band10??true?'checked':''} /> ±10%</label>
       </div>`;
+  } else if (chartType === 'histogram') {
+    html = `
+      <div class="modal-section-title">Columns</div>
+      <div class="modal-field">
+        <label class="modal-label" for="mXCol">Column (numeric) <span class="required">*</span></label>
+        <select id="mXCol">${colOptions(existing?.xCol, false)}</select>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mBinCount">Bin count <span class="field-hint" style="margin:0">(blank = auto, Freedman-Diaconis)</span></label>
+        <input type="number" class="ctrl-input" id="mBinCount" min="1" max="500"
+               value="${existing?.binCount ?? ''}" placeholder="auto" />
+      </div>`;
+  } else if (chartType === 'boxplot') {
+    html = `
+      <div class="modal-section-title">Columns</div>
+      <div class="modal-field">
+        <label class="modal-label" for="mYCol">Y column (numeric) <span class="required">*</span></label>
+        <select id="mYCol">${colOptions(existing?.yCol, false)}</select>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mXCol">Group by X (optional, categorical)</label>
+        <select id="mXCol"><option value="">None</option>${colOptions(existing?.xCol, true)}</select>
+        <div class="field-hint">One box per unique X value (max 50 before a readability warning).</div>
+      </div>`;
+  } else if (chartType === 'contour') {
+    html = `
+      <div class="modal-section-title">Columns</div>
+      <div class="modal-field">
+        <label class="modal-label" for="mXCol">X column (numeric) <span class="required">*</span></label>
+        <select id="mXCol">${colOptions(existing?.xCol, false)}</select>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mYCol">Y column (numeric) <span class="required">*</span></label>
+        <select id="mYCol">${colOptions(existing?.yCol, false)}</select>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mZCol">Z column (numeric) <span class="required">*</span></label>
+        <select id="mZCol">${colOptions(existing?.zCol, false)}</select>
+        <div class="field-hint">Contour needs pre-gridded data: every combination of the unique X and Y values exactly once (e.g. a parameter sweep). Scattered points need gridding first.</div>
+      </div>`;
   }
 
   // Style overrides (all chart types) — blank number fields inherit the
@@ -188,6 +229,13 @@ function renderDynamicFields(existing) {
   // Filters (all chart types)
   html += `
     <div class="modal-section-title">Filters <span class="filter-count" id="mFilterCount"></span></div>
+    <div class="modal-field">
+      <label class="modal-label" for="mFilterLogic">Combine filters with</label>
+      <select id="mFilterLogic">
+        <option value="and" ${(existing?.filterLogic ?? 'and') === 'and' ? 'selected' : ''}>AND — every filter must match</option>
+        <option value="or"  ${existing?.filterLogic === 'or' ? 'selected' : ''}>OR — any filter may match</option>
+      </select>
+    </div>
     <div class="filter-list" id="mFilterList"></div>
     <button class="btn btn-sm" id="mAddFilter">+ Add filter</button>`;
 
@@ -222,15 +270,38 @@ function saveModalSeries() {
   if (!dsId)      { err.textContent = 'Please select a dataset.';   return false; }
   if (!chartType) { err.textContent = 'Please select a chart type.'; return false; }
 
-  const xColEl = document.getElementById('mXCol');
-  const yColEl = document.getElementById('mYCol');
-  const xCol   = xColEl?.value || '';
-  const yCol   = yColEl?.value || '';
+  const xCol = document.getElementById('mXCol')?.value || '';
+  const yCol = document.getElementById('mYCol')?.value || '';
+  const zCol = document.getElementById('mZCol')?.value || '';
 
-  if ((chartType !== 'histogram') && !xCol) { err.textContent = 'X column is required.'; return false; }
-  if (!yCol && chartType !== 'histogram')    { err.textContent = 'Y column is required.'; return false; }
+  // Required columns vary by chart type (see modal field matrix, PLANNING.md)
+  if (chartType === 'histogram') {
+    if (!xCol) { err.textContent = 'A numeric column is required.'; return false; }
+  } else if (chartType === 'boxplot') {
+    if (!yCol) { err.textContent = 'Y column is required.'; return false; }
+  } else {
+    if (!xCol) { err.textContent = 'X column is required.'; return false; }
+    if (!yCol) { err.textContent = 'Y column is required.'; return false; }
+    if (chartType === 'contour' && !zCol) { err.textContent = 'Z column is required.'; return false; }
+  }
 
   const ds    = appState.datasets.find(d => d.id === dsId);
+
+  // Datetime X (scatter/line): resolve the column's date format before the
+  // series is saved. Ambiguous slash dates open the format prompt; the save
+  // resumes from its callback. Stored per dataset+column — asked once.
+  if ((chartType === 'scatter' || chartType === 'line') && xCol && ds
+      && classifyColumn(ds.rows, xCol) === 'datetime'
+      && !(ds.dateFormats && ds.dateFormats[xCol])) {
+    const det = detectDateFormat(ds.rows.map(r => r[xCol]));
+    if (det === 'ambiguous') {
+      showDateFormatPrompt(ds, xCol, () => saveModalSeries());
+      return false; // resumed by the prompt callback
+    }
+    ds.dateFormats = ds.dateFormats || {};
+    ds.dateFormats[xCol] = det || 'ISO';
+  }
+
   // Raw name stored in state per the escaping contract (data.js) — escHtml
   // here would double-escape at every display site
   const autoName = name || `${chartType} · ${ds?.name ?? dsId}`;
@@ -251,8 +322,11 @@ function saveModalSeries() {
     chartType,
     xCol,
     yCol,
+    zCol:      zCol || null,                                  // contour only
+    binCount:  Number(document.getElementById('mBinCount')?.value) || null, // histogram only
     colorCol:  document.getElementById('mColorCol')?.value || null,
     filters:   _modalFilters.map(f => ({ ...f })),
+    filterLogic: document.getElementById('mFilterLogic')?.value || 'and',
     style,
     enabled:   existing?.enabled ?? true, // preserve visibility toggle across edits
   };
@@ -279,4 +353,42 @@ function saveModalSeries() {
   closeModal();
   if (appState.plotRendered) debounceRender();
   return true;
+}
+
+// ── Date format prompt ────────────────────────────────────────────────────
+
+let _dateFmtAC = null;
+
+function showDateFormatPrompt(ds, col, onDone) {
+  const overlay = document.getElementById('dateFmtOverlay');
+  const text    = document.getElementById('dateFmtText');
+  const prev    = document.activeElement;
+
+  const samples = ds.rows.map(r => r[col]).filter(v => v != null && v !== '').slice(0, 3);
+  // textContent — no HTML interpretation, no escaping needed
+  text.textContent = `The dates in "${col}" are ambiguous (e.g. ${samples.join(', ')}). Which format are they?`;
+
+  _dateFmtAC?.abort();
+  _dateFmtAC = new AbortController();
+  const sig = _dateFmtAC.signal;
+
+  const close = () => { overlay.classList.add('hidden'); _dateFmtAC.abort(); };
+  const choose = fmt => {
+    ds.dateFormats = ds.dateFormats || {};
+    ds.dateFormats[col] = fmt;
+    bumpDatasetRev(ds.id); // cached traces depend on the parse format
+    close();
+    onDone();
+  };
+  const cancel = () => { close(); prev?.focus?.(); }; // back to the series modal, unsaved
+
+  document.getElementById('dateFmtMDY').addEventListener('click', () => choose('MDY'), { signal: sig });
+  document.getElementById('dateFmtDMY').addEventListener('click', () => choose('DMY'), { signal: sig });
+  document.getElementById('dateFmtClose').addEventListener('click', cancel, { signal: sig });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.stopPropagation(); cancel(); }
+  }, { signal: sig, capture: true });
+
+  overlay.classList.remove('hidden');
+  document.getElementById('dateFmtMDY').focus(); // ARIA: focus first action
 }

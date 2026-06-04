@@ -4,6 +4,9 @@ const RENDERERS = {
   scatter:   buildScatterTrace,
   line:      buildLineTrace,
   parity:    buildParityTrace,
+  contour:   buildContourTrace,
+  histogram: buildHistogramTrace,
+  boxplot:   buildBoxplotTrace,
 };
 
 // ── Trace cache (Phase 2, Performance) ────────────────────────────────────
@@ -44,9 +47,10 @@ function renderPlot() {
     if (!appState.series.some(s => s.id === id)) _traceCache.delete(id);
   }
 
-  const traces  = [];
-  const errors  = [];
-  let   layout  = buildBaseLayout();
+  const traces   = [];
+  const errors   = [];
+  const warnings = [];
+  let   layout   = buildBaseLayout();
   let   parityAnnot = null;
 
   for (const s of appState.series) {
@@ -63,6 +67,7 @@ function renderPlot() {
 
     const result = buildSeriesResult(s);
     if (result.error) { errors.push({ name: s.name, error: result.error }); continue; }
+    if (result.warning) warnings.push({ name: s.name, warning: result.warning });
 
     traces.push(...result.traces);
 
@@ -71,7 +76,7 @@ function renderPlot() {
     if (result.stats && result.annotSR) parityAnnot = result;
   }
 
-  showRenderErrors(errors);
+  showRenderErrors(errors, warnings);
   // Empty traces still render (blank axes) — toggling every series off should
   // visibly empty the plot, not silently keep the stale one
 
@@ -235,14 +240,18 @@ function syncYLabel() {
 
 // ── Render errors display ─────────────────────────────────────────────────
 
-function showRenderErrors(errors) {
+function showRenderErrors(errors, warnings = []) {
   const box = document.getElementById('renderErrors');
   // innerHTML: empty string — no user data
-  if (!errors.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
-  // escHtml applied to series name and error message — both may contain user data
-  box.innerHTML = errors.map(e =>
-    `<div class="render-error" role="alert"><strong>${escHtml(e.name)}:</strong> ${escHtml(e.error)}</div>`
-  ).join('');
+  if (!errors.length && !warnings.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  // escHtml applied to series names, error and warning messages — all may contain user data
+  box.innerHTML =
+    errors.map(e =>
+      `<div class="render-error" role="alert"><strong>${escHtml(e.name)}:</strong> ${escHtml(e.error)}</div>`
+    ).join('') +
+    warnings.map(w =>
+      `<div class="render-warning" role="alert"><strong>${escHtml(w.name)}:</strong> ${escHtml(w.warning)}</div>`
+    ).join('');
   box.style.display = '';
 }
 
