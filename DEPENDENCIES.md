@@ -26,6 +26,10 @@ not the URL, is authoritative** — a CDN can change; the bytes cannot.
   current. Deliberate for now — a Plotly 3.x migration is its own future phase
   (breaking API review, full regression + benchmark re-baseline), not a routine
   bump. Reassessed at each phase exit per STANDARDS §10; CVE policy in §5 overrides.
+- **Reassessment log** (§10 requires the reassessment; this log makes it auditable —
+  added at the Phase 12 doc review after the v2.4.0 reassessment went unrecorded):
+  - v2.4.0 exit: no changes — Plotly 2.32.0 covers the violin trace natively;
+    no applicable CVEs flagged for the pinned versions; the decision above stands.
 
 ## Updating a library
 

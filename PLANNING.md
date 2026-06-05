@@ -87,9 +87,11 @@ const appState = {            // state version 2 (Phase 7; additive since)
   series: [
     // {
     //   id, name, plotId, datasetId, xCol, yCol, colorCol, chartType,
-    //   // chart-type-specific: zCol (contour); binCount, fitNormal (histogram);
+    //   // chart-type-specific: zCol (contour); binCount, fitNormal (Phase 5),
+    //   //   fitDist, kde (Phase 11 — fitDist ?? fitNormal fallback) (histogram);
     //   // joinDatasetId, joinKey, band5, band10 (parity);
-    //   // agg, errMode (bar, Phase 9); errCol, trendline (scatter/line, Phase 9)
+    //   // agg, errMode (bar, Phase 9); errCol, trendline (scatter/line, Phase 9);
+    //   // trendGroups (scatter, Phase 11 — opt-in per-group fits)
     //   cell,    // { row, col } subplot cell, Phase 10 — default 1·1
     //   filters: [{ col, op, value, enabled }], filterLogic,
     //   style: { color, markerSize, opacity, lineWidth }, enabled
@@ -165,9 +167,9 @@ Use a modal per series — not a flat panel:
 | bar (Phase 9) | category X, aggregation (none/count/sum/mean/median), SD/SEM error bars (mean only) | silent aggregation forbidden (§20) |
 | parity | join dataset, join key, show ±5% band, show ±10% band | Requires two loaded datasets; Y options come from the JOIN dataset (Phase 9 fix) |
 | contour | Z col (third numeric column) | Requires pre-gridded/equally-spaced data; validated at creation |
-| histogram | bin count (FD default, render-time); fit normal (Phase 5) → fit picker + KDE planned Phase 11 | Client-side binning |
+| histogram | bin count (FD default, render-time); fit picker (normal/lognormal/Weibull, Phase 11; Phase 5 fitNormal honored via fallback); KDE overlay | Client-side binning |
 | boxplot | X col (optional, categorical); Y col (numeric) | Max 50 categorical X values; render-time warning if exceeded |
-| violin (planned Phase 11) | as boxplot | Plotly-native trace |
+| violin (Phase 11) | as boxplot | Plotly-native trace, Tukey box inside |
 
 All chart types additionally get a Cell picker when the target plot has a subplot grid (Phase 10).
 
@@ -197,6 +199,7 @@ datalab/
       export.js         — PNG/SVG download, ZIP, style presets
       sessions.js       — session export/import + state migrations
       stats.js          — statistical engine + cleaning ops (Phase 5)
+      distributions.js  — distribution fits + KDE (split from stats.js, Phase 11)
       datatools.js      — Data Tools modal (Phase 5)
       saves.js          — saved plot snapshots strip
       wiring.js         — event wiring, dropzone, bootstrap
@@ -217,6 +220,7 @@ datalab/
       test_*.csv        — Committed synthetic datasets (max 500KB each)
   build.js
   .gitattributes      — artifact + lib eol exemptions (release integrity, §9)
+  .githooks/          — version-controlled pre-commit hook (core.hooksPath, §8)
   PLANNING.md
   STANDARDS.md
   ARIA_CHECKLIST.md
@@ -544,7 +548,7 @@ Deliverables (dependency order per §18):
 - [x] README feature updates — evidence: f1de878 (also restored the missing subplot-figures line)
 - [x] Exploratory test (Data Scientist) — evidence: session at exit on synthetic-Weibull strength data (k=2.3, λ=40 generative): **fitWeibull recovered k=2.297, λ=40.61** — strong estimator validation; lognormal swap, violin-by-batch, and 3-group per-group fits all behaved to spec. No findings.
 
-Exit criteria: lognormal/Weibull/KDE match independent-tool references; a v2.x session with `fitNormal: true` renders identically; violin renders with validation errors on wrong input; per-group fits are opt-in, capped, palette-matched; the spike doc is approved or rejected with rationale; a fresh clone gets a working hook by following the README; all prior tests green.
+Exit criteria: lognormal/Weibull/KDE match independent-tool references; a v2.x session with `fitNormal: true` renders identically; violin renders with validation errors on wrong input; per-group fits are opt-in, capped, palette-matched; the spike doc is approved or rejected with rationale; a fresh clone gets a working hook by following the README; all prior tests green. **Exited at v2.4.0** — refactor: distributions.js split (stats.js 340 → 213, §6); 8 axe states; benchmarks green; exploratory recovered the generative Weibull parameters (k 2.297 vs true 2.3). **Record correction (Phase 12 review): the sketch/tree checklist item added one review earlier was missed at this exit walk** — the drift was caught and fixed at the next review, which is the system working, but walkers: the checklist is read bottom to top at your peril.
 
 ### Phase 12 — Computed Columns `v2.5.0` *(scoped by the Phase 11 security spike)*
 **Goal:** formula columns in Data Tools — the highest-utility remaining gap (Excel's core feature), under the §8 expression-evaluation rule.
