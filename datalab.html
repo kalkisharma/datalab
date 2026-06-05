@@ -347,16 +347,18 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
       <summary>Export size</summary>
       <div class="details-body">
         <div class="field-hint" style="margin:0 0 8px;">On screen, panels autosize to the grid — these set the PNG/SVG export dimensions.</div>
+        <!-- Identical ranges on both sliders so equal values sit at equal
+             thumb positions (Phase 8, maintainer aesthetic report) -->
         <label class="ctrl-label">Width
           <div class="slider-row">
-            <input type="range" id="figW" min="400" max="1600" step="50" value="700" />
-            <input type="number" class="slider-num" id="figWNum" value="700" min="400" max="1600" />
+            <input type="range" id="figW" min="300" max="1600" step="50" value="700" />
+            <input type="number" class="slider-num" id="figWNum" value="700" min="300" max="1600" />
           </div>
         </label>
         <label class="ctrl-label">Height
           <div class="slider-row">
-            <input type="range" id="figH" min="300" max="1200" step="50" value="500" />
-            <input type="number" class="slider-num" id="figHNum" value="500" min="300" max="1200" />
+            <input type="range" id="figH" min="300" max="1600" step="50" value="500" />
+            <input type="number" class="slider-num" id="figHNum" value="500" min="300" max="1600" />
           </div>
         </label>
       </div>
@@ -368,31 +370,31 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
       <div class="details-body">
         <label class="ctrl-label">Title size
           <div class="slider-row">
-            <input type="range" id="fsTitle" min="10" max="28" value="14" />
+            <input type="range" id="fsTitle" min="10" max="40" value="14" />
             <span class="slider-val" id="fsTitleVal">14</span>
           </div>
         </label>
         <label class="ctrl-label">Axis label size
           <div class="slider-row">
-            <input type="range" id="fsAxis" min="8" max="22" value="12" />
+            <input type="range" id="fsAxis" min="8" max="40" value="12" />
             <span class="slider-val" id="fsAxisVal">12</span>
           </div>
         </label>
         <label class="ctrl-label">Tick label size
           <div class="slider-row">
-            <input type="range" id="fsTick" min="6" max="18" value="10" />
+            <input type="range" id="fsTick" min="6" max="40" value="10" />
             <span class="slider-val" id="fsTickVal">10</span>
           </div>
         </label>
         <label class="ctrl-label">Legend size
           <div class="slider-row">
-            <input type="range" id="fsLegend" min="8" max="20" value="11" />
+            <input type="range" id="fsLegend" min="8" max="40" value="11" />
             <span class="slider-val" id="fsLegendVal">11</span>
           </div>
         </label>
         <label class="ctrl-label">Annotation size
           <div class="slider-row">
-            <input type="range" id="fsAnnot" min="8" max="20" value="11" />
+            <input type="range" id="fsAnnot" min="8" max="40" value="11" />
             <span class="slider-val" id="fsAnnotVal">11</span>
           </div>
         </label>
@@ -1686,7 +1688,16 @@ function renderPlotGrid() {
         if (!e.target.closest('.panel-plot')) setActivePlot(p.id);
       });
       panel.querySelector('.panel-plot').addEventListener('mousedown', () => setActivePlot(p.id));
-      panel.querySelector('.panel-name').addEventListener('input', e => { p.name = e.target.value || 'Plot'; });
+      panel.querySelector('.panel-name').addEventListener('input', e => {
+        p.name = e.target.value || 'Plot';
+        // Rename ripples everywhere the name is shown: the "Editing:" label,
+        // series plot chips, and the panel's aria-labels (Phase 8 fix —
+        // these stayed stale until an unrelated re-render)
+        panel.setAttribute('aria-label', `Plot panel ${p.name}${p.id === appState.activePlotId ? ', active' : ''}`);
+        panel.querySelector('.panel-del').setAttribute('aria-label', `Delete plot ${p.name}`);
+        syncActivePlotInputs();
+        renderSeriesList();
+      });
       panel.querySelector('.panel-del').addEventListener('click', e => { e.stopPropagation(); deletePlot(p.id); });
       grid.appendChild(panel);
     } else {
@@ -1876,9 +1887,27 @@ function renderOnePlot(plot) {
 
     traces.push(...result.traces);
 
-    if (result.layout) Object.assign(layout, result.layout);
+    if (result.layout) {
+      // Merge axis overrides INTO the styled axis objects — a wholesale
+      // Object.assign replaced layout.xaxis/yaxis from buildBaseLayout,
+      // silently dropping titles, fonts, and frame styling on parity plots
+      // (Phase 8 fix)
+      for (const [k, v] of Object.entries(result.layout)) {
+        if ((k === 'xaxis' || k === 'yaxis') && layout[k]) Object.assign(layout[k], v);
+        else layout[k] = v;
+      }
+    }
     if (result.stats && result.annotSR) parityResults.push({ name: s.name, ...result });
     if (result.fitAnnot) srParts.push(result.fitAnnot.sr);
+  }
+
+  // Multiple parity series: each computed its own equal-axis range and the
+  // last one won, clipping the others — use the union (Phase 8 fix)
+  if (parityResults.length > 1) {
+    const mn = Math.min(...parityResults.map(p => p.axMin));
+    const mx = Math.max(...parityResults.map(p => p.axMax));
+    layout.xaxis.range = [mn, mx];
+    layout.yaxis.range = [mn, mx];
   }
 
   showPanelErrors(plot.id, errors, warnings);
@@ -3685,10 +3714,15 @@ function buildHistogramTrace(series, datasets) {
     ? Math.min(500, series.binCount)
     : fdBinCount(xV);
 
+  // Loop, not Math.min(...xV) — spread overflows the stack on huge columns
+  let lo = Infinity, hi = -Infinity;
+  for (const v of xV) { if (v < lo) lo = v; if (v > hi) hi = v; }
+  const binWidth = (hi - lo) / bins;
+
   const traces = [{
     type: 'histogram',
     x: xV,
-    nbinsx: bins,
+    nbinsx: bins, // requested count, kept for reference — xbins below is authoritative
     name: series.name || 'Histogram',
     marker: { color: series.style?.color ?? (ds.color ?? '#5b8dee') },
     opacity: series.style?.opacity
@@ -3696,15 +3730,23 @@ function buildHistogramTrace(series, datasets) {
     hovertemplate: `${series.xCol}: %{x}<br>count: %{y}<extra></extra>`,
   }];
 
+  // Explicit bin edges (Phase 8 fix): nbinsx is only a hint — Plotly snaps
+  // to "nice" boundaries, so the actual bin width could differ from the FD
+  // width the normal-fit overlay scales by, mis-scaling the curve
+  if (binWidth > 0) {
+    traces[0].autobinx = false;
+    traces[0].xbins = { start: lo, end: hi + binWidth / 1e6, size: binWidth };
+  }
+
   // Normal fit overlay (Phase 5, Data Scientist spec): the pdf is scaled by
   // n·binWidth so the curve lives on the COUNT axis the bars use — plotting
   // the raw density against counts is the classic scaling mistake.
   let fitAnnot = null;
   if (series.fitNormal) {
     const fit = fitNormal(xV);
-    if (fit && fit.sigma > 0) {
-      const lo = Math.min(...xV), hi = Math.max(...xV);
-      const binWidth = (hi - lo) / bins;
+    if (fit && fit.sigma > 0 && binWidth > 0) {
+      // Same lo/hi/binWidth as the explicit xbins above — the curve is now
+      // guaranteed to scale by the width the bars actually use
       const cx = [], cy = [];
       for (let i = 0; i <= 200; i++) {
         const x = lo + (hi - lo) * i / 200;

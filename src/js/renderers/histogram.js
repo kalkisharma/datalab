@@ -56,10 +56,15 @@ function buildHistogramTrace(series, datasets) {
     ? Math.min(500, series.binCount)
     : fdBinCount(xV);
 
+  // Loop, not Math.min(...xV) — spread overflows the stack on huge columns
+  let lo = Infinity, hi = -Infinity;
+  for (const v of xV) { if (v < lo) lo = v; if (v > hi) hi = v; }
+  const binWidth = (hi - lo) / bins;
+
   const traces = [{
     type: 'histogram',
     x: xV,
-    nbinsx: bins,
+    nbinsx: bins, // requested count, kept for reference — xbins below is authoritative
     name: series.name || 'Histogram',
     marker: { color: series.style?.color ?? (ds.color ?? '#5b8dee') },
     opacity: series.style?.opacity
@@ -67,15 +72,23 @@ function buildHistogramTrace(series, datasets) {
     hovertemplate: `${series.xCol}: %{x}<br>count: %{y}<extra></extra>`,
   }];
 
+  // Explicit bin edges (Phase 8 fix): nbinsx is only a hint — Plotly snaps
+  // to "nice" boundaries, so the actual bin width could differ from the FD
+  // width the normal-fit overlay scales by, mis-scaling the curve
+  if (binWidth > 0) {
+    traces[0].autobinx = false;
+    traces[0].xbins = { start: lo, end: hi + binWidth / 1e6, size: binWidth };
+  }
+
   // Normal fit overlay (Phase 5, Data Scientist spec): the pdf is scaled by
   // n·binWidth so the curve lives on the COUNT axis the bars use — plotting
   // the raw density against counts is the classic scaling mistake.
   let fitAnnot = null;
   if (series.fitNormal) {
     const fit = fitNormal(xV);
-    if (fit && fit.sigma > 0) {
-      const lo = Math.min(...xV), hi = Math.max(...xV);
-      const binWidth = (hi - lo) / bins;
+    if (fit && fit.sigma > 0 && binWidth > 0) {
+      // Same lo/hi/binWidth as the explicit xbins above — the curve is now
+      // guaranteed to scale by the width the bars actually use
       const cx = [], cy = [];
       for (let i = 0; i <= 200; i++) {
         const x = lo + (hi - lo) * i / 200;
