@@ -430,20 +430,22 @@ Exit criteria: v1 session files migrate losslessly into a 1-plot grid. Two plots
 - **Preset categories (UX + Data Engineer):** saving a preset opens an accessible category picker (checkboxes, all on by default): **Style** (background, colormap, markers, edges), **Export size**, **Plot typography**, **Frame & grid** (frame/grid controls, major/minor toggles, legend default). New sectioned schema marker `datalab-style-preset-v2`; loading applies only the sections present in the file. **v1 flat presets must keep loading** (interpreted as all-categories). Category picker dialog follows ARIA_CHECKLIST (focus in, Esc, focus restore).
 - **NSE correction (Data Scientist):** `computeParityStats` computes SS_tot around **mean(modelled)**; the standard Nash–Sutcliffe definition — and the renderer's own doc comment — require **mean(observed)**: NSE = 1 − Σ(mod−obs)² / Σ(obs−mean(obs))². Fix the denominator and recompute the pinned references in `parity-stats.spec.js` (reference example becomes SS_tot = 500, NSE = 1 − 17/500 = 0.966). Displayed-statistic correction, not a schema change. Root cause noted: Phase 1 sign-off pinned the reference to the same wrong formula — reference values must be derived from the definition, not from the code.
 
+**Preset picker flow (UX, recorded per §12):** Save preset → dialog "Save style preset" (`role=dialog`, focus to first checkbox; Esc / overlay click / Cancel close and restore focus to the trigger). Four category checkboxes, all on by default. Save disabled at zero categories — the only error state; controls always hold values, so there are no empty states. Save → JSON download → dialog closes. Load is unchanged: v2 applies present sections, v1 applies everything, wrong schema → existing alert path.
+
 Deliverables (dependency order per §18; Security flagged items 2–3 as must-precede file-import work):
-- [x] "Figure size" → "Export size" relabel + autosize hint (UX) — evidence: src/index.html, export.js/layout.js comments; commit hash recorded at exit walk (working tree at scoping time)
-- [ ] Carry-over (v2.0.0 review, Security — §18 flag): session import validates plot/dataset/series ids against `/^[\w-]+$/` — ids reach innerHTML unescaped in grid.js/ui.js; reject or regenerate on import; `xss.spec.js` gains a malicious-session-file case (Security + QA)
-- [ ] Pre-commit hook gap (Security): STANDARDS §9 claims the network-API grep covers `src/index.html`, but the hook only greps `src/js/**` (HTML is checked for `ping=` only) — extend the hook to grep staged HTML for the prohibited-API list, bringing implementation up to the written standard (Security)
-- [ ] NSE denominator fix + reference values re-derived from the definition per §20 (Data Scientist + QA; `## Corrections` CHANGELOG entry per §3 carve-out)
-- [ ] `figW`/`figH` range unification 300–1600 (Frontend + UX) *(parallel-safe)*
-- [ ] Typography slider maxima → 40, all five sliders (Frontend; Data Viz confirms no clipping at 40 via margin scaling) *(parallel-safe)*
-- [ ] Carry-over (v2.0.0 review, Frontend): renaming a plot refreshes `activePlotLabel`, series plot chips, and panel aria-labels *(parallel-safe)*
-- [ ] Carry-over (v2.0.0 review, Data Viz): multiple parity series on one panel use the union of their axis ranges instead of last-wins *(parallel-safe)*
-- [ ] Carry-over (v2.0.0 review, Data Viz + Data Scientist): histogram normal-fit overlay passes explicit `xbins` so curve scaling matches the bins Plotly actually draws (`nbinsx` is only a hint) *(parallel-safe)*
-- [ ] "Export all" bulk PNG export of visible plots (Frontend + Data Viz; QA test asserts one download event per visible plot; README documents the browser's multiple-download permission prompt)
-- [ ] UX flow description for the preset category picker — written before the branch is created, per §12 (UX Designer)
-- [ ] Preset category picker + sectioned `datalab-style-preset-v2` schema with v1 back-compat; loader validates section shapes before applying; format change logged under CHANGELOG `## Schema` (Frontend + UX + Data Engineer; dialog accessibility — Accessibility)
-- [ ] NSE/MAE/RMSE definitions added to the help dialog (UX + Data Scientist) — discoverability gap: maintainer had to ask what NSE means
+- [x] "Figure size" → "Export size" relabel + autosize hint (UX) — evidence: commit a6c9e47
+- [x] Carry-over (v2.0.0 review, Security — §18 flag): session import validates plot/dataset/series ids against `/^[\w-]+$/`; reject on import; `xss.spec.js` malicious-session cases — evidence: commit 0f3f6a5 (2 payload tests + legitimate-id guard)
+- [x] Pre-commit hook gap (Security): hook §5b now greps staged HTML for the prohibited-API list — evidence: `.git/hooks/pre-commit` (not version-controlled — **re-apply if the repo is recloned**); verified clean-pass + staged-`fetch(`-blocked at implementation
+- [x] NSE denominator fix + reference values re-derived from the definition per §20 — evidence: commit 84863b4 (incl. distinguishing constant-at-mean test, CHANGELOG `## Corrections`)
+- [x] `figW`/`figH` range unification 300–1600 — evidence: commit 8c0e59d
+- [x] Typography slider maxima → 40, all five sliders — evidence: commit 8c0e59d; margin scaling in buildBaseLayout confirmed (Data Viz)
+- [x] Carry-over: plot rename refreshes `activePlotLabel`, series plot chips, panel aria-labels — evidence: commit b7c4afe
+- [x] Carry-over: multi-parity range union — evidence: commit d241e63 (also fixed parity axis overrides replacing styled axes wholesale — parity plots had lost titles/fonts/frame styling)
+- [x] Carry-over: histogram explicit `xbins` — evidence: commit d8dc6e9 (overlay reuses identical lo/hi/width; loop min/max replaces spread)
+- [x] "Export all" bulk PNG export — evidence: commit bc0c26b; export.spec.js asserts one numbered download per visible plot + hidden at 1 panel; README documents the permission prompt
+- [x] UX flow description for the preset category picker — evidence: recorded above, per §12
+- [x] Preset category picker + sectioned `datalab-style-preset-v2` with v1 back-compat, allowlist loader, CHANGELOG `## Schema` — evidence: commit bc0c26b; preset.spec.js (section isolation, malformed-shape, save filtering, zero-category disable, Esc focus restore); phase6 v1 round-trip drives the real loader
+- [x] NSE/MAE/RMSE definitions in the help dialog — evidence: commit bc0c26b
 - [ ] Maintainer action (carried since v1.0.0, non-blocking): manual screen reader session — NVDA on Windows now satisfies the primary requirement per amended STANDARDS §15
 
 Exit criteria: equal slider values align visually. All typography sliders reach 40 without label clipping. Export-all produces one correctly named PNG per visible plot. A v1 preset still loads; a v2 preset with only Typography checked changes nothing else. NSE matches the textbook definition against newly hand-derived references. Malicious-session XSS test green. Pre-commit hook greps HTML for prohibited APIs. All prior tests green.
