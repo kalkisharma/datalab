@@ -46,7 +46,16 @@ function renderPlotGrid() {
         if (!e.target.closest('.panel-plot')) setActivePlot(p.id);
       });
       panel.querySelector('.panel-plot').addEventListener('mousedown', () => setActivePlot(p.id));
-      panel.querySelector('.panel-name').addEventListener('input', e => { p.name = e.target.value || 'Plot'; });
+      panel.querySelector('.panel-name').addEventListener('input', e => {
+        p.name = e.target.value || 'Plot';
+        // Rename ripples everywhere the name is shown: the "Editing:" label,
+        // series plot chips, and the panel's aria-labels (Phase 8 fix —
+        // these stayed stale until an unrelated re-render)
+        panel.setAttribute('aria-label', `Plot panel ${p.name}${p.id === appState.activePlotId ? ', active' : ''}`);
+        panel.querySelector('.panel-del').setAttribute('aria-label', `Delete plot ${p.name}`);
+        syncActivePlotInputs();
+        renderSeriesList();
+      });
       panel.querySelector('.panel-del').addEventListener('click', e => { e.stopPropagation(); deletePlot(p.id); });
       grid.appendChild(panel);
     } else {
