@@ -306,32 +306,9 @@ function clearPlot() {
   document.getElementById('exportAllBtn').style.display   = 'none';
 }
 
-// ── Auto-label helpers (per the ACTIVE plot's inputs) ─────────────────────
-
-function plotSeries(plot) {
-  return appState.series.filter(s => (s.plotId ?? appState.plots[0].id) === plot.id);
-}
-
-function autoTitle(plot) {
-  const list = plotSeries(plot);
-  if (!list.length) return plot.name;
-  const types = [...new Set(list.map(s => s.chartType))];
-  return types.length === 1
-    ? `${types[0].charAt(0).toUpperCase() + types[0].slice(1)} plot`
-    : 'Multi-series plot';
-}
-function autoXLabel(plot) { return plotSeries(plot)[0]?.xCol || ''; }
-function autoYLabel(plot) { return plotSeries(plot)[0]?.yCol || ''; }
-
-// Inputs mirror the ACTIVE plot; unlocked fields track their auto values
-function syncAutoLabels() {
-  const plot = activePlot(), cfg = plot.plotConfig;
-  if (!cfg.titleLocked)  { cfg.title  = autoTitle(plot);  document.getElementById('inputTitle').value  = cfg.title; }
-  if (!cfg.xLabelLocked) { cfg.xLabel = autoXLabel(plot); document.getElementById('inputXLabel').value = cfg.xLabel; }
-  if (!cfg.yLabelLocked) { cfg.yLabel = autoYLabel(plot); document.getElementById('inputYLabel').value = cfg.yLabel; }
-}
-
 // ── Per-panel errors ──────────────────────────────────────────────────────
+// (auto-label helpers moved to layout.js at the Phase 10 exit refactor
+// review — verbatim move; buildBaseLayout is their primary consumer)
 
 function showPanelErrors(pid, errors, warnings = []) {
   const box = document.querySelector(`.plot-panel[data-pid="${pid}"] .panel-errors`);
