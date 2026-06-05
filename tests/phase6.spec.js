@@ -164,39 +164,32 @@ test('annotation font slider reaches parity stats annotations', async ({ page })
   expect(size).toBe(17);
 });
 
-test('style preset round-trips the new typography and frame fields', async ({ page }) => {
+test('a v1 flat style preset loads typography and frame fields through the real loader', async ({ page }) => {
   await page.goto(FILE_URL);
-  await page.evaluate(() => {
-    document.getElementById('fsTitle').value = '22';
-    document.getElementById('frameAuto').checked = false;
-    document.getElementById('frameColor').value = '#112233';
-    document.getElementById('showLegend').checked = false;
-  });
-  const preset = await page.evaluate(() => {
-    const p = { _schema: 'datalab-style-preset-v1' };
-    PRESET_FIELDS.forEach(id => { p[id] = document.getElementById(id)?.value; });
-    PRESET_CHECKS.forEach(id => { p[id] = document.getElementById(id)?.checked; });
-    return JSON.stringify(p);
-  });
-
-  await page.goto(FILE_URL); // defaults restored
-  await page.evaluate(json => {
-    // Drive the real loader logic via a synthetic FileReader-free path
-    const preset = JSON.parse(json);
-    PRESET_FIELDS.forEach(id => { const el = document.getElementById(id); if (el && preset[id] != null) el.value = preset[id]; });
-    PRESET_CHECKS.forEach(id => { const el = document.getElementById(id); if (el && preset[id] != null) el.checked = preset[id]; });
-  }, preset);
+  // v1 flat file exactly as a pre-Phase-8 export wrote it
+  const v1 = {
+    _schema: 'datalab-style-preset-v1',
+    fsTitle: '22', frameAuto: false, frameColor: '#112233', showLegend: false,
+  };
+  const presetPath = path.join(__dirname, 'data', '_p6_preset_v1.json');
+  fs.writeFileSync(presetPath, JSON.stringify(v1));
+  await page.setInputFiles('#presetFileInput', presetPath);
+  await page.waitForTimeout(300);
+  fs.unlinkSync(presetPath);
 
   const out = await page.evaluate(() => ({
     fsTitle:   document.getElementById('fsTitle').value,
     frameAuto: document.getElementById('frameAuto').checked,
     frameColor: document.getElementById('frameColor').value,
     legend:    document.getElementById('showLegend').checked,
+    // frame color input enabled because frameAuto came in false
+    colorEnabled: !document.getElementById('frameColor').disabled,
   }));
   expect(out.fsTitle).toBe('22');
   expect(out.frameAuto).toBe(false);
   expect(out.frameColor).toBe('#112233');
   expect(out.legend).toBe(false);
+  expect(out.colorEnabled).toBe(true);
 });
 
 test('chrome typography is the larger scale', async ({ page }) => {

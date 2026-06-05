@@ -32,8 +32,14 @@ Maintainer: Kalki Sharma <kalkijsharma@gmail.com>
   prompt once per column
 - **Multiple datasets and series**, reorderable, individually styleable,
   color-blind-safe default palette (Okabe-Ito)
-- **Export:** PNG, SVG, ZIP of saved plots, full-session JSON (reload your
-  entire workspace later), style presets
+- **Export:** PNG, SVG, **Export all** (one numbered PNG per visible plot —
+  your browser may ask once to allow multiple downloads), ZIP of saved
+  plots, full-session JSON (reload your entire workspace later), style
+  presets with selectable categories (style / export size / typography /
+  frame & grid)
+- **Working with Excel data:** DataLab reads CSV only (a deliberate
+  security decision — see PLANNING.md). In Excel: File → Save As →
+  CSV UTF-8, then drop the file in
 - **Performance:** WebGL rendering above 10k points; 10 series × 50k rows
   renders in well under a second
 - **Accessibility:** WCAG 2.1 AA (axe-verified), full keyboard operation —

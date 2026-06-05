@@ -209,3 +209,8 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
 .help-table td{padding:4px 0;color:var(--text2);}
 .help-table td:first-child{width:140px;}
 .help-table kbd{font-family:var(--mono);font-size:11px;background:var(--bg);border:1px solid var(--border2);border-radius:4px;padding:2px 6px;color:var(--accent);}
+/* ── Preset category picker + help definitions (Phase 8) ── */
+.check-col{display:flex;flex-direction:column;gap:9px;font-size:13px;color:var(--text2);}
+.check-col input{cursor:pointer;}
+.help-defs{font-size:12px;color:var(--text2);line-height:1.6;margin-top:8px;}
+.help-defs strong{color:var(--text);font-family:var(--mono);}

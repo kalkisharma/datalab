@@ -20,6 +20,8 @@
   <button class="btn btn-sm" id="zipBtn" style="display:none">↓ ZIP</button>
   <button class="btn btn-sm" id="downloadBtn" style="display:none">↓ PNG</button>
   <button class="btn btn-sm" id="downloadSvgBtn" style="display:none">↓ SVG</button>
+  <button class="btn btn-sm" id="exportAllBtn" style="display:none"
+          title="Export every visible plot as its own PNG at the Export size">↓ All</button>
   <button class="btn btn-sm" id="helpBtn" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button>
 </header>
 
@@ -306,6 +308,42 @@
           <tr><td><kbd>Tab</kbd></td><td>Move between all controls</td></tr>
         </tbody>
       </table>
+      <!-- Parity statistic definitions (Phase 8 — maintainer had to ask
+           what NSE means; Data Scientist reviewed the wording) -->
+      <div class="modal-section-title">Parity statistics</div>
+      <p class="help-defs"><strong>NSE</strong> — Nash–Sutcliffe efficiency:
+        1 − Σ(modelled−observed)² / Σ(observed−mean of observed)².
+        1 = perfect agreement; 0 = the model predicts no better than the
+        observed mean; below 0 = worse than the mean.</p>
+      <p class="help-defs"><strong>MAE</strong> — mean absolute error: the
+        average |modelled − observed|, in data units.</p>
+      <p class="help-defs"><strong>RMSE</strong> — root-mean-square error:
+        √(mean of (modelled−observed)²). Penalizes large misses more
+        heavily than MAE.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Preset category picker (Phase 8) — choose which setting groups a
+     style preset carries; UX flow recorded in PLANNING.md Phase 8 -->
+<div id="presetOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="presetTitle">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <span class="modal-title" id="presetTitle">Save style preset</span>
+      <button class="modal-close" id="presetClose" aria-label="Cancel preset save">×</button>
+    </div>
+    <div class="modal-body">
+      <p class="field-hint" style="margin:0 0 12px;">Choose which setting groups to include:</p>
+      <div class="check-col">
+        <label><input type="checkbox" id="pcStyle" checked /> Style — background, colormap, markers</label>
+        <label><input type="checkbox" id="pcExportSize" checked /> Export size</label>
+        <label><input type="checkbox" id="pcTypography" checked /> Plot typography</label>
+        <label><input type="checkbox" id="pcFrame" checked /> Frame &amp; grid — incl. legend default</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" id="presetCancel">Cancel</button>
+      <button class="btn btn-primary" id="presetSave">Save preset</button>
     </div>
   </div>
 </div>

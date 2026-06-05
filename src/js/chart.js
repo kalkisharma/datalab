@@ -60,6 +60,8 @@ function renderPlot() {
   document.getElementById('plotGrid').classList.remove('hidden');
   document.getElementById('downloadBtn').style.display    = '';
   document.getElementById('downloadSvgBtn').style.display = '';
+  // Export all only earns its place with 2+ panels (1 panel = same as ↓ PNG)
+  document.getElementById('exportAllBtn').style.display = appState.plots.length > 1 ? '' : 'none';
   document.getElementById('savedStrip').style.display  = appState.savedPlots.filter(Boolean).length ? '' : 'none';
   document.getElementById('saveBtn').style.display     = '';
   syncAutoLabels();
@@ -182,6 +184,7 @@ function clearPlot() {
   document.getElementById('emptyState').classList.remove('hidden');
   document.getElementById('downloadBtn').style.display    = 'none';
   document.getElementById('downloadSvgBtn').style.display = 'none';
+  document.getElementById('exportAllBtn').style.display   = 'none';
 }
 
 // ── Auto-label helpers (per the ACTIVE plot's inputs) ─────────────────────

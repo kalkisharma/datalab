@@ -140,6 +140,7 @@ function init() {
   // Export buttons
   g('downloadBtn')   .addEventListener('click', () => downloadPlot('png'));
   g('downloadSvgBtn').addEventListener('click', () => downloadPlot('svg'));
+  g('exportAllBtn')  .addEventListener('click', exportAllPlots);
   g('zipBtn')        .addEventListener('click', downloadZip);
   g('saveBtn')       .addEventListener('click', savePlot);
 
@@ -151,8 +152,18 @@ function init() {
     e.target.value = '';
   });
 
-  // Style presets
-  g('presetSaveBtn').addEventListener('click', savePreset);
+  // Style presets — Save opens the category picker (Phase 8)
+  g('presetSaveBtn').addEventListener('click', openPresetPicker);
+  g('presetSave')   .addEventListener('click', savePreset);
+  g('presetCancel') .addEventListener('click', closePresetPicker);
+  g('presetClose')  .addEventListener('click', closePresetPicker);
+  g('presetOverlay').addEventListener('click', e => {
+    if (e.target === g('presetOverlay')) closePresetPicker();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !g('presetOverlay').classList.contains('hidden')) closePresetPicker();
+  });
+  Object.keys(PRESET_PICKS).forEach(id => g(id).addEventListener('change', updatePresetSaveState));
   g('presetLoadBtn').addEventListener('click', () => g('presetFileInput').click());
   g('presetFileInput').addEventListener('change', e => {
     if (e.target.files[0]) loadPresetFile(e.target.files[0]);

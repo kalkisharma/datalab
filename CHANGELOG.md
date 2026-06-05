@@ -2,6 +2,22 @@
 
 ## Unreleased (v2.1.0 — Phase 8 in progress)
 
+### Features
+- **Export all** — one numbered PNG per visible plot at the Export size
+  (the browser may prompt once for multiple-download permission)
+- **Preset categories** — saving a style preset now asks which setting
+  groups to include: Style, Export size, Plot typography, Frame & grid.
+  Old (v1) preset files still load, treated as all categories.
+- Parity statistic definitions (NSE / MAE / RMSE) in the help dialog
+- Export width/height sliders share one range (300–1600) so equal values
+  align; all plot typography sliders now reach 40
+
+### Schema (style preset file — session state schema unchanged at v2)
+- `datalab-style-preset-v2`: sectioned by category (`style`, `exportSize`,
+  `typography`, `frame`); loading applies only the sections present in the
+  file, against a fixed field allowlist. v1 flat files load as
+  all-categories.
+
 ### Fixed
 - "Figure size" panel renamed **"Export size"** with an explanatory hint —
   panels autosize to the grid on screen; the sliders set PNG/SVG export
