@@ -499,12 +499,15 @@ Exit criteria: all four new capabilities render correctly and round-trip through
 Plot settings gains a "Subplot grid" row for the ACTIVE plot: Rows × Cols selects (1–3 each; 1×1 = no grid) plus Share X / Share Y checkboxes. Switching plots syncs the controls. When the series modal's target plot has a grid, a Cell picker appears (Row r · Col c, defaulting to 1·1); changing the target plot refreshes the picker. Each cell's axis labels auto-derive from the first series in that cell unless the plot's labels are locked (locked labels apply to every cell). Per-cell render errors are prefixed with their cell (R1C2 · name: …). Shrinking the grid clamps out-of-range series into the nearest edge cell at render time — the stored cell is preserved, so re-growing the grid restores the arrangement. A parity cell is excluded from axis sharing with a warning. No empty states beyond the existing ones; error states are the per-cell strip entries.
 
 Deliverables:
-- [ ] State: `plot.grid` + `series.cell` additive fields; session round-trip (Data Engineer)
-- [ ] Dispatcher: cell → axis assignment, renderer layout-override remapping, `matches` wiring for shareX/shareY (Data Viz)
-- [ ] Plot settings grid controls + series modal Cell picker; UX flow description before the branch (Frontend + UX)
-- [ ] Parity-cell exclusion from sharing + per-cell error labels (Data Viz + Data Scientist)
-- [ ] Tests: cell assignment, shared-axis behavior, parity exclusion, session round-trip; axe state for the grid controls (QA + Accessibility)
-- [ ] Bench: grid-figure case added as informational (Performance)
+- [x] State: `plot.grid` + `series.cell` additive fields; session round-trip — evidence: commit c47d58f; round-trip test incl. control re-sync
+- [x] Dispatcher: cell → axis assignment, renderer layout-override remapping (scaleanchor follows its cell), `matches` wiring — evidence: commit c47d58f; cached-trace axis refs set/cleared every render so grid changes can't go stale
+- [x] Plot settings grid controls + series modal Cell picker; UX flow recorded first — evidence: commits 45054f9 (flow) + c47d58f
+- [x] Parity-cell exclusion from sharing + per-cell error labels — evidence: commit c47d58f; parity union and log-log grouped per cell
+- [x] Tests: cell axes + per-cell auto labels, shareX matches + session round-trip, parity exclusion + warning, shrink-clamp/regrow — evidence: tests/subplots.spec.js (4); grid controls covered by the empty-state axe scan (aria-labeled selects)
+- [x] Bench: grid-figure informational case — evidence: bench.spec.js; 2×2 × 50k scattergl figure cold-renders 229–488 ms through the real pipeline (spike predicted 648 ms)
+- [x] Exit exploratory (Data Scientist): mixed-type 2×2 figure (line / scatter+trendline / histogram / bar mean±SD) — every trace landed on its cell axes, trendline followed its series' cell, per-cell labels correct. One `informational` finding: an aggregated bar's auto Y label shows the raw column name while the legend carries the aggregation — acceptable, the legend is the semantics carrier.
+
+Exit criteria: a 2×2 mixed-type figure renders with correct per-cell axes and labels; shared axes match across non-parity cells; parity cells warn and keep equal axes; grid + cells survive a session round-trip; grid shrink never errors and re-grow restores; all prior tests green. **Exited at v2.3.0** — refactor review moved auto-label helpers to layout.js (chart.js 313 → 294, §6); security checklist clean (new innerHTML sites: cell picker static markup, annotated); 7 axe states green; benchmarks green (warm 5 ms, cold 233 ms, memory 986 MB → 11.5 MB, filter 14 ms).
 
 ### Phase 11+ — Future `(not scoped)`
 - Additional distributions (lognormal, Weibull), distribution comparison tests; KDE/violin plots; higher-order trendline fits; per-group trendlines (one fit per color-by category — DS exploratory finding, v2.2.0)

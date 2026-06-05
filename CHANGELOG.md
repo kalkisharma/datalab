@@ -1,5 +1,28 @@
 # Changelog
 
+## v2.3.0 — Subplot Figures
+
+### Features
+- **Subplot figures** — any plot panel can become an r × c grid of
+  subplots inside a single figure: one Plotly canvas, one exported image
+  (publication-style multi-panel figures). Configure under Plot
+  settings → Subplot grid; assign each series to a cell in the series
+  editor.
+- **Shared axes** — share X / share Y across cells. Parity cells keep
+  their equal-axis geometry and are excluded from sharing (with a
+  warning) — sharing would break the y = x constraint.
+- Per-cell axis labels derive from the first series in each cell unless
+  the plot's labels are locked; per-cell render errors name their cell
+  (R2C1 · series name).
+- Shrinking a grid clamps series into the nearest edge cell without
+  losing their stored position — re-growing restores the arrangement.
+
+## Schema
+### v2.3.0 (state version unchanged at 2 — all additive)
+- `plot.grid { rows, cols, shareX, shareY }` (default null = no grid)
+- `series.cell { row, col }` (default 1·1)
+- v2.0–v2.2 session files load unchanged
+
 ## v2.2.0 — Chart Essentials
 
 Sourced from the team landscape review: the table-stakes gaps every
