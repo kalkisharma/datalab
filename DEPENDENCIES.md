@@ -37,6 +37,10 @@ not the URL, is authoritative** — a CDN can change; the bytes cannot.
     review — the entry was missed at the exit itself, which is why the
     reassessment log is now a §4 release-checklist line.)*
 
+  - v2.6.0 exit: no changes — the t/F p-value numerics (log-gamma,
+    regularized incomplete beta) are hand-written like the Phase 12 parser,
+    same §9 reasoning; zero new dependencies; pins stand.
+
 ## Updating a library
 
 1. Replace the file in `lib/` from its official source URL.
