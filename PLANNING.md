@@ -561,7 +561,10 @@ Exit criteria: lognormal/Weibull/KDE match independent-tool references; a v2.x s
 - **Materialization:** the new column is computed once and stored as plain row data (sessions carry values, not formulas); the expression string is kept as dataset metadata for display. Re-deriving after data edits is an explicit user action — silent recomputation hides provenance (DS).
 - **Performance:** interpreter cost ~tens of ns per node per row → 1M rows × a small AST sits well inside the filter-evaluation budget; measured at implementation against §11.
 
-Deliverables *(UX flow description per §12 to be recorded before implementation)*:
+**UX flow description (recorded per §12, before implementation):**
+Data Tools gains a **New column** section under Cleaning: a name field, an expression field (placeholder shows an example like `(temp - 32) * 5/9`), and a **live preview line** that re-parses on every keystroke — showing either the first 5 computed values or the parse error, inline. Add stays disabled until the name is valid (non-empty, no duplicate header) and the expression parses. Columns are referenced bare (`flow`) or backtick-quoted (`` `flow rate` ``) for names with spaces/symbols. On Add: values are **materialized** into the rows, the header is appended, the expression is stored as dataset metadata, and the standard cleaning-op cycle runs (revision bump, series re-validation, stats/preview refresh, confirmation message naming the expression). Materialization is one-shot by design — editing source data later does not silently recompute (provenance, DS ruling); re-derive deliberately with a new name or after dropping the old column. Error states: live parse errors under the expression; duplicate/empty name in the message line. No new empty states.
+
+Deliverables *(UX flow recorded above per §12)*:
 - [ ] `expr.js`: tokenizer + parser + evaluator with caps; Security Engineer reviews the parser before merge (§8) (Data Engineer + Security)
 - [ ] Data Tools "New column": name + expression + live preview of the first 5 values; revision bump + series re-validation like every cleaning op (Frontend + UX)
 - [ ] Tests: arithmetic references, parse-error surfaces, abuse attempts rejected at parse (strings, unknown identifiers, member access, depth/length bombs), caps enforced, 1M-row timing informational (QA + Security)
