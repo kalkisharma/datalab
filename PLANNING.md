@@ -478,7 +478,7 @@ Deliverables (dependency order per §18):
 - [x] Subplot design spike document → Phase 10 scope — evidence: spike outcomes + measured 648 ms cold / 170 ms warm recorded in Phase 10 above; EL approved
 - [x] README: feature list update + Excel→CSV guidance — evidence: commits bc0c26b (Excel→CSV, Phase 8) + 109936b (Phase 9 features, missing Data tools line)
 - [x] ARIA pass on new modal fields and preview tab — evidence: commit 109936b (7th axe state: bar modal); preview scanned by the existing data-tools state
-- [ ] Exploratory test: real datasets through bar/error-bar/log/trendline paths (Data Scientist — at exit)
+- [x] Exploratory test: realistic river-monitoring dataset (3 sites × 24 months, heavy-tailed flow incl. a zero) through bar mean±SD, log axes, error column, trendline, preview — evidence: session at v2.2.0 exit. Findings (§20 format, both `informational`, neither blocks): (1) bars on a log Y axis get no baseline hint in the UI — guidance lives in bar.js; consider a soft hint later; (2) a trendline across mixed populations correctly reports weak R² (0.081 over 3 site clusters) — per-group trendlines are a natural future ask (added to Phase 11+). Zero-flow point correctly produced the "1 non-positive value" log warning; all semantics labels rendered as specified.
 
 Exit criteria: all four new capabilities render correctly and round-trip through session files (log flags, error-bar config, trendline config are series/plot state). Bar with duplicate categories and no aggregation produces the explicit error. Error bars always carry semantics labels. Log axis with non-positive data warns. Trendline R² matches hand-derived references. Preview never renders more than one page of DOM rows. Subplot spike approved and Phase 10 scoped. All prior tests green.
 
@@ -504,7 +504,7 @@ Deliverables:
 - [ ] Bench: grid-figure case added as informational (Performance)
 
 ### Phase 11+ — Future `(not scoped)`
-- Additional distributions (lognormal, Weibull), distribution comparison tests; KDE/violin plots; higher-order trendline fits
+- Additional distributions (lognormal, Weibull), distribution comparison tests; KDE/violin plots; higher-order trendline fits; per-group trendlines (one fit per color-by category — DS exploratory finding, v2.2.0)
 - Computed columns — **security-spike-first**, must satisfy STANDARDS §8 expression-evaluation rule (no string-to-code path); Data Engineer champions, Security gates
 - Dual Y axis — gated on Data Scientist conditions (see Landscape Review decision record)
 - Type casting to datetime; column reorder; scatter size-by column (Phase 1 design intent, never built)

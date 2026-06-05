@@ -1,5 +1,40 @@
 # Changelog
 
+## v2.2.0 — Chart Essentials
+
+Sourced from the team landscape review: the table-stakes gaps every
+surveyed plotting tool covers.
+
+### Features
+- **Bar charts** (7th chart type) — categorical X with an explicit
+  aggregation choice (none / count / sum / mean / median). With None,
+  repeated categories produce an error telling you to choose — DataLab
+  never aggregates silently, and the legend always states the
+  aggregation.
+- **Error bars** — scatter and line take a ± column (works with datetime
+  X); bar means take SD or SEM. The legend always names what the bars
+  represent.
+- **Log axes** — per-plot Log X / Log Y toggles in Axis ranges. Values
+  ≤ 0 that a log axis cannot show are counted in a warning instead of
+  vanishing silently. Histograms keep a linear X (bins are linear);
+  parity plots render log-log only (equal scale preserved).
+- **Linear trendline** (scatter) — least-squares fit; the legend entry is
+  the equation and R².
+- **Data preview** — paginated table (50 rows/page) in Data Tools,
+  reflecting every cleaning operation immediately.
+
+### Fixed
+- Parity series editor: the Y (modelled) column picker listed columns
+  from the primary dataset instead of the join dataset — with differing
+  headers the correct column could not be selected (latent since v0.1.0)
+
+## Schema
+### v2.2.0 (state version unchanged at 2 — all additive)
+- `plotConfig.xLog` / `plotConfig.yLog` (default false)
+- `series.agg`, `series.errMode` (bar), `series.errCol` (scatter/line),
+  `series.trendline` (scatter) — all optional with defaults; v2.0/v2.1
+  session files load unchanged
+
 ## v2.1.0 — Export, Presets & Control Refinements
 
 ### Features
