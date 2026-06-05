@@ -545,12 +545,53 @@ Deliverables *(UX flow recorded above per §12)*:
 
 Exit criteria met — **Exited at v2.5.0**: parser rejects everything outside the grammar at parse time; live preview behaves per the §12 flow; computed values round-trip sessions as plain data; benchmarks green (computed 1M = 359 ms informational); no file over the §6 trigger; suite at 120.
 
-### Phase 13+ — Future `(not scoped)`
-- Distribution comparison tests (t-test, ANOVA) — Data Scientist owns scope
-- Dual Y axis — gated on Data Scientist conditions (see Landscape Review decision record)
-- Log-space histogram binning (deferred from Phase 9's log-axes work)
-- Type casting to datetime; column reorder; scatter size-by column (Phase 1 design intent, never built)
-- Interpolated (non-gridded) contours; free-text plot annotations; general-purpose heatmap chart type; higher-order trendline fits
+### Phase 13 — Statistical Comparison `v2.6.0`
+**Goal:** the comparison statistics queued since Phase 5 — group tests with honest reporting — plus the curve/binning items that share their numerics. **Data Scientist is primary owner.**
+
+**Design decisions (team scoping session):**
+- **Welch only (Data Scientist, non-negotiable):** the two-sample test is Welch's t (unequal variances assumed). Student's pooled t is not offered — it is the classic equal-variance footgun and offering both invites wrong choices.
+- **No naked p-values (Data Scientist):** every p-value is displayed with its effect size (Cohen's d for two groups, η² for ANOVA) and per-group n/mean/SD. A p-value without context is a misleading-visualization issue under §12/§20 authority.
+- **CDF numerics (DS + QA):** t and F p-values need the regularized incomplete beta function — hand-written continued-fraction implementation (Lentz), zero dependencies. References per §20 come from **published statistical tables** (the independent source), cited in the test header.
+- **UI placement (UX):** Data Tools gains a "Compare groups" section — numeric column + group column → a results table (groups, n, mean, SD; then Welch t / ANOVA F, p, effect size). Two groups → t-test; three or more → ANOVA; one → error.
+- **Log-space histogram binning (completes the Phase 9 deferral):** when a histogram panel has Log X, FD bins are computed on log₁₀ values (exponential bin edges in linear space) and Log X is honored instead of warned away. This changes output for sessions that had xLog+histogram, but those sessions currently show a "deferred" warning naming exactly this work — completing a documented deferral is not a silent change (§3 reasoning recorded).
+- **Higher-order trendlines (DS):** quadratic and cubic least squares join the scatter trendline picker (degree select: linear default / 2 / 3); R² reported; degree shown in the legend; per-group still linear-only (overfitting per tiny group, DS ruling).
+
+Deliverables *(UX flow descriptions per §12 before implementation)*:
+- [ ] `stats.js`/`distributions.js`: `regIncBeta`, `tTestWelch` (t, df, p, Cohen's d), `anovaOneWay` (F, df, p, η²) — references from published tables per §20 (Data Scientist + QA)
+- [ ] Data Tools "Compare groups" UI per the flow description (Frontend + UX; effect sizes always shown)
+- [ ] Log-space binning under histogram + Log X; warning path retired (Data Viz + Data Scientist)
+- [ ] Trendline degree picker, legend + sr-mirror updated (Data Viz + Data Scientist)
+- [ ] Tests: table-referenced p-values, effect sizes, degenerate guards (one group, zero variance); log-bin edges; polynomial fit references hand-derived (QA)
+- [ ] ARIA pass on the new Data Tools section; axe state if a new state is meaningful (Accessibility)
+- [ ] README + exploratory test at exit (UX; Data Scientist)
+
+Exit criteria: t/F/p match published-table references; p never renders without effect size and n's; log-X histograms bin in log space with the old warning gone; cubic fit matches a hand-derived reference; all prior tests green.
+
+### Phase 14 — Chart & Workspace Completions `v2.7.0`
+**Goal:** the visualization and data-shaping completions, including the two formerly gated items — dual-Y under the recorded DS conditions, and the Phase 1 size-column intent.
+
+**Design decisions (team scoping session):**
+- **Heatmap (9th chart type, Data Viz):** categorical X × categorical Y × numeric value with an **explicit aggregation** select — the bar-chart precedent applies verbatim (`none` errors on duplicate combos; §20 no-silent-aggregation; aggregation named in the colorbar title).
+- **Bubble size is AREA-proportional (Data Scientist):** the scatter size-by column maps value → marker area, not radius — radius mapping exaggerates large values quadratically (classic misleading viz). Size range documented in the hover; legend notes the mapping.
+- **Dual Y axis (gated conditions now satisfied structurally):** per-series "right axis" toggle; both axis titles tint to their series' colors (the DS coupling condition made visible rather than nagged); render warning only when the same column lands on both axes. Parity/contour/histogram series cannot take the right axis (geometry/binning conflicts).
+- **Free-text annotations (UX + Security):** per-plot `plotConfig.annotations[]` (additive) — text, position, draggable via the existing parity-annotation edit path. Annotation text is user data inside Plotly pseudo-HTML → escHtml at the build site, same contract as series names.
+- **Datetime casting + column reorder (Data Engineer):** Data Tools cleaning section gains "Cast to datetime" (reuses the Phase 3 format detection + prompt; values stored as ISO strings) and column reorder (up/down per column; header order drives pickers, preview, and CSV export).
+
+Deliverables *(UX flow descriptions per §12 before implementation)*:
+- [ ] `renderers/heatmap.js` with explicit aggregation + validation errors; §6 review with shared.js (Data Viz + Data Scientist + QA)
+- [ ] Scatter size-by column, area-proportional, hover documents the range (Data Viz + Data Scientist)
+- [ ] Dual-Y: series right-axis toggle, tinted axis titles, same-column warning, excluded chart types validated in the modal (Data Viz + Frontend + Data Scientist)
+- [ ] Annotations: add/edit/delete + drag persistence, escHtml at build, session round-trip (Frontend + UX + Security)
+- [ ] Datetime casting + column reorder in Data Tools (Data Engineer)
+- [ ] Tests per feature incl. annotation XSS case and heatmap duplicate-combo error; axe states for new modal fields (QA + Accessibility + Security)
+- [ ] README + exploratory test at exit (UX; Data Scientist)
+
+Exit criteria: heatmap errors on duplicate combos under `none`; bubble areas scale linearly with the value column; dual-Y axis titles visibly tinted with the warning firing only on same-column; annotations round-trip sessions and reject markup; reordered columns drive pickers/preview/export; all prior tests green.
+
+### Phase 15+ — Future `(not scoped)`
+- Interpolated (non-gridded) contours — gridding algorithm design needed
+- Distribution comparison extensions (paired tests, non-parametric Mann-Whitney/Kruskal-Wallis) — Data Scientist owns scope
+- Plotly 3.x migration — its own phase (breaking-API review, full re-baseline; see DEPENDENCIES.md currency note)
 
 ---
 
