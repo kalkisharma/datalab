@@ -49,6 +49,12 @@ function renderDynamicFields(existing) {
     const joinDs = appState.datasets.find(d => d.id === (existing?.joinDatasetId || appState.datasets.find(d2=>d2.id!==dsId)?.id));
     const joinCols = joinDs ? joinDs.headers : [];
     const sharedKeys = cols.filter(c => joinCols.includes(c));
+    // Y (modelled) reads from the JOIN dataset at render time — its options
+    // must come from the join dataset too. (Bug found Phase 9: they came
+    // from the primary dataset, so differing headers made Y unselectable.)
+    const joinNumeric = joinDs ? joinCols.filter(c => classifyColumn(joinDs.rows, c) === 'numeric') : [];
+    const yJoinOptions = joinNumeric.map(c =>
+      `<option value="${escHtml(c)}" ${existing?.yCol === c ? 'selected' : ''}>${escHtml(c)}</option>`).join('');
 
     html = `
       <div class="modal-section-title">Parity setup</div>
@@ -70,7 +76,7 @@ function renderDynamicFields(existing) {
       </div>
       <div class="modal-field">
         <label class="modal-label" for="mYCol">Y column — modelled <span class="required">*</span></label>
-        <select id="mYCol">${colOptions(existing?.yCol, false)}</select>
+        <select id="mYCol">${yJoinOptions}</select>
       </div>
       <div class="modal-section-title">Error bands</div>
       <div class="check-row">
@@ -159,6 +165,25 @@ function renderDynamicFields(existing) {
 
   // innerHTML: all column names escaped via colOptions()/escHtml(); dataset/series names escaped via escHtml()
   container.innerHTML = html;
+
+  // Parity: switching the join dataset re-derives the Y (modelled) and
+  // join key options from the newly chosen dataset
+  const mjd = document.getElementById('mJoinDataset');
+  if (mjd) {
+    mjd.addEventListener('change', () => {
+      const jds = appState.datasets.find(d => d.id === mjd.value);
+      if (!jds) return;
+      const numeric = jds.headers.filter(c => classifyColumn(jds.rows, c) === 'numeric');
+      // innerHTML: column names escaped via escHtml()
+      document.getElementById('mYCol').innerHTML = numeric.map(c =>
+        `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+      const shared = ds.headers.filter(c => jds.headers.includes(c));
+      // innerHTML: column names escaped via escHtml()
+      document.getElementById('mJoinKey').innerHTML =
+        '<option value="">Select key…</option>' + shared.map(c =>
+        `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+    });
+  }
 
   // Wire filter list
   renderFilterList(existing?.filters || [], ds);
