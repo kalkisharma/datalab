@@ -28,10 +28,10 @@ Maintainer: Kalki Sharma <kalkijsharma@gmail.com>
   error bands), contour (pre-gridded data), histogram (Freedman-Diaconis
   auto-binning), box plot (Tukey whiskers), violin
 - **Analysis on the plot:** distribution fits on histograms (normal,
-  lognormal, Weibull MLE) with KDE overlay; linear trendlines with R² —
-  overall or one fit per color group; error bars from a ± column or
-  computed SD/SEM (always labeled with what they represent); per-plot
-  log axes
+  lognormal, Weibull MLE) with KDE overlay; trendlines with R² (linear,
+  quadratic, cubic) — overall or one linear fit per color group; error
+  bars from a ± column or computed SD/SEM (always labeled with what they
+  represent); per-plot log axes with true log-space histogram binning
 - **Subplot figures:** any plot becomes an r × c grid of subplots with
   optional shared axes — one canvas, one exported image
 - **Filters:** per-series predicates with AND/OR logic, comparisons, numeric
@@ -42,7 +42,9 @@ Maintainer: Kalki Sharma <kalkijsharma@gmail.com>
   color-blind-safe default palette (Okabe-Ito)
 - **Data tools (Σ per dataset):** summary statistics, paginated data
   preview, cleaning operations (rename, drop, cast, missing values),
-  Pearson correlation heatmap, cleaned-CSV export
+  computed columns, group comparison (Welch t-test / one-way ANOVA —
+  always reported with effect sizes), Pearson correlation heatmap,
+  cleaned-CSV export
 - **Export:** PNG, SVG, **Export all** (one numbered PNG per visible plot —
   your browser may ask once to allow multiple downloads), ZIP of saved
   plots, full-session JSON (reload your entire workspace later), style

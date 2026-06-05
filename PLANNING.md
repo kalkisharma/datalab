@@ -563,13 +563,14 @@ Exit criteria met — **Exited at v2.5.0**: parser rejects everything outside th
 - **Log-space binning:** no new controls — the existing histogram + Log X combination simply works: bins become equal in log₁₀ (exponential edges), the old "Log X is ignored" warning retires, non-positive values keep their count warning. Fit/KDE overlays scale by the local bin width so curves still match bars.
 
 Deliverables *(UX flow descriptions recorded above per §12)*:
-- [ ] `stats.js`/`distributions.js`: `regIncBeta`, `tTestWelch` (t, df, p, Cohen's d), `anovaOneWay` (F, df, p, η²) — references from published tables per §20 (Data Scientist + QA)
-- [ ] Data Tools "Compare groups" UI per the flow description (Frontend + UX; effect sizes always shown)
-- [ ] Log-space binning under histogram + Log X; warning path retired (Data Viz + Data Scientist)
-- [ ] Trendline degree picker, legend + sr-mirror updated (Data Viz + Data Scientist)
-- [ ] Tests: table-referenced p-values, effect sizes, degenerate guards (one group, zero variance); log-bin edges; polynomial fit references hand-derived (QA)
-- [ ] ARIA pass on the new Data Tools section; axe state if a new state is meaningful (Accessibility)
-- [ ] README + exploratory test at exit (UX; Data Scientist)
+- [x] `regIncBeta`/`tTestWelch`/`anovaOneWay` in distributions.js — evidence: commit 8af2de6; published-table references (t/F critical values) + hand-derived Welch/ANOVA cases. The I(0.5,2,2) reference caught a real bug: the textbook recursive symmetry flip loops forever at the symmetric boundary — replaced with the non-recursive form
+- [x] Compare groups UI in NEW compare.js (EL §6 foresight honored) — evidence: commit 8af2de6; verdict line inseparable from effect size + n (§20)
+- [x] Log-space binning; warn-and-ignore retired — evidence: commit 8af2de6; renderer contract gained optional `ctx` third param per §7 (recorded in shared.js); fit overlays scale by local bin width; Phase 9 test updated to the new contract under the §3 documented-deferral carve-out
+- [x] Trendline degree picker (linear/quadratic/cubic) — evidence: commit 8af2de6; exact-recovery + residual-orthogonality references; per-group stays linear with warning
+- [x] Tests — evidence: comparison.spec.js (6); suite at 126
+- [x] ARIA — evidence: Compare groups lives inside the scanned data-tools axe state; `aria-live` results region; 8 states green
+- [x] README — evidence: release commit
+- [x] Exploratory (Data Scientist) — evidence: session at exit: 3-treatment ANOVA F(2,87)=83.4 with η²=0.66; 3-decade column log-binned at 0.59 dex with a lognormal fit recovering the generative parameters; quadratic trendline recovered generative coefficients (0.01000x² vs true 0.01x²). No findings. Note: distributions.js sits just under the §6 trigger — the next addition there splits hypothesis tests out.
 
 Exit criteria: t/F/p match published-table references; p never renders without effect size and n's; log-X histograms bin in log space with the old warning gone; cubic fit matches a hand-derived reference; all prior tests green.
 

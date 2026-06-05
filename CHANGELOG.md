@@ -1,5 +1,26 @@
 # Changelog
 
+## v2.6.0 — Statistical Comparison
+
+### Features
+- **Compare groups** (Data Tools) — Welch's t-test for two groups,
+  one-way ANOVA for three or more. Results always show per-group n,
+  mean, SD and the effect size (Cohen's d / η²) alongside the p-value —
+  a p-value never appears alone, by policy.
+- **Log-space histogram binning** — histograms on a Log X axis now bin
+  in log₁₀ (equal bins per decade) instead of warning and staying
+  linear, completing the deferral noted in that warning since v2.2.0.
+  Fit and KDE overlays scale correctly against the varying bin widths.
+- **Quadratic and cubic trendlines** — degree picker beside the
+  trendline checkbox; the legend shows the full fitted equation with R².
+  Per-group fits remain linear.
+
+## Schema
+### v2.6.0 (state version unchanged at 2 — all additive)
+- `series.trendDegree` (1–3, default 1). v2.0–v2.5 session files load
+  unchanged; sessions with histogram + Log X now render with log bins
+  (the previously warned deferral, see Features).
+
 ## v2.5.0 — Computed Columns
 
 ### Features
