@@ -55,6 +55,24 @@ test.describe('release benchmarks', () => {
     expect(ms).toBeGreaterThan(0); // informational — log only
   });
 
+  // Informational (Phase 12): computed-column evaluation at 1M rows.
+  // No binding target; the spike predicted interpreter cost well inside
+  // the filter budget — this logs the real number at release time.
+  test('computed column: 1M rows (informational)', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.goto(FILE_URL);
+    const ms = await page.evaluate(() => {
+      const rows = [];
+      for (let i = 0; i < 1_000_000; i++) rows.push({ a: i % 97, b: (i % 31) + 1 });
+      const { ast } = parseExpr('sqrt(abs(a - b)) + a / b ^ 2', ['a', 'b']);
+      const t0 = performance.now();
+      for (const r of rows) r.c = evalExpr(ast, r);
+      return performance.now() - t0;
+    });
+    console.log(`computed column 1M rows: ${ms.toFixed(0)} ms (informational, no gate)`);
+    expect(ms).toBeGreaterThan(0);
+  });
+
   test('warm render: 10 series × 50k rows < 2s (median of 3)', async ({ page }) => {
     test.setTimeout(300_000);
     await page.goto(FILE_URL);

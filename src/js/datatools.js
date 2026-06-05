@@ -96,7 +96,19 @@ function renderDataToolsBody(ds) {
         <input type="text" class="ctrl-input" id="dtFillVal" placeholder="value" style="flex:1;display:none" />
         <button class="btn btn-sm" id="dtMissBtn">Apply</button>
       </div>
-    </div>`;
+    </div>
+    <div class="modal-section-title">New column</div>
+    <div class="modal-field">
+      <label class="modal-label" for="dtNcName">Name</label>
+      <input type="text" class="ctrl-input" id="dtNcName" placeholder="New column name" />
+    </div>
+    <div class="modal-field">
+      <label class="modal-label" for="dtNcExpr">Expression</label>
+      <input type="text" class="ctrl-input" id="dtNcExpr"
+             placeholder="(temp - 32) * 5/9 — columns by name, \`backticks\` for spaces" />
+      <div class="field-hint" id="dtNcPreview" aria-live="polite"></div>
+    </div>
+    <button class="btn btn-sm" id="dtNcAdd" disabled>Add column</button>`;
 
   // Wire cleaning ops
   const col = () => document.getElementById('dtCol').value;
@@ -133,6 +145,39 @@ function renderDataToolsBody(ds) {
     afterCleaningOp(ds, mode === 'drop'
       ? `Dropped ${count} row(s) with missing "${c}".`
       : `Filled ${count} missing value(s) in "${c}".`);
+  });
+
+  // New column (Phase 12): live parse preview on every keystroke; Add
+  // materializes values once (provenance — source edits do NOT recompute).
+  // All output goes through textContent — expression text never reaches
+  // innerHTML.
+  const ncName = document.getElementById('dtNcName');
+  const ncExpr = document.getElementById('dtNcExpr');
+  const ncPrev = document.getElementById('dtNcPreview');
+  const ncAdd  = document.getElementById('dtNcAdd');
+  const ncSync = () => {
+    const name = ncName.value.trim();
+    if (!ncExpr.value.trim()) { ncPrev.textContent = ''; ncAdd.disabled = true; return; }
+    const { ast, error } = parseExpr(ncExpr.value, ds.headers);
+    if (error) { ncPrev.textContent = error; ncAdd.disabled = true; return; }
+    const sample = ds.rows.slice(0, 5)
+      .map(r => { const v = evalExpr(ast, r); return Number.isFinite(v) ? String(+v.toPrecision(6)) : 'NaN'; });
+    let note = '';
+    if (!name) note = ' — enter a column name';
+    else if (ds.headers.includes(name)) note = ` — "${name}" already exists`;
+    ncPrev.textContent = `Preview: ${sample.join(', ')}${ds.rows.length > 5 ? ', …' : ''}${note}`;
+    ncAdd.disabled = !!note;
+  };
+  ncName.addEventListener('input', ncSync);
+  ncExpr.addEventListener('input', ncSync);
+  ncAdd.addEventListener('click', () => {
+    const name = ncName.value.trim();
+    const { ast, error } = parseExpr(ncExpr.value, ds.headers);
+    if (error || !name || ds.headers.includes(name)) return;
+    for (const r of ds.rows) r[name] = evalExpr(ast, r); // materialize once
+    ds.headers.push(name);
+    (ds.computed = ds.computed || {})[name] = ncExpr.value; // provenance metadata
+    afterCleaningOp(ds, `Added "${name}" = ${ncExpr.value} — materialized; later source edits do not recompute.`);
   });
 
   renderDTPreview(ds); // preview reflects the dataset as it currently stands
