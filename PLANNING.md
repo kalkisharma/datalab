@@ -557,7 +557,12 @@ Exit criteria met — **Exited at v2.5.0**: parser rejects everything outside th
 - **Log-space histogram binning (completes the Phase 9 deferral):** when a histogram panel has Log X, FD bins are computed on log₁₀ values (exponential bin edges in linear space) and Log X is honored instead of warned away. This changes output for sessions that had xLog+histogram, but those sessions currently show a "deferred" warning naming exactly this work — completing a documented deferral is not a silent change (§3 reasoning recorded).
 - **Higher-order trendlines (DS):** quadratic and cubic least squares join the scatter trendline picker (degree select: linear default / 2 / 3); R² reported; degree shown in the legend; per-group still linear-only (overfitting per tiny group, DS ruling).
 
-Deliverables *(UX flow descriptions per §12 before implementation)*:
+**UX flow descriptions (recorded per §12, before implementation):**
+- **Compare groups (Data Tools):** numeric-column select + group-column select + Compare button; results render below in an `aria-live` region — a per-group table (group, n, mean, SD) followed by the verdict line: `Welch t = …, df = …, p = …, Cohen's d = …` (2 groups) or `F(dfb, dfw) = …, p = …, η² = …` (3+). Groups with fewer than 2 finite values are excluded and named; fewer than 2 usable groups → message; more than 50 groups → message suggesting a filter. p formats as `p = x.xx` (2 sig.) or `p < 0.0001`. Effect size and n's are part of the verdict line — never separable (§20).
+- **Trendline degree:** a small degree select (linear default / quadratic / cubic) beside the existing trendline checkbox, enabled only when the checkbox is on. Legend shows the fitted equation with its degree. Per-group fits remain linear — selecting a higher degree with per-group on yields a warning and linear group fits.
+- **Log-space binning:** no new controls — the existing histogram + Log X combination simply works: bins become equal in log₁₀ (exponential edges), the old "Log X is ignored" warning retires, non-positive values keep their count warning. Fit/KDE overlays scale by the local bin width so curves still match bars.
+
+Deliverables *(UX flow descriptions recorded above per §12)*:
 - [ ] `stats.js`/`distributions.js`: `regIncBeta`, `tTestWelch` (t, df, p, Cohen's d), `anovaOneWay` (F, df, p, η²) — references from published tables per §20 (Data Scientist + QA)
 - [ ] Data Tools "Compare groups" UI per the flow description (Frontend + UX; effect sizes always shown)
 - [ ] Log-space binning under histogram + Log X; warning path retired (Data Viz + Data Scientist)
