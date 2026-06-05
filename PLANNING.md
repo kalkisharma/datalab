@@ -495,6 +495,9 @@ Exit criteria: all four new capabilities render correctly and round-trip through
 - **UX:** Plot settings gains a per-plot "Subplot grid" row (rows × cols + share X / share Y); the series modal shows a Cell picker when the target plot has a grid; per-cell errors name their cell in the panel error strip. Active plot stays panel-level. Flow description before the branch, per §12.
 - **Export:** unchanged — one figure = one image at Export size; Export all treats a subplot figure as one file.
 
+**UX flow description (recorded per §12, before implementation):**
+Plot settings gains a "Subplot grid" row for the ACTIVE plot: Rows × Cols selects (1–3 each; 1×1 = no grid) plus Share X / Share Y checkboxes. Switching plots syncs the controls. When the series modal's target plot has a grid, a Cell picker appears (Row r · Col c, defaulting to 1·1); changing the target plot refreshes the picker. Each cell's axis labels auto-derive from the first series in that cell unless the plot's labels are locked (locked labels apply to every cell). Per-cell render errors are prefixed with their cell (R1C2 · name: …). Shrinking the grid clamps out-of-range series into the nearest edge cell at render time — the stored cell is preserved, so re-growing the grid restores the arrangement. A parity cell is excluded from axis sharing with a warning. No empty states beyond the existing ones; error states are the per-cell strip entries.
+
 Deliverables:
 - [ ] State: `plot.grid` + `series.cell` additive fields; session round-trip (Data Engineer)
 - [ ] Dispatcher: cell → axis assignment, renderer layout-override remapping, `matches` wiring for shareX/shareY (Data Viz)
