@@ -93,7 +93,10 @@ function buildParityTrace(series, datasets) {
   // Build .sr-only annotation text for accessibility
   const annotSR = `Stats: NSE=${fmt(stats.nse)}, MAE=${fmt(stats.mae)}, RMSE=${fmt(stats.rmse)}, N=${n}`;
 
-  return { traces, error: null, layout, stats, annotSR, axMin, axMax, n };
+  // dataMin/dataMax are the unpadded extremes — log-log panels re-derive
+  // their range from these (linear padding can push axMin negative even
+  // for all-positive data; Phase 9 log axes)
+  return { traces, error: null, layout, stats, annotSR, axMin, axMax, dataMin: mn, dataMax: mx, n };
 }
 
 function fmt(v) { return isNaN(v) ? 'N/A' : Number(v).toPrecision(4); }

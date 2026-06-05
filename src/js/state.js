@@ -45,6 +45,8 @@ function makeDefaultPlotConfig() {
     legendShow:   true,
     legendPos:    null,   // { x, y }; null = default corner
     xMin: '', xMax: '', yMin: '', yMax: '', // manual axis ranges ('' = auto)
+    // Log axis toggles (Phase 9 — additive with defaults, no migration §3)
+    xLog: false, yLog: false,
   };
 }
 

@@ -103,6 +103,8 @@ function syncActivePlotInputs() {
   g('inputXLabel').value = cfg.xLabel || '';
   g('inputYLabel').value = cfg.yLabel || '';
   ['xMin', 'xMax', 'yMin', 'yMax'].forEach(k => { g(k).value = cfg[k] ?? ''; });
+  g('xLogChk').checked = cfg.xLog ?? false;
+  g('yLogChk').checked = cfg.yLog ?? false;
   g('showLegend').checked = cfg.legendShow ?? true;
   updateLockBtn('titleLock',  cfg.titleLocked);
   updateLockBtn('xLabelLock', cfg.xLabelLocked);

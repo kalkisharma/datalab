@@ -119,6 +119,43 @@ function renderOnePlot(plot) {
     layout.yaxis.range = [mn, mx];
   }
 
+  // Log-axis interactions (Phase 9, Data Scientist rulings)
+  const cfg = plot.plotConfig;
+  if (cfg.xLog || cfg.yLog) {
+    if (cfg.xLog && plotSeries(plot).some(s => s.chartType === 'histogram' && s.enabled !== false)) {
+      warnings.push({ name: 'Log X', warning:
+        'Histograms bin in linear space — Log X is ignored for this plot (Log Y works).' });
+    }
+    // Plotly silently drops non-positive values on a log axis — surface it
+    let nx = 0, ny = 0;
+    for (const t of traces) {
+      if (cfg.xLog && Array.isArray(t.x)) nx += t.x.filter(v => typeof v === 'number' && v <= 0).length;
+      if (cfg.yLog && Array.isArray(t.y)) ny += t.y.filter(v => typeof v === 'number' && v <= 0).length;
+    }
+    if (nx) warnings.push({ name: 'Log X', warning: `${nx} non-positive value(s) cannot be shown on a log X axis.` });
+    if (ny) warnings.push({ name: 'Log Y', warning: `${ny} non-positive value(s) cannot be shown on a log Y axis.` });
+
+    // Parity ranges are linear data units; Plotly log ranges are log10.
+    // Equal axes stay equal in log-log; anything else renders linear.
+    // Range re-derived from the UNPADDED data extremes and padded in log
+    // space — the linear 5% pad goes negative even for positive data.
+    if (parityResults.length) {
+      const dmn = Math.min(...parityResults.map(p => p.dataMin));
+      const dmx = Math.max(...parityResults.map(p => p.dataMax));
+      if (cfg.xLog && cfg.yLog && dmn > 0) {
+        const lo = Math.log10(dmn), hi = Math.log10(dmx);
+        const pad = (hi - lo) * 0.05 || 0.05;
+        layout.xaxis.range = [lo - pad, hi + pad];
+        layout.yaxis.range = [lo - pad, hi + pad];
+      } else {
+        layout.xaxis.type = 'linear';
+        layout.yaxis.type = 'linear';
+        warnings.push({ name: 'Parity', warning:
+          'A parity plot needs BOTH Log X and Log Y and all-positive data — rendered linear.' });
+      }
+    }
+  }
+
   showPanelErrors(plot.id, errors, warnings);
 
   // Stats annotations — one per parity series, stacked; single parity keeps

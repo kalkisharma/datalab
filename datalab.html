@@ -441,6 +441,11 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
           <div><label class="mini-label">Y min</label><input type="number" class="ctrl-input" id="yMin" placeholder="auto" /></div>
           <div><label class="mini-label">Y max</label><input type="number" class="ctrl-input" id="yMax" placeholder="auto" /></div>
         </div>
+        <!-- Log scales (Phase 9) — per plot, like the ranges above -->
+        <div class="check-row" style="margin-top:8px;">
+          <label><input type="checkbox" id="xLogChk" /> Log X</label>
+          <label><input type="checkbox" id="yLogChk" /> Log Y</label>
+        </div>
         <button class="btn btn-sm" id="resetRangesBtn" style="margin-top:6px;">Reset</button>
       </div>
     </details>
@@ -660,6 +665,8 @@ function makeDefaultPlotConfig() {
     legendShow:   true,
     legendPos:    null,   // { x, y }; null = default corner
     xMin: '', xMax: '', yMin: '', yMax: '', // manual axis ranges ('' = auto)
+    // Log axis toggles (Phase 9 — additive with defaults, no migration §3)
+    xLog: false, yLog: false,
   };
 }
 
@@ -1561,6 +1568,12 @@ function renderDynamicFields(existing) {
     const joinDs = appState.datasets.find(d => d.id === (existing?.joinDatasetId || appState.datasets.find(d2=>d2.id!==dsId)?.id));
     const joinCols = joinDs ? joinDs.headers : [];
     const sharedKeys = cols.filter(c => joinCols.includes(c));
+    // Y (modelled) reads from the JOIN dataset at render time — its options
+    // must come from the join dataset too. (Bug found Phase 9: they came
+    // from the primary dataset, so differing headers made Y unselectable.)
+    const joinNumeric = joinDs ? joinCols.filter(c => classifyColumn(joinDs.rows, c) === 'numeric') : [];
+    const yJoinOptions = joinNumeric.map(c =>
+      `<option value="${escHtml(c)}" ${existing?.yCol === c ? 'selected' : ''}>${escHtml(c)}</option>`).join('');
 
     html = `
       <div class="modal-section-title">Parity setup</div>
@@ -1582,7 +1595,7 @@ function renderDynamicFields(existing) {
       </div>
       <div class="modal-field">
         <label class="modal-label" for="mYCol">Y column — modelled <span class="required">*</span></label>
-        <select id="mYCol">${colOptions(existing?.yCol, false)}</select>
+        <select id="mYCol">${yJoinOptions}</select>
       </div>
       <div class="modal-section-title">Error bands</div>
       <div class="check-row">
@@ -1671,6 +1684,25 @@ function renderDynamicFields(existing) {
 
   // innerHTML: all column names escaped via colOptions()/escHtml(); dataset/series names escaped via escHtml()
   container.innerHTML = html;
+
+  // Parity: switching the join dataset re-derives the Y (modelled) and
+  // join key options from the newly chosen dataset
+  const mjd = document.getElementById('mJoinDataset');
+  if (mjd) {
+    mjd.addEventListener('change', () => {
+      const jds = appState.datasets.find(d => d.id === mjd.value);
+      if (!jds) return;
+      const numeric = jds.headers.filter(c => classifyColumn(jds.rows, c) === 'numeric');
+      // innerHTML: column names escaped via escHtml()
+      document.getElementById('mYCol').innerHTML = numeric.map(c =>
+        `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+      const shared = ds.headers.filter(c => jds.headers.includes(c));
+      // innerHTML: column names escaped via escHtml()
+      document.getElementById('mJoinKey').innerHTML =
+        '<option value="">Select key…</option>' + shared.map(c =>
+        `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+    });
+  }
 
   // Wire filter list
   renderFilterList(existing?.filters || [], ds);
@@ -1788,6 +1820,8 @@ function syncActivePlotInputs() {
   g('inputXLabel').value = cfg.xLabel || '';
   g('inputYLabel').value = cfg.yLabel || '';
   ['xMin', 'xMax', 'yMin', 'yMax'].forEach(k => { g(k).value = cfg[k] ?? ''; });
+  g('xLogChk').checked = cfg.xLog ?? false;
+  g('yLogChk').checked = cfg.yLog ?? false;
   g('showLegend').checked = cfg.legendShow ?? true;
   updateLockBtn('titleLock',  cfg.titleLocked);
   updateLockBtn('xLabelLock', cfg.xLabelLocked);
@@ -1955,6 +1989,43 @@ function renderOnePlot(plot) {
     layout.yaxis.range = [mn, mx];
   }
 
+  // Log-axis interactions (Phase 9, Data Scientist rulings)
+  const cfg = plot.plotConfig;
+  if (cfg.xLog || cfg.yLog) {
+    if (cfg.xLog && plotSeries(plot).some(s => s.chartType === 'histogram' && s.enabled !== false)) {
+      warnings.push({ name: 'Log X', warning:
+        'Histograms bin in linear space — Log X is ignored for this plot (Log Y works).' });
+    }
+    // Plotly silently drops non-positive values on a log axis — surface it
+    let nx = 0, ny = 0;
+    for (const t of traces) {
+      if (cfg.xLog && Array.isArray(t.x)) nx += t.x.filter(v => typeof v === 'number' && v <= 0).length;
+      if (cfg.yLog && Array.isArray(t.y)) ny += t.y.filter(v => typeof v === 'number' && v <= 0).length;
+    }
+    if (nx) warnings.push({ name: 'Log X', warning: `${nx} non-positive value(s) cannot be shown on a log X axis.` });
+    if (ny) warnings.push({ name: 'Log Y', warning: `${ny} non-positive value(s) cannot be shown on a log Y axis.` });
+
+    // Parity ranges are linear data units; Plotly log ranges are log10.
+    // Equal axes stay equal in log-log; anything else renders linear.
+    // Range re-derived from the UNPADDED data extremes and padded in log
+    // space — the linear 5% pad goes negative even for positive data.
+    if (parityResults.length) {
+      const dmn = Math.min(...parityResults.map(p => p.dataMin));
+      const dmx = Math.max(...parityResults.map(p => p.dataMax));
+      if (cfg.xLog && cfg.yLog && dmn > 0) {
+        const lo = Math.log10(dmn), hi = Math.log10(dmx);
+        const pad = (hi - lo) * 0.05 || 0.05;
+        layout.xaxis.range = [lo - pad, hi + pad];
+        layout.yaxis.range = [lo - pad, hi + pad];
+      } else {
+        layout.xaxis.type = 'linear';
+        layout.yaxis.type = 'linear';
+        warnings.push({ name: 'Parity', warning:
+          'A parity plot needs BOTH Log X and Log Y and all-positive data — rendered linear.' });
+      }
+    }
+  }
+
   showPanelErrors(plot.id, errors, warnings);
 
   // Stats annotations — one per parity series, stacked; single parity keeps
@@ -2116,11 +2187,28 @@ function buildBaseLayout(plot) {
   const frameWidth = iv('frameWidth', 1);
   const gridWidth  = iv('gridWidth', 1);
 
-  // Manual axis ranges live in the plot's config ('' = auto)
-  const rng = (mn, mx) => (cfg[mn] === '' && cfg[mx] === '') ? undefined
-    : [cfg[mn] === '' ? null : parseFloat(cfg[mn]), cfg[mx] === '' ? null : parseFloat(cfg[mx])];
-  const xRange = rng('xMin', 'xMax');
-  const yRange = rng('yMin', 'yMax');
+  // Log scales (Phase 9). Histograms keep a linear X — bins are computed in
+  // linear space (log-space binning deferred with the distributions work);
+  // renderOnePlot emits the user-facing warning for that case.
+  const hasHist = plotSeries(plot).some(s => s.chartType === 'histogram' && s.enabled !== false);
+  const xLog = (cfg.xLog ?? false) && !hasHist;
+  const yLog = cfg.yLog ?? false;
+
+  // Manual axis ranges live in the plot's config ('' = auto). Users enter
+  // data units; Plotly log-axis ranges are log10 — convert here. Non-positive
+  // bounds cannot exist on a log axis → auto ('' behavior) for that bound.
+  const rng = (mn, mx, log) => {
+    if (cfg[mn] === '' && cfg[mx] === '') return undefined;
+    const cv = v => {
+      if (v === '') return null;
+      const n = parseFloat(v);
+      if (!log) return n;
+      return n > 0 ? Math.log10(n) : null;
+    };
+    return [cv(cfg[mn]), cv(cfg[mx])];
+  };
+  const xRange = rng('xMin', 'xMax', xLog);
+  const yRange = rng('yMin', 'yMax', yLog);
 
   const axisBase = {
     showgrid: showMaj, gridcolor: showMaj ? gridColor : 'rgba(0,0,0,0)', gridwidth: gridWidth,
@@ -2147,6 +2235,7 @@ function buildBaseLayout(plot) {
     },
     xaxis: {
       ...axisBase,
+      type: xLog ? 'log' : undefined, // undefined = Plotly auto (dates, categories)
       range: xRange,
       title: {
         text: cfg.xLabelLocked ? cfg.xLabel : autoXLabel(plot),
@@ -2155,6 +2244,7 @@ function buildBaseLayout(plot) {
     },
     yaxis: {
       ...axisBase,
+      type: yLog ? 'log' : undefined,
       range: yRange,
       title: {
         text: cfg.yLabelLocked ? cfg.yLabel : autoYLabel(plot),
@@ -3211,10 +3301,21 @@ function init() {
       if (appState.plotRendered) debounceRender();
     });
   });
+  // Log scales live in the ACTIVE plot's config (Phase 9)
+  [['xLogChk', 'xLog'], ['yLogChk', 'yLog']].forEach(([id, key]) => {
+    g(id).addEventListener('change', () => {
+      activePlot().plotConfig[key] = g(id).checked;
+      if (appState.plotRendered) renderPlot();
+    });
+  });
   g('resetRangesBtn').addEventListener('click', () => {
     ['xMin','xMax','yMin','yMax'].forEach(id => {
       g(id).value = '';
       activePlot().plotConfig[id] = '';
+    });
+    [['xLogChk', 'xLog'], ['yLogChk', 'yLog']].forEach(([id, key]) => {
+      g(id).checked = false;
+      activePlot().plotConfig[key] = false;
     });
     if (appState.plotRendered) renderPlot();
   });
@@ -3663,7 +3764,10 @@ function buildParityTrace(series, datasets) {
   // Build .sr-only annotation text for accessibility
   const annotSR = `Stats: NSE=${fmt(stats.nse)}, MAE=${fmt(stats.mae)}, RMSE=${fmt(stats.rmse)}, N=${n}`;
 
-  return { traces, error: null, layout, stats, annotSR, axMin, axMax, n };
+  // dataMin/dataMax are the unpadded extremes — log-log panels re-derive
+  // their range from these (linear padding can push axMin negative even
+  // for all-positive data; Phase 9 log axes)
+  return { traces, error: null, layout, stats, annotSR, axMin, axMax, dataMin: mn, dataMax: mx, n };
 }
 
 function fmt(v) { return isNaN(v) ? 'N/A' : Number(v).toPrecision(4); }

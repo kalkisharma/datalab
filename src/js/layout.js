@@ -47,11 +47,28 @@ function buildBaseLayout(plot) {
   const frameWidth = iv('frameWidth', 1);
   const gridWidth  = iv('gridWidth', 1);
 
-  // Manual axis ranges live in the plot's config ('' = auto)
-  const rng = (mn, mx) => (cfg[mn] === '' && cfg[mx] === '') ? undefined
-    : [cfg[mn] === '' ? null : parseFloat(cfg[mn]), cfg[mx] === '' ? null : parseFloat(cfg[mx])];
-  const xRange = rng('xMin', 'xMax');
-  const yRange = rng('yMin', 'yMax');
+  // Log scales (Phase 9). Histograms keep a linear X — bins are computed in
+  // linear space (log-space binning deferred with the distributions work);
+  // renderOnePlot emits the user-facing warning for that case.
+  const hasHist = plotSeries(plot).some(s => s.chartType === 'histogram' && s.enabled !== false);
+  const xLog = (cfg.xLog ?? false) && !hasHist;
+  const yLog = cfg.yLog ?? false;
+
+  // Manual axis ranges live in the plot's config ('' = auto). Users enter
+  // data units; Plotly log-axis ranges are log10 — convert here. Non-positive
+  // bounds cannot exist on a log axis → auto ('' behavior) for that bound.
+  const rng = (mn, mx, log) => {
+    if (cfg[mn] === '' && cfg[mx] === '') return undefined;
+    const cv = v => {
+      if (v === '') return null;
+      const n = parseFloat(v);
+      if (!log) return n;
+      return n > 0 ? Math.log10(n) : null;
+    };
+    return [cv(cfg[mn]), cv(cfg[mx])];
+  };
+  const xRange = rng('xMin', 'xMax', xLog);
+  const yRange = rng('yMin', 'yMax', yLog);
 
   const axisBase = {
     showgrid: showMaj, gridcolor: showMaj ? gridColor : 'rgba(0,0,0,0)', gridwidth: gridWidth,
@@ -78,6 +95,7 @@ function buildBaseLayout(plot) {
     },
     xaxis: {
       ...axisBase,
+      type: xLog ? 'log' : undefined, // undefined = Plotly auto (dates, categories)
       range: xRange,
       title: {
         text: cfg.xLabelLocked ? cfg.xLabel : autoXLabel(plot),
@@ -86,6 +104,7 @@ function buildBaseLayout(plot) {
     },
     yaxis: {
       ...axisBase,
+      type: yLog ? 'log' : undefined,
       range: yRange,
       title: {
         text: cfg.yLabelLocked ? cfg.yLabel : autoYLabel(plot),

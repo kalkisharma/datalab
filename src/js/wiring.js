@@ -205,10 +205,21 @@ function init() {
       if (appState.plotRendered) debounceRender();
     });
   });
+  // Log scales live in the ACTIVE plot's config (Phase 9)
+  [['xLogChk', 'xLog'], ['yLogChk', 'yLog']].forEach(([id, key]) => {
+    g(id).addEventListener('change', () => {
+      activePlot().plotConfig[key] = g(id).checked;
+      if (appState.plotRendered) renderPlot();
+    });
+  });
   g('resetRangesBtn').addEventListener('click', () => {
     ['xMin','xMax','yMin','yMax'].forEach(id => {
       g(id).value = '';
       activePlot().plotConfig[id] = '';
+    });
+    [['xLogChk', 'xLog'], ['yLogChk', 'yLog']].forEach(([id, key]) => {
+      g(id).checked = false;
+      activePlot().plotConfig[key] = false;
     });
     if (appState.plotRendered) renderPlot();
   });
