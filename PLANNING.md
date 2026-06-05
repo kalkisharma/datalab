@@ -76,44 +76,15 @@ Only ~20–30% of parity-plotting is reusable. Its core (inner join, A/B state m
 **Critical decision: state-first, not DOM-first.**
 parity-plotting snapshots ~40 DOM element IDs. That approach breaks with N dynamic datasets/series. In datalab, `appState` is the source of truth — the DOM renders from state, not the other way around.
 
-> **Authoritative schema lives in `src/js/state.js`** — the sketch below is the orientation copy. (Phase 11 review: it drifted again between Phases 8 and 10; the refresh is now an explicit item on the phase-exit security checklist so it cannot be skipped silently.)
+> **The schema documentation IS `src/js/state.js`** — its comment block carries the full, current field listing, kept honest by sitting next to the code it describes. PLANNING no longer mirrors it: the field-by-field copy here drifted at two consecutive exits despite a dedicated checklist item (Phases 10 and 12), so the Phase 13 review removed the failure mode instead of adding more process. What belongs here is only what does NOT churn:
 
 ```js
-const appState = {            // state version 2 (Phase 7; additive since)
-  version: 2,
-  datasets: [
-    // { id, name, rows, headers, color, dateFormats? }
-  ],
-  series: [
-    // {
-    //   id, name, plotId, datasetId, xCol, yCol, colorCol, chartType,
-    //   // chart-type-specific: zCol (contour); binCount, fitNormal (Phase 5),
-    //   //   fitDist, kde (Phase 11 — fitDist ?? fitNormal fallback) (histogram);
-    //   // joinDatasetId, joinKey, band5, band10 (parity);
-    //   // agg, errMode (bar, Phase 9); errCol, trendline (scatter/line, Phase 9);
-    //   // trendGroups (scatter, Phase 11 — opt-in per-group fits)
-    //   cell,    // { row, col } subplot cell, Phase 10 — default 1·1
-    //   filters: [{ col, op, value, enabled }], filterLogic,
-    //   style: { color, markerSize, opacity, lineWidth }, enabled
-    // }
-  ],
-  plots: [
-    // { id, name,
-    //   plotConfig: { title, xLabel, yLabel, *Locked flags, annotPos,
-    //     legendShow, legendPos, xMin/xMax/yMin/yMax, xLog, yLog /* Phase 9 */ },
-    //   grid }  // { rows, cols, shareX, shareY } | null — Phase 10
-  ],
-  activePlotId,
-  style: { markerSize, markerOpacity, edgeColor, edgeWidth, colormap },
-  savedPlots: [],
-  plotRendered: false,
-};
-
 // Session file = { _schema: 'datalab-session', app, saved, state: {...appState} }
 // Serializes cleanly with JSON.stringify — no DOM parsing.
-// Migrations per state version live in sessions.js (v1 → v2 shipped Phase 7);
-// everything since Phase 7 is additive-with-defaults (no migrations, §3).
+// State version 2 since Phase 7; every change since is additive-with-defaults
+// (no migrations required, §3). Migrations per version live in sessions.js.
 // Import validates all ids against /^[\w-]{1,64}$/ (Phase 8 security fix).
+// CHANGELOG ## Schema records every addition per release.
 ```
 
 **Filter operator encoding** (defined in full in `applyFilters()` comment block — Phase 0 deliverable):
@@ -200,7 +171,8 @@ datalab/
       sessions.js       — session export/import + state migrations
       stats.js          — statistical engine + cleaning ops (Phase 5)
       distributions.js  — distribution fits + KDE (split from stats.js, Phase 11)
-      datatools.js      — Data Tools modal (Phase 5)
+      expr.js           — safe expression engine for computed columns (Phase 12, §8)
+      datatools.js      — Data Tools modal (Phase 5; preview Phase 9; computed columns Phase 12)
       saves.js          — saved plot snapshots strip
       wiring.js         — event wiring, dropzone, bootstrap
       renderers/
@@ -242,7 +214,7 @@ Surveyed: Excel/Sheets; matplotlib/seaborn/ggplot2; Plotly Express/Dash; Tableau
 **Decision records (do not relitigate without new information):**
 - **`.xlsx` import — rejected for now (EL ruling, Security objection sustained):** SheetJS-class dependency = large new attack surface parsing complex untrusted binaries in a confidentiality-critical tool (§9, §10). README documents the Excel→CSV export path instead. Revisit only on sustained maintainer demand.
 - **Dual Y axis — parked with Data Scientist conditions (§12 misleading-viz authority):** only with distinct units, axes color-matched to their series, never for same-unit pairs. Future list, gated on a DS-approved design.
-- **Computed columns — future, security-spike-first:** highest-utility future item (Data Engineer), but any formula feature must satisfy the new STANDARDS §8 expression-evaluation rule (no string-to-code path). Design spike before any scoping.
+- **Computed columns — future, security-spike-first:** highest-utility future item (Data Engineer), but any formula feature must satisfy the new STANDARDS §8 expression-evaluation rule (no string-to-code path). Design spike before any scoping. *(Outcome: spike ran Phase 11, ACCEPTED; shipped v2.5.0 exactly to the spike design.)*
 
 ---
 
@@ -599,7 +571,7 @@ Exit criteria met — **Exited at v2.5.0**: parser rejects everything outside th
 - [ ] Library hashes in `DEPENDENCIES.md` match bundled files — build verified clean
 - [ ] SHA-256 hash of `datalab.html` published in release notes; **when a GitHub release is published, QA downloads the asset back and verifies it against the published hash** (§9)
 - [ ] `.gitattributes` eol exemptions for `datalab.html` and `lib/*.js` intact (§9 — removal silently breaks hash integrity)
-- [ ] `PLANNING.md` and `STANDARDS.md` reviewed and updated by Engineering Lead; the State Architecture orientation sketch and file tree reflect the shipped phase
+- [ ] `PLANNING.md` and `STANDARDS.md` reviewed and updated by Engineering Lead (file-tree and DEPENDENCIES-log upkeep moved into the §4 release checklist at the Phase 13 review — they were missed twice here)
 
 ---
 
@@ -608,6 +580,7 @@ Exit criteria met — **Exited at v2.5.0**: parser rejects everything outside th
 | Risk | Owner | Mitigation |
 |------|-------|------------|
 | eval() temptation for filter predicates | Security + Data Engineer | Safe switch parser in Phase 0; forbidden in review |
+| Expression-grammar creep (strings, lookups, properties added to expr.js later) | Security | §8 expression rule is permanent; any grammar change requires Security parser review before merge; the rejection test suite is the tripwire |
 | Contour requires pre-gridded data — user confusion | UX + Data Viz + Data Scientist | Validate at series creation; Data Scientist reviews guidance in Phase 3 |
 | Boxplot with too many categories renders unreadably | Data Viz | Render-time warning at >50 categories |
 | N series render cliff (>15 slows) | Performance | Column + trace cache from Phase 2; warn at 15 series |

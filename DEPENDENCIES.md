@@ -30,6 +30,12 @@ not the URL, is authoritative** — a CDN can change; the bytes cannot.
   added at the Phase 12 doc review after the v2.4.0 reassessment went unrecorded):
   - v2.4.0 exit: no changes — Plotly 2.32.0 covers the violin trace natively;
     no applicable CVEs flagged for the pinned versions; the decision above stands.
+  - v2.5.0 exit: no changes — the computed-column expression engine is
+    hand-written by design (a parser library was considered and rejected at the
+    Phase 11 security spike: third-party parsers are exactly the supply surface
+    §9 minimizes); zero new dependencies; pins stand. *(Recorded at the Phase 13
+    review — the entry was missed at the exit itself, which is why the
+    reassessment log is now a §4 release-checklist line.)*
 
 ## Updating a library
 
