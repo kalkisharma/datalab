@@ -99,10 +99,14 @@ function buildParityTrace(series, datasets) {
 function fmt(v) { return isNaN(v) ? 'N/A' : Number(v).toPrecision(4); }
 
 function computeParityStats(xs, ys) {
-  // NSE = 1 - SS_res / SS_tot  (SS_tot around mean of observed)
+  // NSE = 1 - SS_res / SS_tot, SS_tot around mean of OBSERVED (xs) — the
+  // standard Nash-Sutcliffe denominator. Phase 8 correction: this previously
+  // used mean(modelled), deviating from the definition above; the pinned
+  // reference values were re-derived from the formula, not the code
+  // (STANDARDS §20 reference-value rule).
   const n   = xs.length;
-  const mY  = ys.reduce((a, b) => a + b, 0) / n;
-  const ssT = ys.reduce((s, y) => s + (y - mY) ** 2, 0);
+  const mX  = xs.reduce((a, b) => a + b, 0) / n;
+  const ssT = xs.reduce((s, x) => s + (x - mX) ** 2, 0);
   const ssR = xs.reduce((s, x, i) => s + (ys[i] - x) ** 2, 0);
   const nse  = ssT === 0 ? NaN : 1 - ssR / ssT;
   const rmse = Math.sqrt(ssR / n);

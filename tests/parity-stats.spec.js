@@ -1,11 +1,15 @@
 // parity-stats.spec.js — numerical correctness of parity statistics
 //
-// Hand-computed reference (Data Scientist, Phase 1 sign-off):
+// Hand-derived reference from the NSE definition (Phase 8 correction —
+// the Phase 1 reference was pinned to the implementation's output, which
+// used mean(modelled) in SS_tot; the definition requires mean(observed).
+// STANDARDS §20: reference values derive from the formula, never the code):
+//   NSE = 1 − Σ(mod−obs)² / Σ(obs − mean(obs))²
 //   observed x = [10, 20, 30, 40], modelled y = [12, 18, 33, 40]
 //   residuals (y-x) = [2, -2, 3, 0]
 //   SS_res = 4+4+9+0 = 17
-//   mean(y) = 25.75; SS_tot = 13.75² + 7.75² + 7.25² + 14.25² = 504.75
-//   NSE  = 1 - 17/504.75 = 0.966320...
+//   mean(x) = 25; SS_tot = 15² + 5² + 5² + 15² = 500
+//   NSE  = 1 - 17/500 = 0.966
 //   MAE  = 7/4 = 1.75
 //   RMSE = sqrt(17/4) = 2.061552...
 
@@ -19,9 +23,23 @@ test('computeParityStats matches hand-computed NSE/MAE/RMSE', async ({ page }) =
   const stats = await page.evaluate(() =>
     computeParityStats([10, 20, 30, 40], [12, 18, 33, 40])
   );
-  expect(stats.nse).toBeCloseTo(1 - 17 / 504.75, 10);
+  expect(stats.nse).toBeCloseTo(1 - 17 / 500, 10);
   expect(stats.mae).toBeCloseTo(1.75, 10);
   expect(stats.rmse).toBeCloseTo(Math.sqrt(17 / 4), 10);
+});
+
+// Distinguishing case for the Phase 8 NSE correction: a model that always
+// predicts mean(observed) scores NSE = 0 BY DEFINITION (it is the baseline
+// the score is measured against). The pre-correction formula computed SS_tot
+// around mean(modelled) — variance 0 here — and returned NaN. The original
+// reference data could not tell the formulas apart (0.96632 vs 0.96600).
+test('constant model at mean(observed) scores NSE = 0', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const stats = await page.evaluate(() =>
+    computeParityStats([10, 20, 30, 40], [25, 25, 25, 25]) // mean(obs) = 25
+  );
+  // SS_res = 15²+5²+5²+15² = 500 = SS_tot → NSE = 1 − 500/500 = 0
+  expect(stats.nse).toBeCloseTo(0, 10);
 });
 
 // Regression test for the Phase 1 blocks-phase finding: x and y were filtered

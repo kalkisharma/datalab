@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased (v2.1.0 — Phase 8 in progress)
+
+### Fixed
+- "Figure size" panel renamed **"Export size"** with an explanatory hint —
+  panels autosize to the grid on screen; the sliders set PNG/SVG export
+  dimensions only (was misread as a broken on-screen control)
+- **Security:** session import now rejects files whose plot/dataset/series
+  ids are not uid-shaped (`/^[\w-]{1,64}$/`). Ids were interpolated into
+  innerHTML id attributes unescaped; a hand-crafted session file could
+  execute script. Legitimate session files are unaffected.
+
+## Corrections
+- **NSE (parity plots) now follows the standard Nash–Sutcliffe definition.**
+  Old behavior: SS_tot was computed around the mean of the *modelled*
+  values. New behavior: around the mean of the *observed* values, per the
+  definition NSE = 1 − Σ(mod−obs)² / Σ(obs − mean(obs))². Displayed NSE
+  values change slightly for well-matched data and substantially for biased
+  or low-variance models (a constant-at-mean model now correctly scores 0
+  instead of NaN). Session data is untouched — only the displayed statistic
+  was wrong. Data Scientist sign-off; references re-derived by hand
+  (STANDARDS §3 correctness carve-out, §20 reference-value rule).
+
 ## v2.0.0 — Multi-Plot Live Grid
 
 ### Features
