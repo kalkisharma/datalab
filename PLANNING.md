@@ -469,16 +469,16 @@ Exit criteria: equal slider values align visually. All typography sliders reach 
 - **Data preview (Data Tools):** table directly under Summary statistics — 50 rows per page, Prev/Next + "rows X–Y of N", every cell escaped, dropped columns excluded, refreshes after every cleaning op. No full-table DOM at any size.
 
 Deliverables (dependency order per §18):
-- [ ] Log axes: per-plot xLog/yLog + renderer warnings for non-positive values; parity/histogram interactions as decided above (Frontend + Data Viz + Data Scientist)
-- [ ] Bar renderer with explicit aggregation + validation-error tests (Data Viz + Data Scientist + QA) *(parallel-safe with log axes)*
-- [ ] Error bars on scatter/line/bar with mandatory semantics labeling (Data Viz + Data Scientist)
-- [ ] Trendline: linear fit + R² annotation + sr-only mirror, references hand-derived per §20 (Data Viz + Data Scientist + QA)
-- [ ] Data preview tab in Data Tools, paginated, fully escaped (Frontend + Security + Performance) *(parallel-safe)*
-- [ ] UX flow descriptions for the bar/error-bar/trendline modal fields and the preview tab — before branches, per §12 (UX Designer)
-- [ ] Subplot design spike document → Phase 10 scope (Data Viz + Data Engineer + UX + Performance; EL approves)
-- [ ] README: feature list update + Excel→CSV guidance per the xlsx decision record (UX)
-- [ ] ARIA pass on new modal fields and preview tab (Accessibility); axe states extended if a new state is meaningful
-- [ ] Exploratory test: real datasets through bar/error-bar/log/trendline paths (Data Scientist)
+- [x] UX flow descriptions — evidence: commit 0d4d89b (recorded before implementation, §12)
+- [x] Log axes: per-plot xLog/yLog, non-positive warnings, histogram/parity interactions — evidence: commit 6c98690, 5 tests; parity log-log range derived from unpadded extremes. Bug found en route: parity modal Y picker listed primary-dataset columns (fix 3408de4)
+- [x] Bar renderer with explicit aggregation + validation-error tests — evidence: commit 8bf256c; duplicate-category error, aggregation always displayed
+- [x] Error bars on scatter/line/bar with mandatory semantics labeling — evidence: commit 8bf256c; legend carries ± column / mean ± SD/SEM, hand-derived SD/SEM references
+- [x] Trendline: linear fit + R² in the legend + sr-only mirror — evidence: commit 8bf256c; linearFit references hand-derived per §20 (a=1, b=1.5, R²=5/6)
+- [x] Data preview tab in Data Tools, paginated, fully escaped — evidence: commit fce10db; ≤50 DOM rows, dedicated injection test
+- [x] Subplot design spike document → Phase 10 scope — evidence: spike outcomes + measured 648 ms cold / 170 ms warm recorded in Phase 10 above; EL approved
+- [x] README: feature list update + Excel→CSV guidance — evidence: commits bc0c26b (Excel→CSV, Phase 8) + 109936b (Phase 9 features, missing Data tools line)
+- [x] ARIA pass on new modal fields and preview tab — evidence: commit 109936b (7th axe state: bar modal); preview scanned by the existing data-tools state
+- [ ] Exploratory test: real datasets through bar/error-bar/log/trendline paths (Data Scientist — at exit)
 
 Exit criteria: all four new capabilities render correctly and round-trip through session files (log flags, error-bar config, trendline config are series/plot state). Bar with duplicate categories and no aggregation produces the explicit error. Error bars always carry semantics labels. Log axis with non-positive data warns. Trendline R² matches hand-derived references. Preview never renders more than one page of DOM rows. Subplot spike approved and Phase 10 scoped. All prior tests green.
 
@@ -487,13 +487,21 @@ Exit criteria: all four new capabilities render correctly and round-trip through
 
 **Where it fits (EL decision, landscape round):** after Phase 9 — the essentials are higher value per unit risk, and the spike runs docs-only during Phase 9. It builds **on** the Phase 7 grid rather than replacing it: a plot panel can optionally become an r×c subplot figure; the grid keeps handling side-by-side independent figures. The two compose — a grid of figures, some of which contain subplots.
 
-**Open design questions — resolved by the Phase 9 design spike before deliverables are scoped here:**
-- **Schema (Data Engineer + EL):** plots gain optional `grid: { rows, cols, shareX, shareY }`; series gain optional `cell: { row, col }`. Additive-with-defaults may keep state v2 (STANDARDS §3), but per-cell axis labels/ranges would force per-cell plotConfig → state v3 + migration. Decision gates the version number (v2.x vs v3.0.0).
-- **Rendering (Data Viz):** Plotly grid layout in a single div (`xaxis2`/`yaxis2`, `matches: 'x'` for shared axes). Spike must cover scattergl traces in subplots, per-cell error reporting, and how parity's equal-axis constraint interacts with shared axes.
-- **UX (UX Designer):** how a panel toggles between single plot and subplot figure; where the cell picker lives in the series modal; per-cell vs per-figure titles; what "active plot" means when the active panel has cells. UX flow description written before implementation (house rule).
-- **Export:** a figure exports as one image at Export size; bulk export treats a subplot figure as one file.
-- **Renderer contract (Data Viz + EL):** `result.layout` assumes a single axis pair; subplot cells break that assumption. Any contract amendment follows §7 — Data Viz authors, EL approves, before renderer work begins.
-- **Performance (Performance Engineer joins the spike):** shared-axis figures multiply traces per div — spike must measure against the §11 binding targets (warm < 2s, cold < 5s) before deliverables are scoped, not after.
+**Design spike outcomes (Phase 9, all questions resolved — EL approved):**
+- **Schema (Data Engineer + EL):** plots gain optional `grid: { rows, cols, shareX, shareY }`; series gain optional `cell: { row, col }` defaulting to 1×1. Additive with defaults → **state stays v2, no migration; Phase 10 is a MINOR (v2.3.0)**. Per-cell plotConfig REJECTED for this phase — it forces v3; cells share the figure's title/typography, per-cell axis labels derive from the first series in the cell. Revisit per-cell config only on demonstrated need.
+- **Rendering (Data Viz):** single div per figure; `layout.grid { rows, columns, pattern: 'independent' }`; the dispatcher assigns each series' traces to its cell's `xaxis`/`yaxis` keys; sharing via `matches`. **Renderer contract UNCHANGED** — renderers stay single-axis-pair; `renderOnePlot` remaps `result.layout` axis overrides onto the cell's axis keys. No §7 amendment needed.
+- **Performance (measured, Phase 9 spike):** 4 × 50k scattergl in a 2×2 matched-axes grid, single div — **cold 648 ms, warm restyle 170 ms** — comfortably inside the §11 gates (cold < 5 s, warm < 2 s). A grid-figure case joins bench.spec.js as informational.
+- **Parity in cells (Data Scientist):** the equal-axis constraint applies per cell; a parity cell is excluded from cross-cell axis sharing with a warning — sharing would break the y=x geometry.
+- **UX:** Plot settings gains a per-plot "Subplot grid" row (rows × cols + share X / share Y); the series modal shows a Cell picker when the target plot has a grid; per-cell errors name their cell in the panel error strip. Active plot stays panel-level. Flow description before the branch, per §12.
+- **Export:** unchanged — one figure = one image at Export size; Export all treats a subplot figure as one file.
+
+Deliverables:
+- [ ] State: `plot.grid` + `series.cell` additive fields; session round-trip (Data Engineer)
+- [ ] Dispatcher: cell → axis assignment, renderer layout-override remapping, `matches` wiring for shareX/shareY (Data Viz)
+- [ ] Plot settings grid controls + series modal Cell picker; UX flow description before the branch (Frontend + UX)
+- [ ] Parity-cell exclusion from sharing + per-cell error labels (Data Viz + Data Scientist)
+- [ ] Tests: cell assignment, shared-axis behavior, parity exclusion, session round-trip; axe state for the grid controls (QA + Accessibility)
+- [ ] Bench: grid-figure case added as informational (Performance)
 
 ### Phase 11+ — Future `(not scoped)`
 - Additional distributions (lognormal, Weibull), distribution comparison tests; KDE/violin plots; higher-order trendline fits
