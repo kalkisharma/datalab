@@ -341,10 +341,12 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
       </div>
     </details>
 
-    <!-- Figure size -->
+    <!-- Export size (Phase 7: panels autosize to the grid on screen;
+         these sliders set the PNG/SVG export dimensions only) -->
     <details class="section">
-      <summary>Figure size</summary>
+      <summary>Export size</summary>
       <div class="details-body">
+        <div class="field-hint" style="margin:0 0 8px;">On screen, panels autosize to the grid — these set the PNG/SVG export dimensions.</div>
         <label class="ctrl-label">Width
           <div class="slider-row">
             <input type="range" id="figW" min="400" max="1600" step="50" value="700" />
@@ -2060,7 +2062,7 @@ function buildBaseLayout(plot) {
 
   return {
     paper_bgcolor: th.bg, plot_bgcolor: th.bg,
-    autosize: true, // panels fill their grid cell; Figure size = export size
+    autosize: true, // panels fill their grid cell; Export size sliders only affect downloads
     font: { family: 'IBM Plex Sans,system-ui,sans-serif', color: th.text, size: 12 },
     showlegend: cfg.legendShow ?? true,
     title: {
@@ -2103,7 +2105,7 @@ function buildBaseLayout(plot) {
 // ── Export ────────────────────────────────────────────────────────────────
 
 function downloadPlot(format = 'png') {
-  // Exports the ACTIVE panel; Figure size sliders define the export size
+  // Exports the ACTIVE panel; Export size sliders define the export size
   // (panels themselves autosize to their grid cell — Phase 7)
   const title    = activePlot().plotConfig.title || activePlot().name || 'datalab_plot';
   const filename = title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'datalab_plot';

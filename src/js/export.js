@@ -3,7 +3,7 @@
 // ── Export ────────────────────────────────────────────────────────────────
 
 function downloadPlot(format = 'png') {
-  // Exports the ACTIVE panel; Figure size sliders define the export size
+  // Exports the ACTIVE panel; Export size sliders define the export size
   // (panels themselves autosize to their grid cell — Phase 7)
   const title    = activePlot().plotConfig.title || activePlot().name || 'datalab_plot';
   const filename = title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'datalab_plot';

@@ -68,7 +68,7 @@ function buildBaseLayout(plot) {
 
   return {
     paper_bgcolor: th.bg, plot_bgcolor: th.bg,
-    autosize: true, // panels fill their grid cell; Figure size = export size
+    autosize: true, // panels fill their grid cell; Export size sliders only affect downloads
     font: { family: 'IBM Plex Sans,system-ui,sans-serif', color: th.text, size: 12 },
     showlegend: cfg.legendShow ?? true,
     title: {
