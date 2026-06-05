@@ -23,15 +23,22 @@ Maintainer: Kalki Sharma <kalkijsharma@gmail.com>
 
 ## Features
 
-- **Chart types:** scatter, line, parity (model-vs-observed with NSE/MAE/RMSE
-  stats and error bands), contour (pre-gridded data), histogram
-  (Freedman-Diaconis auto-binning), box plot (Tukey whiskers)
+- **Chart types:** scatter, line, bar (explicit aggregation — count, sum,
+  mean, median), parity (model-vs-observed with NSE/MAE/RMSE stats and
+  error bands), contour (pre-gridded data), histogram (Freedman-Diaconis
+  auto-binning), box plot (Tukey whiskers)
+- **Analysis on the plot:** linear trendlines with R², error bars from a
+  ± column or computed SD/SEM (always labeled with what they represent),
+  per-plot log axes
 - **Filters:** per-series predicates with AND/OR logic, comparisons, numeric
   ranges, and categorical sets
 - **Datetime axes:** ISO 8601, MM/DD/YYYY, DD/MM/YYYY — ambiguous formats
   prompt once per column
 - **Multiple datasets and series**, reorderable, individually styleable,
   color-blind-safe default palette (Okabe-Ito)
+- **Data tools (Σ per dataset):** summary statistics, paginated data
+  preview, cleaning operations (rename, drop, cast, missing values),
+  Pearson correlation heatmap, cleaned-CSV export
 - **Export:** PNG, SVG, **Export all** (one numbered PNG per visible plot —
   your browser may ask once to allow multiple downloads), ZIP of saved
   plots, full-session JSON (reload your entire workspace later), style

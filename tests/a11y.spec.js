@@ -97,6 +97,15 @@ test('axe: data tools modal open has no violations', async ({ page }) => {
   expect(await audit(page, 'data-tools')).toHaveLength(0);
 });
 
+test('axe: series modal with bar fields has no violations', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'cat,val\na,1\nb,2', '_a11y_bar.csv');
+  await page.click('#addSeriesBtn');
+  await page.click('.ct-btn[data-ct="bar"]'); // aggregation + error-bar fields (Phase 9)
+  await page.waitForTimeout(200);
+  expect(await audit(page, 'modal-bar')).toHaveLength(0);
+});
+
 test('axe: preset category picker open has no violations', async ({ page }) => {
   await page.goto(FILE_URL);
   await page.evaluate(() => {
