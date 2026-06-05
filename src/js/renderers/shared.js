@@ -89,9 +89,11 @@ function colVals(rows, col) {
  * Datetime X pairs: converts X with the dataset's stored (or detected)
  * format and drops pairs TOGETHER — a null date or non-finite Y removes the
  * whole pair (same pairing rule as parity, Phase 1 finding).
- * @returns {{ xV: string[], yV: number[] } | { error: string }}
+ * errCol (Phase 9, optional): a ± error column kept aligned with the pairs;
+ * a non-finite error keeps the pair, the error becomes NaN (no bar drawn).
+ * @returns {{ xV: string[], yV: number[], eV: number[]|null } | { error: string }}
  */
-function datetimeXY(ds, rows, xCol, yCol) {
+function datetimeXY(ds, rows, xCol, yCol, errCol) {
   let fmt = ds.dateFormats?.[xCol];
   if (!fmt) {
     const det = detectDateFormat(rows.map(r => r[xCol]));
@@ -100,13 +102,27 @@ function datetimeXY(ds, rows, xCol, yCol) {
     }
     fmt = det || 'ISO';
   }
-  const xV = [], yV = [];
+  const xV = [], yV = [], eV = errCol ? [] : null;
   for (const r of rows) {
     const d = parseDateValue(r[xCol], fmt);
     const y = Number(r[yCol]);
-    if (d !== null && Number.isFinite(y)) { xV.push(d); yV.push(y); }
+    if (d !== null && Number.isFinite(y)) {
+      xV.push(d); yV.push(y);
+      if (eV) { const e = Number(r[errCol]); eV.push(Number.isFinite(e) ? e : NaN); }
+    }
   }
-  return { xV, yV };
+  return { xV, yV, eV };
+}
+
+/**
+ * Plotly error_y config from a ± column (Phase 9). The SEMANTICS rule
+ * (STANDARDS §20) is satisfied by the caller appending "± col" to the
+ * trace name — never attach this without that label.
+ * @param {number[]} eV - aligned ± values (NaN = no bar for that point)
+ * @returns {object} Plotly error_y
+ */
+function errorBarsFromCol(eV) {
+  return { type: 'data', array: eV, visible: true };
 }
 
 /**

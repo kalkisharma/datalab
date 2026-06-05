@@ -41,6 +41,48 @@ function renderDynamicFields(existing) {
       <div class="modal-field">
         <label class="modal-label" for="mColorCol">Color by (optional)</label>
         <select id="mColorCol"><option value="">None</option>${colOptions(existing?.colorCol, true)}</select>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mErrCol">Error bars — ± column (optional)</label>
+        <select id="mErrCol"><option value="">None</option>${colOptions(existing?.errCol, false)}</select>
+        <div class="field-hint">Symmetric ± from a numeric column; the legend names the column.</div>
+      </div>
+      ${chartType === 'scatter' ? `
+      <div class="check-row">
+        <label><input type="checkbox" id="mTrend" ${existing?.trendline ? 'checked' : ''} />
+          Linear trendline (least squares; legend shows equation and R²)</label>
+      </div>` : ''}`;
+  } else if (chartType === 'bar') {
+    const agg = existing?.agg || 'none';
+    html = `
+      <div class="modal-section-title">Columns</div>
+      <div class="modal-field">
+        <label class="modal-label" for="mXCol">Category (X) column <span class="required">*</span></label>
+        <select id="mXCol">${colOptions(existing?.xCol, true)}</select>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mBarAgg">Aggregation</label>
+        <select id="mBarAgg">
+          <option value="none"   ${agg === 'none'   ? 'selected' : ''}>None — one row per category</option>
+          <option value="count"  ${agg === 'count'  ? 'selected' : ''}>Count rows</option>
+          <option value="sum"    ${agg === 'sum'    ? 'selected' : ''}>Sum</option>
+          <option value="mean"   ${agg === 'mean'   ? 'selected' : ''}>Mean</option>
+          <option value="median" ${agg === 'median' ? 'selected' : ''}>Median</option>
+        </select>
+        <div class="field-hint">With None, repeated categories error — aggregation is always your explicit choice.</div>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mYCol">Y column (numeric) <span class="required">*</span></label>
+        <select id="mYCol" ${agg === 'count' ? 'disabled' : ''}>${colOptions(existing?.yCol, false)}</select>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mBarErr">Error bars</label>
+        <select id="mBarErr" ${agg !== 'mean' ? 'disabled' : ''}>
+          <option value="">None</option>
+          <option value="sd"  ${existing?.errMode === 'sd'  ? 'selected' : ''}>± SD (sample)</option>
+          <option value="sem" ${existing?.errMode === 'sem' ? 'selected' : ''}>± SEM</option>
+        </select>
+        <div class="field-hint">SD/SEM need the Mean aggregation; the legend states the semantics.</div>
       </div>`;
   } else if (chartType === 'parity') {
     const joinDsOptions = appState.datasets.filter(d => d.id !== dsId).map(d =>
@@ -165,6 +207,19 @@ function renderDynamicFields(existing) {
 
   // innerHTML: all column names escaped via colOptions()/escHtml(); dataset/series names escaped via escHtml()
   container.innerHTML = html;
+
+  // Bar: aggregation drives which dependent fields make sense — Y is
+  // meaningless for count; SD/SEM only exist for mean
+  const mBarAgg = document.getElementById('mBarAgg');
+  if (mBarAgg) {
+    mBarAgg.addEventListener('change', () => {
+      const v = mBarAgg.value;
+      document.getElementById('mYCol').disabled = v === 'count';
+      const errSel = document.getElementById('mBarErr');
+      errSel.disabled = v !== 'mean';
+      if (v !== 'mean') errSel.value = '';
+    });
+  }
 
   // Parity: switching the join dataset re-derives the Y (modelled) and
   // join key options from the newly chosen dataset

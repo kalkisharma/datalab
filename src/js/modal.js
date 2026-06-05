@@ -46,7 +46,7 @@ function buildModalBody(existing) {
     `<option value="${escHtml(ds.id)}" ${existing?.datasetId === ds.id ? 'selected' : ''}>${escHtml(ds.name)}</option>`
   ).join('');
 
-  const chartTypes = ['scatter','line','parity','contour','histogram','boxplot'];
+  const chartTypes = ['scatter','line','bar','parity','contour','histogram','boxplot'];
   const ctBtns = chartTypes.map(t =>
     `<button class="ct-btn ${existing?.chartType === t ? 'active' : ''}" data-ct="${t}">${t}</button>`
   ).join('');
@@ -126,6 +126,13 @@ function saveModalSeries() {
     if (!xCol) { err.textContent = 'A numeric column is required.'; return false; }
   } else if (chartType === 'boxplot') {
     if (!yCol) { err.textContent = 'Y column is required.'; return false; }
+  } else if (chartType === 'bar') {
+    const agg = document.getElementById('mBarAgg')?.value || 'none';
+    if (!xCol) { err.textContent = 'Category (X) column is required.'; return false; }
+    if (agg !== 'count' && !yCol) { err.textContent = 'Y column is required (or choose the Count aggregation).'; return false; }
+    if (document.getElementById('mBarErr')?.value && agg !== 'mean') {
+      err.textContent = 'SD/SEM error bars require the Mean aggregation.'; return false;
+    }
   } else {
     if (!xCol) { err.textContent = 'X column is required.'; return false; }
     if (!yCol) { err.textContent = 'Y column is required.'; return false; }
@@ -173,6 +180,10 @@ function saveModalSeries() {
     zCol:      zCol || null,                                  // contour only
     binCount:  Number(document.getElementById('mBinCount')?.value) || null, // histogram only
     fitNormal: document.getElementById('mFitNormal')?.checked ?? false,     // histogram only
+    agg:       document.getElementById('mBarAgg')?.value || null,           // bar only
+    errMode:   document.getElementById('mBarErr')?.value || null,           // bar only (sd|sem)
+    errCol:    document.getElementById('mErrCol')?.value || null,           // scatter/line ± column
+    trendline: document.getElementById('mTrend')?.checked ?? false,         // scatter only
     colorCol:  document.getElementById('mColorCol')?.value || null,
     filters:   _modalFilters.map(f => ({ ...f })),
     filterLogic: document.getElementById('mFilterLogic')?.value || 'and',

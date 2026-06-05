@@ -94,6 +94,33 @@ function pearsonR(xs, ys) {
   return (sxx === 0 || syy === 0) ? NaN : sxy / Math.sqrt(sxx * syy);
 }
 
+// ── Linear least-squares fit (Phase 9, trendline) ─────────────────────────
+// y = a·x + b minimizing Σ(y − ŷ)²; R² = sxy²/(sxx·syy) — equivalent to
+// 1 − SS_res/SS_tot for simple linear regression. Reference values in
+// trendline tests are hand-derived from these formulas (§20).
+/**
+ * @param {number[]} xs
+ * @param {number[]} ys - same length, finite pairs only
+ * @returns {{ a: number, b: number, r2: number, n: number }|null}
+ *          null when n < 2 or x has no variance
+ */
+function linearFit(xs, ys) {
+  const n = xs.length;
+  if (n < 2) return null;
+  const mx = xs.reduce((s, v) => s + v, 0) / n;
+  const my = ys.reduce((s, v) => s + v, 0) / n;
+  let sxx = 0, sxy = 0, syy = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = xs[i] - mx, dy = ys[i] - my;
+    sxx += dx * dx; sxy += dx * dy; syy += dy * dy;
+  }
+  if (sxx === 0) return null; // vertical data — no least-squares line
+  const a = sxy / sxx;
+  const b = my - a * mx;
+  const r2 = syy === 0 ? NaN : (sxy * sxy) / (sxx * syy);
+  return { a, b, r2, n };
+}
+
 // ── Normal distribution fit ───────────────────────────────────────────────
 // Maximum-likelihood-style fit using the sample mean and SAMPLE std (n−1).
 // Overlay scaling belongs to the caller: counts ≈ pdf(x) · n · binWidth.

@@ -23,6 +23,9 @@ const VERSION = '2.1.0';
 //   id, datasetId, xCol, yCol, colorCol, chartType,
 //   // parity-specific (only when chartType === 'parity'):
 //   joinDatasetId, joinKey, showBands, band5, band10,
+//   // bar (Phase 9): agg ('none'|'count'|'sum'|'mean'|'median'),
+//   //                errMode ('sd'|'sem'|null — mean only)
+//   // scatter/line (Phase 9): errCol (± column), trendline (scatter only)
 //   // all series:
 //   filters: [{ col, op, value, enabled }],
 //   style:   { color, markerSize, opacity, lineWidth }

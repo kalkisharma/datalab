@@ -68,6 +68,7 @@ const appJs = [
   'src/js/renderers/shared.js',
   'src/js/renderers/scatter.js',
   'src/js/renderers/line.js',
+  'src/js/renderers/bar.js',
   'src/js/renderers/parity.js',
   'src/js/renderers/contour.js',
   'src/js/renderers/histogram.js',

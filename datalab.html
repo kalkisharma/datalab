@@ -223,6 +223,7 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
 .check-col input{cursor:pointer;}
 .help-defs{font-size:12px;color:var(--text2);line-height:1.6;margin-top:8px;}
 .help-defs strong{color:var(--text);font-family:var(--mono);}
+.series-badge.bar{background:rgba(86,180,233,0.18);color:#56b4e9;}
 
 </style>
 </head>
@@ -643,6 +644,9 @@ const VERSION = '2.1.0';
 //   id, datasetId, xCol, yCol, colorCol, chartType,
 //   // parity-specific (only when chartType === 'parity'):
 //   joinDatasetId, joinKey, showBands, band5, band10,
+//   // bar (Phase 9): agg ('none'|'count'|'sum'|'mean'|'median'),
+//   //                errMode ('sd'|'sem'|null — mean only)
+//   // scatter/line (Phase 9): errCol (± column), trendline (scatter only)
 //   // all series:
 //   filters: [{ col, op, value, enabled }],
 //   style:   { color, markerSize, opacity, lineWidth }
@@ -894,6 +898,7 @@ function validateSeriesColumns(s, datasets) {
     check(s.yCol, 'Y column', ds.headers);
     check(s.colorCol, 'color column', ds.headers);
     check(s.zCol, 'Z column', ds.headers);
+    check(s.errCol, 'error column', ds.headers);
   }
   (s.filters || []).forEach(f => {
     if (f.enabled !== false) check(f.col, 'filter column', ds.headers);
@@ -1320,7 +1325,7 @@ function buildModalBody(existing) {
     `<option value="${escHtml(ds.id)}" ${existing?.datasetId === ds.id ? 'selected' : ''}>${escHtml(ds.name)}</option>`
   ).join('');
 
-  const chartTypes = ['scatter','line','parity','contour','histogram','boxplot'];
+  const chartTypes = ['scatter','line','bar','parity','contour','histogram','boxplot'];
   const ctBtns = chartTypes.map(t =>
     `<button class="ct-btn ${existing?.chartType === t ? 'active' : ''}" data-ct="${t}">${t}</button>`
   ).join('');
@@ -1400,6 +1405,13 @@ function saveModalSeries() {
     if (!xCol) { err.textContent = 'A numeric column is required.'; return false; }
   } else if (chartType === 'boxplot') {
     if (!yCol) { err.textContent = 'Y column is required.'; return false; }
+  } else if (chartType === 'bar') {
+    const agg = document.getElementById('mBarAgg')?.value || 'none';
+    if (!xCol) { err.textContent = 'Category (X) column is required.'; return false; }
+    if (agg !== 'count' && !yCol) { err.textContent = 'Y column is required (or choose the Count aggregation).'; return false; }
+    if (document.getElementById('mBarErr')?.value && agg !== 'mean') {
+      err.textContent = 'SD/SEM error bars require the Mean aggregation.'; return false;
+    }
   } else {
     if (!xCol) { err.textContent = 'X column is required.'; return false; }
     if (!yCol) { err.textContent = 'Y column is required.'; return false; }
@@ -1447,6 +1459,10 @@ function saveModalSeries() {
     zCol:      zCol || null,                                  // contour only
     binCount:  Number(document.getElementById('mBinCount')?.value) || null, // histogram only
     fitNormal: document.getElementById('mFitNormal')?.checked ?? false,     // histogram only
+    agg:       document.getElementById('mBarAgg')?.value || null,           // bar only
+    errMode:   document.getElementById('mBarErr')?.value || null,           // bar only (sd|sem)
+    errCol:    document.getElementById('mErrCol')?.value || null,           // scatter/line ± column
+    trendline: document.getElementById('mTrend')?.checked ?? false,         // scatter only
     colorCol:  document.getElementById('mColorCol')?.value || null,
     filters:   _modalFilters.map(f => ({ ...f })),
     filterLogic: document.getElementById('mFilterLogic')?.value || 'and',
@@ -1560,6 +1576,48 @@ function renderDynamicFields(existing) {
       <div class="modal-field">
         <label class="modal-label" for="mColorCol">Color by (optional)</label>
         <select id="mColorCol"><option value="">None</option>${colOptions(existing?.colorCol, true)}</select>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mErrCol">Error bars — ± column (optional)</label>
+        <select id="mErrCol"><option value="">None</option>${colOptions(existing?.errCol, false)}</select>
+        <div class="field-hint">Symmetric ± from a numeric column; the legend names the column.</div>
+      </div>
+      ${chartType === 'scatter' ? `
+      <div class="check-row">
+        <label><input type="checkbox" id="mTrend" ${existing?.trendline ? 'checked' : ''} />
+          Linear trendline (least squares; legend shows equation and R²)</label>
+      </div>` : ''}`;
+  } else if (chartType === 'bar') {
+    const agg = existing?.agg || 'none';
+    html = `
+      <div class="modal-section-title">Columns</div>
+      <div class="modal-field">
+        <label class="modal-label" for="mXCol">Category (X) column <span class="required">*</span></label>
+        <select id="mXCol">${colOptions(existing?.xCol, true)}</select>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mBarAgg">Aggregation</label>
+        <select id="mBarAgg">
+          <option value="none"   ${agg === 'none'   ? 'selected' : ''}>None — one row per category</option>
+          <option value="count"  ${agg === 'count'  ? 'selected' : ''}>Count rows</option>
+          <option value="sum"    ${agg === 'sum'    ? 'selected' : ''}>Sum</option>
+          <option value="mean"   ${agg === 'mean'   ? 'selected' : ''}>Mean</option>
+          <option value="median" ${agg === 'median' ? 'selected' : ''}>Median</option>
+        </select>
+        <div class="field-hint">With None, repeated categories error — aggregation is always your explicit choice.</div>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mYCol">Y column (numeric) <span class="required">*</span></label>
+        <select id="mYCol" ${agg === 'count' ? 'disabled' : ''}>${colOptions(existing?.yCol, false)}</select>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mBarErr">Error bars</label>
+        <select id="mBarErr" ${agg !== 'mean' ? 'disabled' : ''}>
+          <option value="">None</option>
+          <option value="sd"  ${existing?.errMode === 'sd'  ? 'selected' : ''}>± SD (sample)</option>
+          <option value="sem" ${existing?.errMode === 'sem' ? 'selected' : ''}>± SEM</option>
+        </select>
+        <div class="field-hint">SD/SEM need the Mean aggregation; the legend states the semantics.</div>
       </div>`;
   } else if (chartType === 'parity') {
     const joinDsOptions = appState.datasets.filter(d => d.id !== dsId).map(d =>
@@ -1684,6 +1742,19 @@ function renderDynamicFields(existing) {
 
   // innerHTML: all column names escaped via colOptions()/escHtml(); dataset/series names escaped via escHtml()
   container.innerHTML = html;
+
+  // Bar: aggregation drives which dependent fields make sense — Y is
+  // meaningless for count; SD/SEM only exist for mean
+  const mBarAgg = document.getElementById('mBarAgg');
+  if (mBarAgg) {
+    mBarAgg.addEventListener('change', () => {
+      const v = mBarAgg.value;
+      document.getElementById('mYCol').disabled = v === 'count';
+      const errSel = document.getElementById('mBarErr');
+      errSel.disabled = v !== 'mean';
+      if (v !== 'mean') errSel.value = '';
+    });
+  }
 
   // Parity: switching the join dataset re-derives the Y (modelled) and
   // join key options from the newly chosen dataset
@@ -1874,6 +1945,7 @@ function clearPanel(pid) {
 const RENDERERS = {
   scatter:   buildScatterTrace,
   line:      buildLineTrace,
+  bar:       buildBarTrace,
   parity:    buildParityTrace,
   contour:   buildContourTrace,
   histogram: buildHistogramTrace,
@@ -2694,6 +2766,33 @@ function pearsonR(xs, ys) {
   return (sxx === 0 || syy === 0) ? NaN : sxy / Math.sqrt(sxx * syy);
 }
 
+// ── Linear least-squares fit (Phase 9, trendline) ─────────────────────────
+// y = a·x + b minimizing Σ(y − ŷ)²; R² = sxy²/(sxx·syy) — equivalent to
+// 1 − SS_res/SS_tot for simple linear regression. Reference values in
+// trendline tests are hand-derived from these formulas (§20).
+/**
+ * @param {number[]} xs
+ * @param {number[]} ys - same length, finite pairs only
+ * @returns {{ a: number, b: number, r2: number, n: number }|null}
+ *          null when n < 2 or x has no variance
+ */
+function linearFit(xs, ys) {
+  const n = xs.length;
+  if (n < 2) return null;
+  const mx = xs.reduce((s, v) => s + v, 0) / n;
+  const my = ys.reduce((s, v) => s + v, 0) / n;
+  let sxx = 0, sxy = 0, syy = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = xs[i] - mx, dy = ys[i] - my;
+    sxx += dx * dx; sxy += dx * dy; syy += dy * dy;
+  }
+  if (sxx === 0) return null; // vertical data — no least-squares line
+  const a = sxy / sxx;
+  const b = my - a * mx;
+  const r2 = syy === 0 ? NaN : (sxy * sxy) / (sxx * syy);
+  return { a, b, r2, n };
+}
+
 // ── Normal distribution fit ───────────────────────────────────────────────
 // Maximum-likelihood-style fit using the sample mean and SAMPLE std (n−1).
 // Overlay scaling belongs to the caller: counts ≈ pdf(x) · n · binWidth.
@@ -3487,9 +3586,11 @@ function colVals(rows, col) {
  * Datetime X pairs: converts X with the dataset's stored (or detected)
  * format and drops pairs TOGETHER — a null date or non-finite Y removes the
  * whole pair (same pairing rule as parity, Phase 1 finding).
- * @returns {{ xV: string[], yV: number[] } | { error: string }}
+ * errCol (Phase 9, optional): a ± error column kept aligned with the pairs;
+ * a non-finite error keeps the pair, the error becomes NaN (no bar drawn).
+ * @returns {{ xV: string[], yV: number[], eV: number[]|null } | { error: string }}
  */
-function datetimeXY(ds, rows, xCol, yCol) {
+function datetimeXY(ds, rows, xCol, yCol, errCol) {
   let fmt = ds.dateFormats?.[xCol];
   if (!fmt) {
     const det = detectDateFormat(rows.map(r => r[xCol]));
@@ -3498,13 +3599,27 @@ function datetimeXY(ds, rows, xCol, yCol) {
     }
     fmt = det || 'ISO';
   }
-  const xV = [], yV = [];
+  const xV = [], yV = [], eV = errCol ? [] : null;
   for (const r of rows) {
     const d = parseDateValue(r[xCol], fmt);
     const y = Number(r[yCol]);
-    if (d !== null && Number.isFinite(y)) { xV.push(d); yV.push(y); }
+    if (d !== null && Number.isFinite(y)) {
+      xV.push(d); yV.push(y);
+      if (eV) { const e = Number(r[errCol]); eV.push(Number.isFinite(e) ? e : NaN); }
+    }
   }
-  return { xV, yV };
+  return { xV, yV, eV };
+}
+
+/**
+ * Plotly error_y config from a ± column (Phase 9). The SEMANTICS rule
+ * (STANDARDS §20) is satisfied by the caller appending "± col" to the
+ * trace name — never attach this without that label.
+ * @param {number[]} eV - aligned ± values (NaN = no bar for that point)
+ * @returns {object} Plotly error_y
+ */
+function errorBarsFromCol(eV) {
+  return { type: 'data', array: eV, visible: true };
 }
 
 /**
@@ -3576,16 +3691,18 @@ function buildScatterTrace(series, datasets) {
 
   if (!series.xCol || !series.yCol) return { traces: [], error: 'X and Y columns are required.' };
 
-  let xV, yV;
-  if (classifyColumn(ds.rows, series.xCol) === 'datetime') {
-    const dt = datetimeXY(ds, rows, series.xCol, series.yCol);
+  const isDatetime = classifyColumn(ds.rows, series.xCol) === 'datetime';
+  let xV, yV, eV = null;
+  if (isDatetime) {
+    const dt = datetimeXY(ds, rows, series.xCol, series.yCol, series.errCol);
     if (dt.error) return { traces: [], error: dt.error };
-    ({ xV, yV } = dt);
+    ({ xV, yV, eV } = dt);
   } else {
     // Memoized extraction only valid on the unfiltered dataset rows
     const unfiltered = rows === ds.rows;
     xV = unfiltered ? colValsCached(ds, series.xCol) : colVals(rows, series.xCol);
     yV = unfiltered ? colValsCached(ds, series.yCol) : colVals(rows, series.yCol);
+    if (series.errCol) eV = colVals(rows, series.errCol); // row-aligned with x/y
   }
 
   let markerColor;
@@ -3597,21 +3714,57 @@ function buildScatterTrace(series, datasets) {
   const marker = buildMarkerStyle(series.style, series.colorCol ? markerColor : undefined);
   if (!series.colorCol) marker.color = series.style?.color ?? (ds.color ?? '#5b8dee');
 
-  return {
-    traces: [{
-      // WebGL above 10k points — SVG scatter at 50k×10 series measured 9.3s
-      // cold render vs the 5s Phase 3 gate (CSP worker-src blob: permits
-      // Plotly's GL workers). Below the threshold SVG keeps crisper markers.
-      type: rows.length > 10000 ? 'scattergl' : 'scatter',
-      mode: 'markers',
-      x: xV,
-      y: yV,
-      name: series.name || 'Scatter',
-      marker,
-      hovertemplate: `${series.xCol}: %{x}<br>${series.yCol}: %{y}<extra></extra>`,
-    }],
-    error: null,
-  };
+  // Error bars: name carries "± column" — semantics always visible (§20)
+  const name = (series.name || 'Scatter') + (series.errCol ? ` (± ${series.errCol})` : '');
+
+  const traces = [{
+    // WebGL above 10k points — SVG scatter at 50k×10 series measured 9.3s
+    // cold render vs the 5s Phase 3 gate (CSP worker-src blob: permits
+    // Plotly's GL workers). Below the threshold SVG keeps crisper markers.
+    type: rows.length > 10000 ? 'scattergl' : 'scatter',
+    mode: 'markers',
+    x: xV,
+    y: yV,
+    name,
+    marker,
+    hovertemplate: `${series.xCol}: %{x}<br>${series.yCol}: %{y}<extra></extra>`,
+  }];
+  if (eV) traces[0].error_y = errorBarsFromCol(eV);
+
+  // Linear trendline (Phase 9): least squares on the finite pairs; the
+  // legend entry IS the annotation — equation + R² (linearFit in stats.js)
+  let fitAnnot = null;
+  let warning  = null;
+  if (series.trendline) {
+    if (isDatetime) {
+      warning = 'Trendline needs a numeric X — not drawn for datetime axes.';
+    } else {
+      const fx = [], fy = [];
+      for (let i = 0; i < xV.length; i++) {
+        if (Number.isFinite(xV[i]) && Number.isFinite(yV[i])) { fx.push(xV[i]); fy.push(yV[i]); }
+      }
+      const fit = linearFit(fx, fy);
+      if (!fit) {
+        warning = 'Trendline needs at least 2 points with varying X.';
+      } else {
+        const f = v => Number(v).toPrecision(4);
+        const lo = Math.min(...fx), hi = Math.max(...fx);
+        traces.push({
+          type: 'scatter', mode: 'lines',
+          x: [lo, hi], y: [fit.a * lo + fit.b, fit.a * hi + fit.b],
+          name: `Fit: y = ${f(fit.a)}x ${fit.b < 0 ? '−' : '+'} ${f(Math.abs(fit.b))} (R² = ${f(fit.r2)})`,
+          line: { color: '#d55e00', width: 2, dash: 'dash' },
+          hoverinfo: 'skip',
+        });
+        fitAnnot = {
+          // Series name is user data — escHtml applied at the sr-only sink
+          sr: `${series.name} linear fit: slope=${f(fit.a)}, intercept=${f(fit.b)}, R2=${f(fit.r2)}, n=${fit.n}`,
+        };
+      }
+    }
+  }
+
+  return { traces, error: null, warning, fitAnnot };
 }
 
 
@@ -3635,37 +3788,153 @@ function buildLineTrace(series, datasets) {
 
   if (!series.xCol || !series.yCol) return { traces: [], error: 'X and Y columns are required.' };
 
-  let xV, yV;
+  let xV, yV, eV = null;
   if (classifyColumn(ds.rows, series.xCol) === 'datetime') {
-    const dt = datetimeXY(ds, rows, series.xCol, series.yCol);
+    const dt = datetimeXY(ds, rows, series.xCol, series.yCol, series.errCol);
     if (dt.error) return { traces: [], error: dt.error };
     // Lines must be drawn in time order or they zigzag back through time
     const order = dt.xV.map((_, i) => i).sort((a, b) => dt.xV[a] < dt.xV[b] ? -1 : 1);
     xV = order.map(i => dt.xV[i]);
     yV = order.map(i => dt.yV[i]);
+    if (dt.eV) eV = order.map(i => dt.eV[i]); // errors follow the time sort
   } else {
     // Memoized extraction only valid on the unfiltered dataset rows
     const unfiltered = rows === ds.rows;
     xV = unfiltered ? colValsCached(ds, series.xCol) : colVals(rows, series.xCol);
     yV = unfiltered ? colValsCached(ds, series.yCol) : colVals(rows, series.yCol);
+    if (series.errCol) eV = colVals(rows, series.errCol); // row-aligned with x/y
   }
 
   const color = series.style?.color ?? (ds.color ?? '#5b8dee');
   const lineWidth = series.style?.lineWidth ?? 2;
 
-  return {
-    traces: [{
-      type: 'scatter',
-      mode: 'lines+markers',
-      x: xV,
-      y: yV,
-      name: series.name || 'Line',
-      line: { color, width: lineWidth },
-      marker: { color, size: 4 },
-      hovertemplate: `${series.xCol}: %{x}<br>${series.yCol}: %{y}<extra></extra>`,
-    }],
-    error: null,
+  const trace = {
+    type: 'scatter',
+    mode: 'lines+markers',
+    x: xV,
+    y: yV,
+    // Error bars: name carries "± column" — semantics always visible (§20)
+    name: (series.name || 'Line') + (series.errCol ? ` (± ${series.errCol})` : ''),
+    line: { color, width: lineWidth },
+    marker: { color, size: 4 },
+    hovertemplate: `${series.xCol}: %{x}<br>${series.yCol}: %{y}<extra></extra>`,
   };
+  if (eV) trace.error_y = errorBarsFromCol(eV);
+
+  return { traces: [trace], error: null };
+}
+
+
+// bar.js — bar chart renderer (categorical X, numeric Y, explicit aggregation)
+//
+// Log scale guidance: log Y only when category values span decades — bars
+// on a log axis have no meaningful zero baseline, which can mislead; prefer
+// linear unless the spread demands it. X is categorical, never log.
+//
+// Aggregation (Data Scientist ruling, Phase 9 — STANDARDS §20): silent
+// aggregation is forbidden. agg='none' (default) errors when any category
+// repeats, telling the user to choose; count/sum/mean/median aggregate
+// explicitly and the trace NAME and hover always state the aggregation.
+// Error bars (mean only): SD = sample standard deviation (n−1), SEM =
+// SD/√n; the chosen semantics appear in the trace name — an unlabeled
+// error bar is a §20 correctness violation.
+
+const BAR_MAX_CATEGORIES = 50; // same readability bound as boxplot
+
+/**
+ * @param {object}   series
+ * @param {object[]} datasets
+ * @returns {{ traces: object[], error: string|null, warning?: string|null }}
+ */
+function buildBarTrace(series, datasets) {
+  const ds = datasets.find(d => d.id === series.datasetId);
+  if (!ds) return { traces: [], error: 'Dataset not found.' };
+
+  const rows = applyFilters(ds.rows, series.filters || [], series.filterLogic || 'and');
+  if (!rows.length) return { traces: [], error: 'No rows pass the active filters.' };
+
+  if (!series.xCol) return { traces: [], error: 'A category (X) column is required.' };
+  const agg = series.agg || 'none';
+  if (agg !== 'count') {
+    if (!series.yCol) return { traces: [], error: 'A numeric Y column is required (or use the count aggregation).' };
+    if (classifyColumn(ds.rows, series.yCol) !== 'numeric') {
+      return { traces: [], error: `Column "${series.yCol}" is not numeric — bars need a numeric Y.` };
+    }
+  }
+
+  // Group rows by category, preserving first-seen order
+  const groups = new Map(); // cat → number[] (or count for agg='count')
+  for (const r of rows) {
+    const cat = String(r[series.xCol] ?? '(blank)');
+    if (agg === 'count') {
+      groups.set(cat, (groups.get(cat) ?? 0) + 1);
+      continue;
+    }
+    const y = finiteOrNaN(r[series.yCol]);
+    if (!Number.isFinite(y)) continue;
+    if (!groups.has(cat)) groups.set(cat, []);
+    groups.get(cat).push(y);
+  }
+  if (!groups.size) return { traces: [], error: `No finite numeric values in "${series.yCol}".` };
+
+  let warning = null;
+  if (groups.size > BAR_MAX_CATEGORIES) {
+    warning = `"${series.xCol}" has ${groups.size} categories — more than ${BAR_MAX_CATEGORIES} makes bars unreadable. Consider filtering or aggregating differently.`;
+  }
+
+  // Explicit-aggregation rule: 'none' must mean one row per category
+  if (agg === 'none') {
+    const dup = [...groups.entries()].find(([, v]) => v.length > 1);
+    if (dup) {
+      // Caller escHtml-escapes error strings per the renderer contract
+      return { traces: [], error:
+        `"${series.xCol}" repeats (e.g. "${dup[0]}" × ${dup[1].length}) — ` +
+        `choose an aggregation (count, sum, mean, median) or filter to one row per category.` };
+    }
+  }
+
+  const cats = [...groups.keys()];
+  const yV = cats.map(c => {
+    const v = groups.get(c);
+    switch (agg) {
+      case 'count':  return v;
+      case 'sum':    return v.reduce((a, b) => a + b, 0);
+      case 'mean':   return v.reduce((a, b) => a + b, 0) / v.length;
+      case 'median': return quantile([...v].sort((a, b) => a - b), 0.5);
+      default:       return v[0]; // 'none' — exactly one value per category
+    }
+  });
+
+  // Name states the aggregation (§20) — and the error semantics if present
+  const base = series.name || 'Bar';
+  const aggLabel = agg === 'none' ? '' :
+    agg === 'count' ? ' (count)' : ` (${agg} of ${series.yCol})`;
+
+  const trace = {
+    type: 'bar',
+    x: cats, y: yV,
+    name: base + aggLabel,
+    marker: { color: series.style?.color ?? (ds.color ?? '#5b8dee') },
+    hovertemplate: `${series.xCol}: %{x}<br>${agg === 'count' ? 'count' : (agg === 'none' ? series.yCol : `${agg}(${series.yCol})`)}: %{y}<extra></extra>`,
+  };
+
+  // Error bars — mean only; semantics in the name, never bare (§20)
+  if (series.errMode === 'sd' || series.errMode === 'sem') {
+    if (agg !== 'mean') {
+      return { traces: [], error: 'SD/SEM error bars require the mean aggregation.' };
+    }
+    const errs = cats.map(c => {
+      const v = groups.get(c);
+      if (v.length < 2) return 0;
+      const m = v.reduce((a, b) => a + b, 0) / v.length;
+      const sd = Math.sqrt(v.reduce((s, x) => s + (x - m) ** 2, 0) / (v.length - 1));
+      return series.errMode === 'sem' ? sd / Math.sqrt(v.length) : sd;
+    });
+    trace.error_y = { type: 'data', array: errs, visible: true };
+    trace.name = `${base} (mean ± ${series.errMode.toUpperCase()} of ${series.yCol})`;
+  }
+
+  return { traces: [trace], error: null, warning };
 }
 
 

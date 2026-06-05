@@ -4,6 +4,7 @@
 const RENDERERS = {
   scatter:   buildScatterTrace,
   line:      buildLineTrace,
+  bar:       buildBarTrace,
   parity:    buildParityTrace,
   contour:   buildContourTrace,
   histogram: buildHistogramTrace,
