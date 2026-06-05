@@ -29,6 +29,32 @@ function stddev(a) { const m = a.reduce((x, y) => x + y) / a.length; return Math
 test.describe('release benchmarks', () => {
   test.skip(SKIP, 'Release benchmark — run with BENCH=1');
 
+  // Informational (Phase 10): subplot figure render through the real
+  // pipeline — 2×2 grid, 4 × 50k scattergl, shared X. No binding target;
+  // logged so regressions are visible at release time. (Spike baseline:
+  // 648 ms cold via raw Plotly.)
+  test('grid figure: 2×2 × 50k rows (informational)', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.goto(FILE_URL);
+    const ms = await page.evaluate(() => {
+      const rows = [];
+      for (let i = 0; i < 50000; i++) {
+        rows.push({ x: Math.random() * 100, y: Math.random() * 100 });
+      }
+      appState.datasets.push({ id: 'bg', name: 'bg', rows, headers: ['x', 'y'], color: '#4e79a7' });
+      appState.plots[0].grid = { rows: 2, cols: 2, shareX: true, shareY: false };
+      for (let k = 0; k < 4; k++) {
+        appState.series.push({ id: 'gs' + k, name: 'g' + k, datasetId: 'bg',
+          chartType: 'scatter', xCol: 'x', yCol: 'y', colorCol: null,
+          cell: { row: 1 + (k >> 1), col: 1 + (k % 2) },
+          filters: [], style: { color: '#4e79a7' }, enabled: true });
+      }
+      const t0 = performance.now(); renderPlot(); return performance.now() - t0;
+    });
+    console.log(`grid figure cold render: ${ms.toFixed(0)} ms (informational, no gate)`);
+    expect(ms).toBeGreaterThan(0); // informational — log only
+  });
+
   test('warm render: 10 series × 50k rows < 2s (median of 3)', async ({ page }) => {
     test.setTimeout(300_000);
     await page.goto(FILE_URL);

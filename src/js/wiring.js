@@ -284,6 +284,18 @@ function init() {
     if (appState.plotRendered) renderPlot();
   });
 
+  // Subplot grid (Phase 10) — 1×1 stores null so non-grid plots stay
+  // byte-identical to v2.2 sessions
+  const syncGridControls = () => {
+    const rows = parseInt(g('gridRows').value), cols = parseInt(g('gridCols').value);
+    activePlot().grid = (rows * cols > 1)
+      ? { rows, cols, shareX: g('gridShareX').checked, shareY: g('gridShareY').checked }
+      : null;
+    if (appState.plotRendered) renderPlot();
+  };
+  ['gridRows', 'gridCols', 'gridShareX', 'gridShareY'].forEach(id =>
+    g(id).addEventListener('change', syncGridControls));
+
   // beforeunload guard — warn if there are unsaved series or unsaved plot changes
   window.addEventListener('beforeunload', e => {
     if (appState.series.length || appState.plotRendered) {

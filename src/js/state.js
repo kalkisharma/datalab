@@ -26,10 +26,16 @@ const VERSION = '2.2.0';
 //   // bar (Phase 9): agg ('none'|'count'|'sum'|'mean'|'median'),
 //   //                errMode ('sd'|'sem'|null — mean only)
 //   // scatter/line (Phase 9): errCol (± column), trendline (scatter only)
+//   // subplots (Phase 10): cell { row, col } 1-based, optional (default 1·1)
 //   // all series:
 //   filters: [{ col, op, value, enabled }],
 //   style:   { color, markerSize, opacity, lineWidth }
 // }
+//
+// Plot shape (entries in appState.plots):
+// { id, name, plotConfig,
+//   grid? }  // Phase 10: { rows, cols, shareX, shareY } | null — additive
+//            // with default null (no grid), so state stays v2 (§3)
 //
 // Dataset shape (entries in appState.datasets):
 // { id, name, rows, headers, color }

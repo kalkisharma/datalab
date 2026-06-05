@@ -84,6 +84,16 @@
           <label><input type="checkbox" id="minorGrid" /> Minor grid</label>
           <label><input type="checkbox" id="showLegend" checked /> Legend</label>
         </div>
+        <!-- Subplot grid (Phase 10) — per plot; 1×1 = no grid -->
+        <label class="ctrl-label" style="margin-top:10px;">Subplot grid
+          <div class="check-row" style="align-items:center;gap:6px;margin-top:4px;">
+            <select id="gridRows" aria-label="Subplot rows"><option>1</option><option>2</option><option>3</option></select>
+            <span aria-hidden="true">×</span>
+            <select id="gridCols" aria-label="Subplot columns"><option>1</option><option>2</option><option>3</option></select>
+            <label><input type="checkbox" id="gridShareX" /> share X</label>
+            <label><input type="checkbox" id="gridShareY" /> share Y</label>
+          </div>
+        </label>
       </div>
     </details>
 

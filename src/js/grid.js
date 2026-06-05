@@ -106,6 +106,12 @@ function syncActivePlotInputs() {
   g('xLogChk').checked = cfg.xLog ?? false;
   g('yLogChk').checked = cfg.yLog ?? false;
   g('showLegend').checked = cfg.legendShow ?? true;
+  // Subplot grid controls mirror the active plot (Phase 10)
+  const gr = activePlot().grid;
+  g('gridRows').value = String(gr?.rows ?? 1);
+  g('gridCols').value = String(gr?.cols ?? 1);
+  g('gridShareX').checked = gr?.shareX ?? false;
+  g('gridShareY').checked = gr?.shareY ?? false;
   updateLockBtn('titleLock',  cfg.titleLocked);
   updateLockBtn('xLabelLock', cfg.xLabelLocked);
   updateLockBtn('yLabelLock', cfg.yLabelLocked);

@@ -79,45 +79,121 @@ function renderOnePlot(plot) {
   const parityResults = []; // every parity series annotated, not just the last
   const srParts = [];       // screen-reader mirror lines
 
+  // ── Subplot grid (Phase 10) ─────────────────────────────────────────────
+  // One Plotly div, one figure: each cell is an axis pair (xaxis/xaxis2/…).
+  // Renderers stay single-axis-pair — the dispatcher remaps their traces
+  // and layout overrides onto the cell's axis keys (spike decision, no §7
+  // contract change). Out-of-range cells clamp to the grid edge at render
+  // time; the stored cell is preserved so re-growing restores it.
+  const grid = (plot.grid && plot.grid.rows * plot.grid.cols > 1) ? plot.grid : null;
+  const cellOf = s => {
+    const r = Math.min(Math.max(s.cell?.row ?? 1, 1), grid.rows);
+    const c = Math.min(Math.max(s.cell?.col ?? 1, 1), grid.cols);
+    const k = (r - 1) * grid.cols + c; // 1-based axis number
+    return { r, c, sfx: k === 1 ? '' : String(k) };
+  };
+  if (grid) {
+    layout.grid = { rows: grid.rows, columns: grid.cols, pattern: 'independent' };
+    // Every cell gets the full styled axis pair (deep clone of the base)
+    for (let k = 2; k <= grid.rows * grid.cols; k++) {
+      layout['xaxis' + k] = JSON.parse(JSON.stringify(layout.xaxis));
+      layout['yaxis' + k] = JSON.parse(JSON.stringify(layout.yaxis));
+    }
+  }
+
   for (const s of appState.series) {
     if ((s.plotId ?? appState.plots[0].id) !== plot.id) continue;
     if (s.enabled === false) continue;
     if (!RENDERERS[s.chartType]) continue;
 
+    const cell  = grid ? cellOf(s) : null;
+    const sfx   = cell ? cell.sfx : '';
+    // Per-cell error labels name the cell (UX flow, Phase 10)
+    const label = cell ? `R${cell.r}C${cell.c} · ${s.name}` : s.name;
+
     // Clear error for missing column refs (e.g. after a dataset reload)
     const missing = validateSeriesColumns(s, appState.datasets);
     if (missing.length) {
-      errors.push({ name: s.name, error: `references missing ${missing.join(', ')} — edit the series or reload the original CSV` });
+      errors.push({ name: label, error: `references missing ${missing.join(', ')} — edit the series or reload the original CSV` });
       continue;
     }
 
     const result = buildSeriesResult(s);
-    if (result.error) { errors.push({ name: s.name, error: result.error }); continue; }
-    if (result.warning) warnings.push({ name: s.name, warning: result.warning });
+    if (result.error) { errors.push({ name: label, error: result.error }); continue; }
+    if (result.warning) warnings.push({ name: label, warning: result.warning });
 
-    traces.push(...result.traces);
+    for (const t of result.traces) {
+      // Cached traces persist across renders — always set or clear the axis
+      // refs so a grid change can't leave stale x2/y2 assignments behind
+      if (grid) { t.xaxis = 'x' + sfx; t.yaxis = 'y' + sfx; }
+      else { delete t.xaxis; delete t.yaxis; }
+      traces.push(t);
+    }
 
     if (result.layout) {
-      // Merge axis overrides INTO the styled axis objects — a wholesale
-      // Object.assign replaced layout.xaxis/yaxis from buildBaseLayout,
-      // silently dropping titles, fonts, and frame styling on parity plots
-      // (Phase 8 fix)
+      // Merge axis overrides INTO the styled axis objects (Phase 8 fix),
+      // remapped onto the series' cell axes (Phase 10) — parity's
+      // scaleanchor must anchor to ITS cell's x axis
       for (const [k, v] of Object.entries(result.layout)) {
-        if ((k === 'xaxis' || k === 'yaxis') && layout[k]) Object.assign(layout[k], v);
-        else layout[k] = v;
+        const key = (k === 'xaxis' || k === 'yaxis') ? k + sfx : k;
+        if ((k === 'xaxis' || k === 'yaxis') && layout[key]) {
+          const vv = { ...v };
+          if (vv.scaleanchor) vv.scaleanchor = 'x' + sfx;
+          Object.assign(layout[key], vv);
+        } else layout[key] = v;
       }
     }
-    if (result.stats && result.annotSR) parityResults.push({ name: s.name, ...result });
+    if (result.stats && result.annotSR) parityResults.push({ name: label, sfx, ...result });
     if (result.fitAnnot) srParts.push(result.fitAnnot.sr);
   }
 
+  // Per-cell auto axis labels: first series in the cell, unless the plot's
+  // labels are locked (locked labels apply to every cell — spike decision)
+  if (grid) {
+    const firstByCell = new Map();
+    for (const s of appState.series) {
+      if ((s.plotId ?? appState.plots[0].id) !== plot.id || s.enabled === false) continue;
+      const { sfx } = cellOf(s);
+      if (!firstByCell.has(sfx)) firstByCell.set(sfx, s);
+    }
+    for (const [sfx, s] of firstByCell) {
+      // The figure title stays plot-level; only axis labels are per-cell
+      if (!plot.plotConfig.xLabelLocked) layout['xaxis' + sfx].title.text = s.xCol || '';
+      if (!plot.plotConfig.yLabelLocked) layout['yaxis' + sfx].title.text = s.yCol || '';
+    }
+  }
+
   // Multiple parity series: each computed its own equal-axis range and the
-  // last one won, clipping the others — use the union (Phase 8 fix)
-  if (parityResults.length > 1) {
-    const mn = Math.min(...parityResults.map(p => p.axMin));
-    const mx = Math.max(...parityResults.map(p => p.axMax));
-    layout.xaxis.range = [mn, mx];
-    layout.yaxis.range = [mn, mx];
+  // last one won, clipping the others — use the union (Phase 8 fix),
+  // grouped per cell axis pair (Phase 10)
+  const parityByCell = {};
+  for (const p of parityResults) (parityByCell[p.sfx] ||= []).push(p);
+  for (const [sfx, list] of Object.entries(parityByCell)) {
+    if (list.length > 1) {
+      const mn = Math.min(...list.map(p => p.axMin));
+      const mx = Math.max(...list.map(p => p.axMax));
+      layout['xaxis' + sfx].range = [mn, mx];
+      layout['yaxis' + sfx].range = [mn, mx];
+    }
+  }
+
+  // Axis sharing (Phase 10): non-parity cells match the first non-parity
+  // cell's axes. Parity cells keep their equal-axis geometry — sharing
+  // would break the y=x constraint (Data Scientist, spike decision).
+  if (grid && (grid.shareX || grid.shareY)) {
+    const paritySfx = new Set(parityResults.map(p => p.sfx));
+    const allSfx = [];
+    for (let k = 1; k <= grid.rows * grid.cols; k++) allSfx.push(k === 1 ? '' : String(k));
+    const sharable = allSfx.filter(x => !paritySfx.has(x));
+    if (paritySfx.size) {
+      warnings.push({ name: 'Subplots', warning:
+        'Parity cells keep equal axes and are excluded from axis sharing.' });
+    }
+    const anchor = sharable[0];
+    for (const x of sharable.slice(1)) {
+      if (grid.shareX) layout['xaxis' + x].matches = 'x' + anchor;
+      if (grid.shareY) layout['yaxis' + x].matches = 'y' + anchor;
+    }
   }
 
   // Log-axis interactions (Phase 9, Data Scientist rulings)
@@ -140,19 +216,24 @@ function renderOnePlot(plot) {
     // Equal axes stay equal in log-log; anything else renders linear.
     // Range re-derived from the UNPADDED data extremes and padded in log
     // space — the linear 5% pad goes negative even for positive data.
-    if (parityResults.length) {
-      const dmn = Math.min(...parityResults.map(p => p.dataMin));
-      const dmx = Math.max(...parityResults.map(p => p.dataMax));
+    // Grouped per cell axis pair (Phase 10).
+    let parityLogWarned = false;
+    for (const [sfx, list] of Object.entries(parityByCell)) {
+      const dmn = Math.min(...list.map(p => p.dataMin));
+      const dmx = Math.max(...list.map(p => p.dataMax));
       if (cfg.xLog && cfg.yLog && dmn > 0) {
         const lo = Math.log10(dmn), hi = Math.log10(dmx);
         const pad = (hi - lo) * 0.05 || 0.05;
-        layout.xaxis.range = [lo - pad, hi + pad];
-        layout.yaxis.range = [lo - pad, hi + pad];
+        layout['xaxis' + sfx].range = [lo - pad, hi + pad];
+        layout['yaxis' + sfx].range = [lo - pad, hi + pad];
       } else {
-        layout.xaxis.type = 'linear';
-        layout.yaxis.type = 'linear';
-        warnings.push({ name: 'Parity', warning:
-          'A parity plot needs BOTH Log X and Log Y and all-positive data — rendered linear.' });
+        layout['xaxis' + sfx].type = 'linear';
+        layout['yaxis' + sfx].type = 'linear';
+        if (!parityLogWarned) {
+          parityLogWarned = true;
+          warnings.push({ name: 'Parity', warning:
+            'A parity plot needs BOTH Log X and Log Y and all-positive data — rendered linear.' });
+        }
       }
     }
   }

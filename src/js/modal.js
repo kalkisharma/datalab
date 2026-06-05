@@ -40,6 +40,26 @@ function closeModal() {
   _modalTrigger    = null;
 }
 
+// Cell picker (Phase 10) — only when the target plot has a subplot grid;
+// rebuilt by wireModalBody when the Plot picker changes. Static labels
+// only — no user data in the markup.
+function cellPickerHTML(plotId, cell) {
+  const grid = appState.plots.find(p => p.id === plotId)?.grid;
+  if (!grid || grid.rows * grid.cols < 2) return '';
+  let opts = '';
+  for (let r = 1; r <= grid.rows; r++) {
+    for (let c = 1; c <= grid.cols; c++) {
+      const sel = (cell?.row ?? 1) === r && (cell?.col ?? 1) === c ? 'selected' : '';
+      opts += `<option value="${r},${c}" ${sel}>Row ${r} · Col ${c}</option>`;
+    }
+  }
+  return `
+    <div class="modal-field">
+      <label class="modal-label" for="mCell">Cell</label>
+      <select id="mCell">${opts}</select>
+    </div>`;
+}
+
 function buildModalBody(existing) {
   const dsOptions = appState.datasets.map(ds =>
     // escHtml applied to dataset name in option text
@@ -58,6 +78,7 @@ function buildModalBody(existing) {
     `<option value="${escHtml(p.id)}" ${targetPlot === p.id ? 'selected' : ''}>${escHtml(p.name)}</option>`
   ).join('');
 
+
   return `
     <div class="modal-field">
       <label class="modal-label" for="mSeriesName">Name</label>
@@ -69,6 +90,7 @@ function buildModalBody(existing) {
       <label class="modal-label" for="mPlot">Plot</label>
       <select id="mPlot">${plotOptions}</select>
     </div>` : ''}
+    <div id="mCellWrap">${cellPickerHTML(targetPlot, existing?.cell)}</div>
     <div class="modal-field">
       <label class="modal-label" for="mDataset">Dataset <span class="required">*</span></label>
       <select id="mDataset">${dsOptions}</select>
@@ -94,6 +116,12 @@ function wireModalBody(body, existing) {
 
   // Dataset change triggers field refresh
   document.getElementById('mDataset').addEventListener('change', () => renderDynamicFields(existing));
+
+  // Plot change refreshes the Cell picker for the new target's grid
+  document.getElementById('mPlot')?.addEventListener('change', e => {
+    // innerHTML: static row/col labels only — no user data (cellPickerHTML)
+    document.getElementById('mCellWrap').innerHTML = cellPickerHTML(e.target.value, existing?.cell);
+  });
 
   // Initial render if editing
   if (existing?.chartType) renderDynamicFields(existing);
@@ -180,6 +208,14 @@ function saveModalSeries() {
     zCol:      zCol || null,                                  // contour only
     binCount:  Number(document.getElementById('mBinCount')?.value) || null, // histogram only
     fitNormal: document.getElementById('mFitNormal')?.checked ?? false,     // histogram only
+    // Cell (Phase 10): from the picker when shown, else preserve — a series
+    // keeps its cell when edited while its plot has no grid
+    cell:      (() => {
+      const sel = document.getElementById('mCell');
+      if (!sel) return existing?.cell ?? null;
+      const [r, c] = sel.value.split(',');
+      return { row: parseInt(r), col: parseInt(c) };
+    })(),
     agg:       document.getElementById('mBarAgg')?.value || null,           // bar only
     errMode:   document.getElementById('mBarErr')?.value || null,           // bar only (sd|sem)
     errCol:    document.getElementById('mErrCol')?.value || null,           // scatter/line ± column
