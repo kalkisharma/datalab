@@ -73,6 +73,7 @@ machine**:
 ```
 git clone <this repository>
 cd datalab
+git config core.hooksPath .githooks   # one-time: activates the security pre-commit hook
 node build.js          # produces datalab.html and prints its SHA-256
 ```
 

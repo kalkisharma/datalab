@@ -21,10 +21,8 @@ const FILE_URL = `file://${path.resolve(__dirname, '..', 'datalab.html')}`;
 const PAYLOAD_SCRIPT = '<script>window.__xss=1<\/script>';
 const PAYLOAD_IMG    = '"><img src=x onerror="window.__xss=1">';
 
-const APPROVED_CSP =
-  "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; " +
-  "img-src data: blob:; worker-src blob:; object-src 'none'; " +
-  "base-uri 'none'; form-action 'none';";
+// Single source of truth shared with smoke.spec.js (STANDARDS §17)
+const { APPROVED_CSP } = require('./approved-csp');
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 

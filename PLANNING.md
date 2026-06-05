@@ -76,10 +76,10 @@ Only ~20–30% of parity-plotting is reusable. Its core (inner join, A/B state m
 **Critical decision: state-first, not DOM-first.**
 parity-plotting snapshots ~40 DOM element IDs. That approach breaks with N dynamic datasets/series. In datalab, `appState` is the source of truth — the DOM renders from state, not the other way around.
 
-> **Authoritative schema lives in `src/js/state.js`** — the sketch below is the orientation copy, updated at phase exits. (Record correction, Phase 8 scoping: this block had drifted — it still showed the v1 singleton `plotConfig` two phases after the v2 migration shipped.)
+> **Authoritative schema lives in `src/js/state.js`** — the sketch below is the orientation copy. (Phase 11 review: it drifted again between Phases 8 and 10; the refresh is now an explicit item on the phase-exit security checklist so it cannot be skipped silently.)
 
 ```js
-const appState = {            // state version 2 (Phase 7)
+const appState = {            // state version 2 (Phase 7; additive since)
   version: 2,
   datasets: [
     // { id, name, rows, headers, color, dateFormats? }
@@ -87,15 +87,19 @@ const appState = {            // state version 2 (Phase 7)
   series: [
     // {
     //   id, name, plotId, datasetId, xCol, yCol, colorCol, chartType,
-    //   // chart-type-specific: zCol (contour), binCount/fitNormal (histogram),
-    //   // joinDatasetId, joinKey, band5, band10 (parity)
+    //   // chart-type-specific: zCol (contour); binCount, fitNormal (histogram);
+    //   // joinDatasetId, joinKey, band5, band10 (parity);
+    //   // agg, errMode (bar, Phase 9); errCol, trendline (scatter/line, Phase 9)
+    //   cell,    // { row, col } subplot cell, Phase 10 — default 1·1
     //   filters: [{ col, op, value, enabled }], filterLogic,
     //   style: { color, markerSize, opacity, lineWidth }, enabled
     // }
   ],
   plots: [
-    // { id, name, plotConfig: { title, xLabel, yLabel, *Locked flags,
-    //   annotPos, legendShow, legendPos, xMin/xMax/yMin/yMax } }
+    // { id, name,
+    //   plotConfig: { title, xLabel, yLabel, *Locked flags, annotPos,
+    //     legendShow, legendPos, xMin/xMax/yMin/yMax, xLog, yLog /* Phase 9 */ },
+    //   grid }  // { rows, cols, shareX, shareY } | null — Phase 10
   ],
   activePlotId,
   style: { markerSize, markerOpacity, edgeColor, edgeWidth, colormap },
@@ -105,7 +109,9 @@ const appState = {            // state version 2 (Phase 7)
 
 // Session file = { _schema: 'datalab-session', app, saved, state: {...appState} }
 // Serializes cleanly with JSON.stringify — no DOM parsing.
-// Migrations per state version live in sessions.js (v1 → v2 shipped Phase 7).
+// Migrations per state version live in sessions.js (v1 → v2 shipped Phase 7);
+// everything since Phase 7 is additive-with-defaults (no migrations, §3).
+// Import validates all ids against /^[\w-]{1,64}$/ (Phase 8 security fix).
 ```
 
 **Filter operator encoding** (defined in full in `applyFilters()` comment block — Phase 0 deliverable):
@@ -154,12 +160,16 @@ Use a modal per series — not a flat panel:
 
 | Chart type | Specific fields | Notes |
 |------------|----------------|-------|
-| scatter | size col (optional) | **Record correction (Phase 8 scoping): size col was never implemented** — no phase record claims it shipped; left here as design intent, candidate for a future phase |
-| line | line width | — |
-| parity | join dataset, join key, show ±5% band, show ±10% band | Requires two loaded datasets |
-| contour | Z col (third numeric column) | Requires pre-gridded/equally-spaced data; validated at creation. Data Scientist to review guidance in Phase 3 |
-| histogram | bin count (user-configurable; default uses Freedman-Diaconis rule, computed at render time) | Client-side binning, no server needed |
+| scatter | error ± column, linear trendline (Phase 9); size col never implemented (Phase 8 record correction — future candidate) | per-group trendlines opt-in planned Phase 11 |
+| line | line width; error ± column (Phase 9) | — |
+| bar (Phase 9) | category X, aggregation (none/count/sum/mean/median), SD/SEM error bars (mean only) | silent aggregation forbidden (§20) |
+| parity | join dataset, join key, show ±5% band, show ±10% band | Requires two loaded datasets; Y options come from the JOIN dataset (Phase 9 fix) |
+| contour | Z col (third numeric column) | Requires pre-gridded/equally-spaced data; validated at creation |
+| histogram | bin count (FD default, render-time); fit normal (Phase 5) → fit picker + KDE planned Phase 11 | Client-side binning |
 | boxplot | X col (optional, categorical); Y col (numeric) | Max 50 categorical X values; render-time warning if exceeded |
+| violin (planned Phase 11) | as boxplot | Plotly-native trace |
+
+All chart types additionally get a Cell picker when the target plot has a subplot grid (Phase 10).
 
 Datetime columns are shown in column pickers but disabled with tooltip: "datetime columns supported in Phase 3."
 
@@ -192,29 +202,25 @@ datalab/
       wiring.js         — event wiring, dropzone, bootstrap
       renderers/
         shared.js       — renderer interface contract, colVals, buildMarkerStyle, colorMapping
-        parity.js / scatter.js / line.js / contour.js / histogram.js / boxplot.js
+        one file per chart type (scatter, line, bar, parity, contour, histogram, boxplot, …)
   lib/
     plotly.min.js       — Full bundle
     papaparse.min.js
     jszip.min.js
-  tests/
-    smoke.spec.js       — Smoke render test; runs on every PR
-    bench.spec.js       — Performance benchmark; runs on release (BENCH=1)
-    xss.spec.js         — XSS injection suite; runs on every PR
-    a11y.spec.js        — axe ARIA audit (5 app states)
-    parity-stats.spec.js — statistical correctness regression tests
-    series-list.spec.js — series list interaction tests
-    reload-validation.spec.js — dataset reload + keyboard nav tests
-    multi-series.spec.js — Phase 2 exit criteria scenario
-    phase3-exit.spec.js / phase3..phase7.spec.js — phase exit scenario suites
+  tests/                — feature-named *.spec.js suites (see the directory;
+                          §14 naming). Fixed points: smoke (every PR),
+                          xss (every PR), a11y (axe, every PR),
+                          bench (BENCH=1, release only),
+                          approved-csp.js (THE CSP string, §17)
     data/
       README.md         — Dataset specs and sourcing instructions (QA-owned)
       test_*.csv        — Committed synthetic datasets (max 500KB each)
   build.js
+  .gitattributes      — artifact + lib eol exemptions (release integrity, §9)
   PLANNING.md
   STANDARDS.md
   ARIA_CHECKLIST.md
-  DEPENDENCIES.md     — pinned library versions + SHA-256 hashes; build.js verifies before bundling
+  DEPENDENCIES.md     — pinned versions + verified source URLs + SHA-256; build.js verifies before bundling
   README.md
   CHANGELOG.md
 ```
@@ -521,7 +527,8 @@ Exit criteria: a 2×2 mixed-type figure renders with correct per-cell axes and l
 - **Hook moves into the repo (Security, publish-day finding):** `.githooks/pre-commit` committed; activated by a one-time `git config core.hooksPath .githooks` documented in the README clone steps — the hook no longer dies on reclone. (Companion finding already fixed: `.gitattributes` exempts the artifact and libs from eol normalization so build hash = blob = release asset.)
 
 Deliverables (dependency order per §18):
-- [ ] Chore (Security): `.githooks/` in version control + `core.hooksPath` setup in README; local hook retired in favor of the tracked one
+- [x] Chore (Security): `.githooks/` in version control + `core.hooksPath` setup in README; local hook retired — evidence: this commit; tracked hook verified blocking a staged `fetch(` in HTML. Done during the Phase 11 doc review so amended §8 states only true things
+- [x] Chore (Security, found at doc review): CSP string deduplicated to `tests/approved-csp.js` — §17's "single source of truth" claim was false (two copies); both suites now import it
 - [ ] UX flow descriptions for the fit picker, KDE toggle, violin fields, per-group-fit checkbox — before branches, per §12 (UX Designer)
 - [ ] `stats.js`: `fitLognormal`, `fitWeibull` (MLE + Newton guard), `kdeBinned` — references via independent tool per §20 (Data Scientist + QA)
 - [ ] Histogram fit picker + KDE overlay, `fitNormal` back-compat (Frontend + Data Viz + Data Scientist)
@@ -556,11 +563,12 @@ Exit criteria: lognormal/Weibull/KDE match independent-tool references; a v2.x s
 - [ ] Playwright XSS test green
 - [ ] No external script sources or `fetch()` calls introduced
 - [ ] Pre-commit hook still active and un-bypassed
-- [ ] CSP meta tag present in built `datalab.html` with exact approved policy (verified by `tests/smoke.spec.js`)
+- [ ] CSP meta tag present in built `datalab.html` with exact approved policy (single source: `tests/approved-csp.js`, verified by smoke + xss suites)
 - [ ] No prohibited network APIs introduced (`fetch`, `WebSocket`, `RTCPeerConnection`, `sendBeacon`, `indexedDB`, `ping` attributes)
 - [ ] Library hashes in `DEPENDENCIES.md` match bundled files — build verified clean
-- [ ] SHA-256 hash of `datalab.html` published in release notes
-- [ ] `PLANNING.md` and `STANDARDS.md` reviewed and updated by Engineering Lead
+- [ ] SHA-256 hash of `datalab.html` published in release notes; **when a GitHub release is published, QA downloads the asset back and verifies it against the published hash** (§9)
+- [ ] `.gitattributes` eol exemptions for `datalab.html` and `lib/*.js` intact (§9 — removal silently breaks hash integrity)
+- [ ] `PLANNING.md` and `STANDARDS.md` reviewed and updated by Engineering Lead; the State Architecture orientation sketch and file tree reflect the shipped phase
 
 ---
 

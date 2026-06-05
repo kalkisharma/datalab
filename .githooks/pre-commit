@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# pre-commit — DataLab code quality and security gate
+# Enforces STANDARDS.md §8, §9, §19. Never bypass with --no-verify.
+
+FAIL=0
+
+JS_STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^src/js/.*\.js$' || true)
+HTML_STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^src/.*\.html$' || true)
+
+err() { echo "  ERROR: $*" >&2; FAIL=1; }
+
+staged_content() { git show ":$1" 2>/dev/null || true; }
+
+# ── 1. Prohibited network APIs ────────────────────────────────────────────
+for f in $JS_STAGED; do
+  c=$(staged_content "$f")
+  for pat in 'fetch(' 'XMLHttpRequest' 'new WebSocket' 'RTCPeerConnection' \
+             'sendBeacon' 'indexedDB' 'cacheStorage' 'ServiceWorker'; do
+    if echo "$c" | grep -q "$pat"; then
+      err "$f — prohibited network API: $pat"
+    fi
+  done
+done
+
+# ── 2. Prohibited client-side storage ────────────────────────────────────
+for f in $JS_STAGED; do
+  c=$(staged_content "$f")
+  for pat in 'localStorage' 'sessionStorage'; do
+    if echo "$c" | grep -q "$pat"; then
+      err "$f — prohibited storage API: $pat"
+    fi
+  done
+done
+
+# ── 3. Debug statements ───────────────────────────────────────────────────
+for f in $JS_STAGED; do
+  c=$(staged_content "$f")
+  if echo "$c" | grep -q 'console\.log('; then
+    err "$f — console.log() must be removed before committing"
+  fi
+  if echo "$c" | grep -q '\bdebugger\b'; then
+    err "$f — debugger statement must be removed before committing"
+  fi
+done
+
+# ── 4. DOM injection — annotation required ────────────────────────────────
+# Every innerHTML/outerHTML/insertAdjacentHTML/document.write site must
+# have a comment on that line or the immediately preceding line.
+for f in $JS_STAGED; do
+  c=$(staged_content "$f")
+  for pat in 'innerHTML' 'outerHTML' 'insertAdjacentHTML' 'document\.write'; do
+    total=$(echo "$c" | wc -l)
+    echo "$c" | grep -n "$pat" | cut -d: -f1 | while read -r lineno; do
+      line=$(echo "$c" | sed -n "${lineno}p")
+      prev=$(( lineno > 1 ? lineno - 1 : 1 ))
+      prevline=$(echo "$c" | sed -n "${prev}p")
+      if ! echo "$line$prevline" | grep -qE '(//|/\*)'; then
+        echo "  ERROR: $f:$lineno — $pat without annotation (add comment listing escaped values)" >&2
+        echo "ANNOTFAIL" >&3
+      fi
+    done 3>>/tmp/datalab_precommit_fail
+  done
+done
+if [ -f /tmp/datalab_precommit_fail ] && [ -s /tmp/datalab_precommit_fail ]; then
+  FAIL=1
+fi
+rm -f /tmp/datalab_precommit_fail
+
+# ── 5. HTML: ping= attribute ─────────────────────────────────────────────
+for f in $HTML_STAGED; do
+  if staged_content "$f" | grep -qi ' ping='; then
+    err "$f — ping= attribute found (data exfiltration risk)"
+  fi
+done
+
+# ── 5b. HTML: prohibited network/storage APIs (STANDARDS §9 — inline
+# scripts in src/*.html get the same grep as src/js; gap closed Phase 8) ──
+for f in $HTML_STAGED; do
+  c=$(staged_content "$f")
+  for pat in 'fetch(' 'XMLHttpRequest' 'new WebSocket' 'RTCPeerConnection' \
+             'sendBeacon' 'indexedDB' 'cacheStorage' 'ServiceWorker' \
+             'localStorage' 'sessionStorage'; do
+    if echo "$c" | grep -q "$pat"; then
+      err "$f — prohibited API in HTML: $pat"
+    fi
+  done
+done
+
+# ── 6. Worker allowlist ───────────────────────────────────────────────────
+for f in $JS_STAGED; do
+  c=$(staged_content "$f")
+  if echo "$c" | grep -q 'new Worker('; then
+    if ! echo "$c" | grep -q '// WORKER_ALLOWLIST:'; then
+      err "$f — new Worker() found without WORKER_ALLOWLIST comment"
+    fi
+  fi
+done
+
+# ── Result ────────────────────────────────────────────────────────────────
+if [ "$FAIL" -ne 0 ]; then
+  echo "" >&2
+  echo "Pre-commit checks failed. Fix the above and re-stage your changes." >&2
+  echo "Do NOT use --no-verify to bypass this hook (see STANDARDS.md §1)." >&2
+  exit 1
+fi
+
+exit 0

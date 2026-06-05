@@ -12,10 +12,9 @@ const fs   = require('fs');
 
 const FILE_URL = `file://${path.resolve(__dirname, '..', 'datalab.html')}`;
 
-const APPROVED_CSP =
-  "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; " +
-  "img-src data: blob:; worker-src blob:; object-src 'none'; " +
-  "base-uri 'none'; form-action 'none';";
+// Single source of truth for the approved policy (STANDARDS §17) — was
+// duplicated here and in xss.spec.js until the Phase 11 doc review
+const { APPROVED_CSP } = require('./approved-csp');
 
 // ── CSP (always active) ───────────────────────────────────────────────────
 

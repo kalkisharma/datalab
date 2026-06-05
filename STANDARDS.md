@@ -21,6 +21,7 @@
 - When two feature branches are ready to merge simultaneously, first-merged wins; second branch must rebase before merging.
 - Stale branches are reviewed and cleaned at each phase exit.
 - A reviewer must review the branch before it merges. If the reviewer and author disagree on a UX or design decision, see §12 for conflict resolution.
+- **Solo-maintainer provision** (added at the Phase 11 doc review, reconciling the standard with five phases of actual practice): while the project has a single human maintainer, direct commits to `master` are permitted when the full Playwright suite is green at commit time and the work is a logically complete unit per §1. The branch + reviewer flow becomes mandatory again the moment a second human contributes. Phase-exit review gates (refactor review, security checklist, DS sign-off) are unaffected — they apply in both modes.
 
 ## 3. Versioning (Semver)
 
@@ -139,6 +140,7 @@ DataLab is used by private organisations loading sensitive data. The tool must g
 - `build.js` verifies each library file's SHA-256 hash against `DEPENDENCIES.md` before bundling. A hash mismatch aborts the build with an error.
 - `DEPENDENCIES.md` is owned by the Security Engineer. Updates require Engineering Lead sign-off.
 - The built `datalab.html` SHA-256 hash is output by `build.js` at build time and published in the GitHub release notes. Users are instructed in the README to verify this hash before use.
+- **The authoritative hash is the hash of the downloadable release asset** (amended after the first publish, where eol normalization made the committed blob hash differently from the build output). `.gitattributes` marks `datalab.html` and `lib/*.js` as `-text` so build hash = committed blob = release asset — that exemption must never be removed. Post-publish, QA downloads the asset back and verifies it against the published hash before the release is announced; a mismatch is a release blocker.
 - No telemetry, analytics, error reporting, or any third-party tracking is ever included — permanently forbidden. This includes but is not limited to: Google Analytics, Sentry, Mixpanel, Datadog, and any equivalent service.
 
 ### Audit guidance
@@ -232,7 +234,7 @@ DataLab is used by private organisations loading sensitive data. The tool must g
 - `CHANGELOG.md` — updated by whoever makes the change; `## Schema` section owned by the Data Engineer.
 - `DEPENDENCIES.md` — owned by the Security Engineer. Updates require Engineering Lead sign-off.
 - `build.js` — owned by the Frontend Developer. Security Engineer reviews any changes.
-- CSP policy string — owned by the Security Engineer. Changes require Engineering Lead sign-off. The approved string lives in `tests/smoke.spec.js` as a constant and is the single source of truth.
+- CSP policy string — owned by the Security Engineer. Changes require Engineering Lead sign-off. The approved string lives in `tests/approved-csp.js` as the single source of truth (Phase 11 review correction: it was previously duplicated across smoke.spec.js and xss.spec.js while claiming singularity); both suites verify the built HTML against it.
 
 ## 18. Work Sequencing
 
