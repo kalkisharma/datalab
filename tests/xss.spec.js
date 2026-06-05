@@ -147,6 +147,68 @@ for (const [label, payload] of [['PAYLOAD_SCRIPT', PAYLOAD_SCRIPT], ['PAYLOAD_IM
   });
 }
 
+// ── Session file id injection ─────────────────────────────────────────────
+// Plot/dataset/series ids from imported session files reach innerHTML id
+// attributes and querySelector strings unescaped (grid.js, ui.js) — escHtml
+// covers names, not ids. Import must reject non-uid()-shaped ids outright.
+
+for (const [label, payload] of [['PAYLOAD_SCRIPT', PAYLOAD_SCRIPT], ['PAYLOAD_IMG', PAYLOAD_IMG]]) {
+  test(`session file ids: ${label} is rejected and does not execute`, async ({ page }) => {
+    await loadApp(page);
+    const evil = {
+      _schema: 'datalab-session',
+      app: '2.0.0',
+      saved: new Date().toISOString(),
+      state: {
+        version: 2,
+        datasets: [{ id: payload, name: 'd', rows: [{ x: 1, y: 2 }], headers: ['x', 'y'], color: '#000000' }],
+        series: [],
+        plots: [{ id: payload, name: 'p', plotConfig: {} }],
+        activePlotId: payload,
+        style: {}, savedPlots: [], plotRendered: false,
+      },
+    };
+    const jsonPath = path.join(__dirname, 'data', '_xss_session.json');
+    fs.writeFileSync(jsonPath, JSON.stringify(evil));
+    await page.setInputFiles('#sessionFileInput', jsonPath);
+    await page.waitForTimeout(300);
+    fs.unlinkSync(jsonPath);
+
+    expect(await xssNotExecuted(page)).toBe(true);
+    // File rejected with an alert; nothing from it was applied
+    await expect(page.locator('#dataAlerts .alert.danger')).toBeVisible();
+    expect(await page.evaluate(() =>
+      appState.datasets.length === 0 && appState.plots.length === 1 && appState.plots[0].id === 'p1'
+    )).toBe(true);
+  });
+}
+
+// A legitimate session still imports after the id gate (guards against the
+// validator rejecting uid()-shaped ids)
+test('session file ids: legitimate uid-shaped ids still import', async ({ page }) => {
+  await loadApp(page);
+  const good = {
+    _schema: 'datalab-session',
+    app: '2.0.0',
+    saved: new Date().toISOString(),
+    state: {
+      version: 2,
+      datasets: [{ id: 'dl-abc1234', name: 'd', rows: [{ x: 1, y: 2 }], headers: ['x', 'y'], color: '#000000' }],
+      series: [],
+      plots: [{ id: 'p1', name: 'Plot 1', plotConfig: {} }],
+      activePlotId: 'p1',
+      style: {}, savedPlots: [], plotRendered: false,
+    },
+  };
+  const jsonPath = path.join(__dirname, 'data', '_good_session.json');
+  fs.writeFileSync(jsonPath, JSON.stringify(good));
+  await page.setInputFiles('#sessionFileInput', jsonPath);
+  await page.waitForTimeout(300);
+  fs.unlinkSync(jsonPath);
+
+  expect(await page.evaluate(() => appState.datasets.length)).toBe(1);
+});
+
 // ── Axis label injection ──────────────────────────────────────────────────
 
 for (const [label, payload] of [['PAYLOAD_SCRIPT', PAYLOAD_SCRIPT], ['PAYLOAD_IMG', PAYLOAD_IMG]]) {

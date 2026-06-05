@@ -2256,9 +2256,31 @@ function importSessionFile(file) {
       sessionAlert(`This session was saved by a newer DataLab (state v${v}) — update the app to load it.`);
       return;
     }
-    applySessionState(migrateSessionState(payload.state));
+    const st = migrateSessionState(payload.state);
+    if (!sessionIdsValid(st)) {
+      sessionAlert('Session file rejected: malformed internal ids.');
+      return;
+    }
+    applySessionState(st);
   };
   reader.readAsText(file);
+}
+
+// Ids from a session file are interpolated into innerHTML id/data attributes
+// and querySelector strings (grid.js, ui.js) — escHtml does not cover them.
+// Only uid()-shaped ids are accepted so a crafted file cannot smuggle markup
+// or selector metacharacters through an id field. Legitimate files always
+// pass: uid() emits [a-z0-9-] and the migration uses 'p1'.
+const SAFE_ID = /^[\w-]{1,64}$/;
+
+function sessionIdsValid(st) {
+  const ids = [
+    st.activePlotId,
+    ...(st.plots    ?? []).map(p => p.id),
+    ...(st.datasets ?? []).map(d => d.id),
+    ...(st.series   ?? []).flatMap(s => [s.id, s.plotId, s.datasetId, s.joinDatasetId]),
+  ];
+  return ids.every(v => v == null || SAFE_ID.test(String(v)));
 }
 
 // Migrations per state version (STANDARDS.md §3). v2 is current.
