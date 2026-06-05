@@ -134,16 +134,18 @@
       <summary>Export size</summary>
       <div class="details-body">
         <div class="field-hint" style="margin:0 0 8px;">On screen, panels autosize to the grid — these set the PNG/SVG export dimensions.</div>
+        <!-- Identical ranges on both sliders so equal values sit at equal
+             thumb positions (Phase 8, maintainer aesthetic report) -->
         <label class="ctrl-label">Width
           <div class="slider-row">
-            <input type="range" id="figW" min="400" max="1600" step="50" value="700" />
-            <input type="number" class="slider-num" id="figWNum" value="700" min="400" max="1600" />
+            <input type="range" id="figW" min="300" max="1600" step="50" value="700" />
+            <input type="number" class="slider-num" id="figWNum" value="700" min="300" max="1600" />
           </div>
         </label>
         <label class="ctrl-label">Height
           <div class="slider-row">
-            <input type="range" id="figH" min="300" max="1200" step="50" value="500" />
-            <input type="number" class="slider-num" id="figHNum" value="500" min="300" max="1200" />
+            <input type="range" id="figH" min="300" max="1600" step="50" value="500" />
+            <input type="number" class="slider-num" id="figHNum" value="500" min="300" max="1600" />
           </div>
         </label>
       </div>
@@ -155,31 +157,31 @@
       <div class="details-body">
         <label class="ctrl-label">Title size
           <div class="slider-row">
-            <input type="range" id="fsTitle" min="10" max="28" value="14" />
+            <input type="range" id="fsTitle" min="10" max="40" value="14" />
             <span class="slider-val" id="fsTitleVal">14</span>
           </div>
         </label>
         <label class="ctrl-label">Axis label size
           <div class="slider-row">
-            <input type="range" id="fsAxis" min="8" max="22" value="12" />
+            <input type="range" id="fsAxis" min="8" max="40" value="12" />
             <span class="slider-val" id="fsAxisVal">12</span>
           </div>
         </label>
         <label class="ctrl-label">Tick label size
           <div class="slider-row">
-            <input type="range" id="fsTick" min="6" max="18" value="10" />
+            <input type="range" id="fsTick" min="6" max="40" value="10" />
             <span class="slider-val" id="fsTickVal">10</span>
           </div>
         </label>
         <label class="ctrl-label">Legend size
           <div class="slider-row">
-            <input type="range" id="fsLegend" min="8" max="20" value="11" />
+            <input type="range" id="fsLegend" min="8" max="40" value="11" />
             <span class="slider-val" id="fsLegendVal">11</span>
           </div>
         </label>
         <label class="ctrl-label">Annotation size
           <div class="slider-row">
-            <input type="range" id="fsAnnot" min="8" max="20" value="11" />
+            <input type="range" id="fsAnnot" min="8" max="40" value="11" />
             <span class="slider-val" id="fsAnnotVal">11</span>
           </div>
         </label>
