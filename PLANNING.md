@@ -526,6 +526,11 @@ Exit criteria: a 2×2 mixed-type figure renders with correct per-cell axes and l
 - **Histogram fit picker:** the Phase 5 "Fit normal" checkbox becomes a select (none / normal / lognormal / Weibull) + a separate KDE checkbox. Back-compat additive: `series.fitDist` read as `fitDist ?? (fitNormal ? 'normal' : null)` — no migration, old sessions render identically.
 - **Hook moves into the repo (Security, publish-day finding):** `.githooks/pre-commit` committed; activated by a one-time `git config core.hooksPath .githooks` documented in the README clone steps — the hook no longer dies on reclone. (Companion finding already fixed: `.gitattributes` exempts the artifact and libs from eol normalization so build hash = blob = release asset.)
 
+**UX flow descriptions (recorded per §12, before implementation):**
+- **Histogram fit picker:** the Phase 5 "Fit normal" checkbox becomes a "Fit distribution" select (None default / Normal / Lognormal / Weibull) with a separate "KDE overlay" checkbox below it. Old sessions with `fitNormal: true` open with Normal selected. Lognormal/Weibull need all-positive data — non-positive values produce a render warning and no fit. Each fit's legend entry carries its parameters (μ, σ / k, λ); `.sr-only` mirrors as before.
+- **Violin fields:** identical to boxplot — numeric Y required, optional categorical X, >50-category warning.
+- **Per-group trendlines:** a second checkbox ("One fit per color group") under the trendline checkbox, always visible with a hint that it needs a categorical Color-by. Renderer behavior: categorical color-by → one palette-colored fit per group, each legend entry = group name + equation + R²; more than 10 groups → warning + fall back to the single overall fit; numeric or missing color-by → warning + single fit. Opt-in, default off (§3 — saved sessions render unchanged).
+
 Deliverables (dependency order per §18):
 - [x] Chore (Security): `.githooks/` in version control + `core.hooksPath` setup in README; local hook retired — evidence: this commit; tracked hook verified blocking a staged `fetch(` in HTML. Done during the Phase 11 doc review so amended §8 states only true things
 - [x] Chore (Security, found at doc review): CSP string deduplicated to `tests/approved-csp.js` — §17's "single source of truth" claim was false (two copies); both suites now import it
