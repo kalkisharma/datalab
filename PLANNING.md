@@ -509,14 +509,38 @@ Deliverables:
 
 Exit criteria: a 2×2 mixed-type figure renders with correct per-cell axes and labels; shared axes match across non-parity cells; parity cells warn and keep equal axes; grid + cells survive a session round-trip; grid shrink never errors and re-grow restores; all prior tests green. **Exited at v2.3.0** — refactor review moved auto-label helpers to layout.js (chart.js 313 → 294, §6); security checklist clean (new innerHTML sites: cell picker static markup, annotated); 7 axe states green; benchmarks green (warm 5 ms, cold 233 ms, memory 986 MB → 11.5 MB, filter 14 ms).
 
-### Phase 11+ — Future `(not scoped)`
-- Additional distributions (lognormal, Weibull), distribution comparison tests; KDE/violin plots; higher-order trendline fits; per-group trendlines (one fit per color-by category — DS exploratory finding, v2.2.0)
-- Computed columns — **security-spike-first**, must satisfy STANDARDS §8 expression-evaluation rule (no string-to-code path); Data Engineer champions, Security gates
+### Phase 11 — Distributions & Derived Analysis `v2.4.0`
+**Goal:** The statistics milestone queued since Phase 5 — distribution fits, KDE, violin plots, per-group trendlines — plus the publish-day integrity chores. **Data Scientist is primary owner** (Phase 5 precedent). Computed-columns security spike runs docs-only inside this phase (§16 exception).
+
+**Design decisions (team scoping session):**
+- **Per-group trendlines are OPT-IN (EL ruling via §3):** auto-switching the existing trendline to per-group fits would silently change how saved sessions render. New additive checkbox ("one fit per color group", default off) shown when trendline + categorical color-by are both set; ≤ 10 groups, warning above (fits clutter faster than boxes). Each fit is palette-matched; each legend entry carries group name + equation + R².
+- **Weibull via MLE (Data Scientist):** Newton iteration on the shape parameter with a convergence guard; rank-regression rejected (biased, less standard). Lognormal is closed-form (mean/std of ln x). Per §20, references are verified against an independent tool (scipy), documented in the test header — Weibull MLE is not hand-derivable.
+- **KDE is binned (Performance + DS):** Gaussian kernel with Silverman bandwidth, evaluated over bin centers weighted by counts instead of raw points — O(bins × grid), visually identical for an overlay; approximation documented at the implementation site.
+- **Violin is the 8th chart type (UX):** consistent with the type grid, not a boxplot option. Plotly-native trace; new renderer → §6 review with shared.js.
+- **Histogram fit picker:** the Phase 5 "Fit normal" checkbox becomes a select (none / normal / lognormal / Weibull) + a separate KDE checkbox. Back-compat additive: `series.fitDist` read as `fitDist ?? (fitNormal ? 'normal' : null)` — no migration, old sessions render identically.
+- **Hook moves into the repo (Security, publish-day finding):** `.githooks/pre-commit` committed; activated by a one-time `git config core.hooksPath .githooks` documented in the README clone steps — the hook no longer dies on reclone. (Companion finding already fixed: `.gitattributes` exempts the artifact and libs from eol normalization so build hash = blob = release asset.)
+
+Deliverables (dependency order per §18):
+- [ ] Chore (Security): `.githooks/` in version control + `core.hooksPath` setup in README; local hook retired in favor of the tracked one
+- [ ] UX flow descriptions for the fit picker, KDE toggle, violin fields, per-group-fit checkbox — before branches, per §12 (UX Designer)
+- [ ] `stats.js`: `fitLognormal`, `fitWeibull` (MLE + Newton guard), `kdeBinned` — references via independent tool per §20 (Data Scientist + QA)
+- [ ] Histogram fit picker + KDE overlay, `fitNormal` back-compat (Frontend + Data Viz + Data Scientist)
+- [ ] `renderers/violin.js` (8th type) + modal fields + badge; §6 review with shared.js (Data Viz + Data Scientist)
+- [ ] Per-group trendlines, opt-in, ≤ 10 groups with warning (Data Viz + Data Scientist) *(parallel-safe with violin)*
+- [ ] Computed-columns security spike document (docs-only): AST evaluator + operator allowlist design per §8 → Phase 12 scope or rejection (Security + Data Engineer; EL approves)
+- [ ] Tests: fit references, KDE integration ≈ 1, violin validation errors, per-group fit cap, back-compat fitNormal session; axe states extended for new modal fields (QA + Accessibility)
+- [ ] README feature updates (UX)
+- [ ] Exploratory test: real datasets through fits/KDE/violin/grouped-fit paths (Data Scientist — at exit)
+
+Exit criteria: lognormal/Weibull/KDE match independent-tool references; a v2.x session with `fitNormal: true` renders identically; violin renders with validation errors on wrong input; per-group fits are opt-in, capped, palette-matched; the spike doc is approved or rejected with rationale; a fresh clone gets a working hook by following the README; all prior tests green.
+
+### Phase 12+ — Future `(not scoped)`
+- Computed columns — gated on the Phase 11 security spike outcome (§8 expression-evaluation rule)
+- Distribution comparison tests (t-test, ANOVA) — Data Scientist owns scope
 - Dual Y axis — gated on Data Scientist conditions (see Landscape Review decision record)
+- Log-space histogram binning (deferred from Phase 9's log-axes work)
 - Type casting to datetime; column reorder; scatter size-by column (Phase 1 design intent, never built)
-- Interpolated (non-gridded) contours
-- Free-text plot annotations; general-purpose heatmap chart type
-- Basic statistical tests (t-test, ANOVA) — pairs with the distributions work; Data Scientist owns scope
+- Interpolated (non-gridded) contours; free-text plot annotations; general-purpose heatmap chart type; higher-order trendline fits
 
 ---
 
