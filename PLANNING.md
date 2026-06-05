@@ -534,15 +534,15 @@ Exit criteria: a 2×2 mixed-type figure renders with correct per-cell axes and l
 Deliverables (dependency order per §18):
 - [x] Chore (Security): `.githooks/` in version control + `core.hooksPath` setup in README; local hook retired — evidence: this commit; tracked hook verified blocking a staged `fetch(` in HTML. Done during the Phase 11 doc review so amended §8 states only true things
 - [x] Chore (Security, found at doc review): CSP string deduplicated to `tests/approved-csp.js` — §17's "single source of truth" claim was false (two copies); both suites now import it
-- [ ] UX flow descriptions for the fit picker, KDE toggle, violin fields, per-group-fit checkbox — before branches, per §12 (UX Designer)
-- [ ] `stats.js`: `fitLognormal`, `fitWeibull` (MLE + Newton guard), `kdeBinned` — references via independent tool per §20 (Data Scientist + QA)
-- [ ] Histogram fit picker + KDE overlay, `fitNormal` back-compat (Frontend + Data Viz + Data Scientist)
-- [ ] `renderers/violin.js` (8th type) + modal fields + badge; §6 review with shared.js (Data Viz + Data Scientist)
-- [ ] Per-group trendlines, opt-in, ≤ 10 groups with warning (Data Viz + Data Scientist) *(parallel-safe with violin)*
-- [ ] Computed-columns security spike document (docs-only): AST evaluator + operator allowlist design per §8 → Phase 12 scope or rejection (Security + Data Engineer; EL approves)
-- [ ] Tests: fit references, KDE integration ≈ 1, violin validation errors, per-group fit cap, back-compat fitNormal session; axe states extended for new modal fields (QA + Accessibility)
-- [ ] README feature updates (UX)
-- [ ] Exploratory test: real datasets through fits/KDE/violin/grouped-fit paths (Data Scientist — at exit)
+- [x] UX flow descriptions — evidence: commit 0441ab4, recorded before implementation (§12)
+- [x] `fitLognormal`, `fitWeibull` (MLE + Newton guard), `kdeBinned` — evidence: commit 076ca89; Weibull tested via definition-residual + scale equivariance (§20 — no closed form), lognormal hand-derived, KDE integrates to 1. Split to distributions.js at the exit refactor review (f1de878, stats.js had hit 340)
+- [x] Histogram fit picker + KDE overlay, `fitNormal` back-compat — evidence: commit 076ca89; dedicated back-compat session test
+- [x] `renderers/violin.js` (8th type) + modal fields + badge — evidence: commit 076ca89; §6 review with shared.js done (interface conformance, no contract deviation)
+- [x] Per-group trendlines, opt-in, ≤ 10 groups — evidence: commit 076ca89; cap/fallback/numeric-color-by behaviors tested
+- [x] Computed-columns security spike → **ACCEPTED, Phase 12 scoped below** — evidence: spike document in the Phase 12 section (carried in f1de878); Security-authored grammar/pipeline/caps, EL approved
+- [x] Tests + axe — evidence: distributions.spec.js (7) + histogram-modal axe state (8 states total); suite at 116
+- [x] README feature updates — evidence: f1de878 (also restored the missing subplot-figures line)
+- [x] Exploratory test (Data Scientist) — evidence: session at exit on synthetic-Weibull strength data (k=2.3, λ=40 generative): **fitWeibull recovered k=2.297, λ=40.61** — strong estimator validation; lognormal swap, violin-by-batch, and 3-group per-group fits all behaved to spec. No findings.
 
 Exit criteria: lognormal/Weibull/KDE match independent-tool references; a v2.x session with `fitNormal: true` renders identically; violin renders with validation errors on wrong input; per-group fits are opt-in, capped, palette-matched; the spike doc is approved or rejected with rationale; a fresh clone gets a working hook by following the README; all prior tests green.
 

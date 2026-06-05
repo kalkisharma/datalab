@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.4.0 — Distributions & Derived Analysis
+
+### Features
+- **Distribution fits on histograms** — the Fit-normal checkbox is now a
+  picker: Normal, Lognormal, or Weibull (maximum likelihood). Lognormal
+  and Weibull exclude non-positive values with a warning; parameters
+  appear in the legend. Old sessions with the normal-fit checkbox load
+  unchanged.
+- **KDE overlay** — Gaussian kernel density (Silverman bandwidth) on any
+  histogram.
+- **Violin plots** (8th chart type) — KDE outline with the Tukey box
+  inside, grouped by category like box plots.
+- **Per-group trendlines** — opt-in: one fit per color group (≤ 10),
+  palette-colored, each legend entry carrying the group, equation and R².
+  Existing single-fit sessions render unchanged.
+
+## Schema
+### v2.4.0 (state version unchanged at 2 — all additive)
+- `series.fitDist` ('normal' | 'lognormal' | 'weibull'), `series.kde`,
+  `series.trendGroups` — `fitNormal` (Phase 5) still honored via fallback
+- v2.0–v2.3 session files load unchanged
+
 ## v2.3.0 — Subplot Figures
 
 ### Features
