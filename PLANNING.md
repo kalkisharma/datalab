@@ -461,6 +461,13 @@ Exit criteria: equal slider values align visually. All typography sliders reach 
 - **Data preview (Frontend + Performance):** Data Tools modal gains a paginated table view (50 rows/page) of the current dataset. Every cell escHtml'd (largest new innerHTML surface in the app — Security reviews the one rendering site). No full-table DOM at any row count — pagination is the perf guarantee; informational timing only, no new binding target.
 - **Subplot design spike (docs-only, per amended §16):** the Phase 10 spike runs during Phase 9 — schema decision (v2-additive vs v3), Plotly `matches` axes with scattergl measured against §11 targets, renderer-contract amendment draft, UX flow. Output: Phase 10 deliverables scoped in this document.
 
+**UX flow descriptions (recorded per §12, before implementation):**
+- **Log axes:** two checkboxes ("Log X", "Log Y") in the Axis ranges section, bound to the active plot like the range inputs; sync on plot switch. Non-positive values on a log axis → per-panel warning with the hidden count. Histogram panels ignore Log X (warning explains: linear bins) — Log Y works. Parity panels apply log only when both boxes are on and all data positive; otherwise a warning and linear render. Manual ranges entered in data units are converted internally (Plotly log ranges are log₁₀).
+- **Bar fields (series modal):** Category (X) column → Aggregation select (None default · count · sum · mean · median) → Y column (numeric; disabled for count) → Error bars select (None · SD · SEM; selectable only with mean). Error states: duplicate categories under None → render error naming the fix; SD/SEM without mean → modal validation error. The trace name and hover always state the aggregation (§20 no-silent-aggregation).
+- **Error column (scatter/line):** optional "± column" select (numeric). The legend name carries "± column" so the bar's meaning is always visible (§20). Works with datetime X (pairs drop together).
+- **Trendline (scatter):** checkbox "Linear trendline". Adds a fit line whose legend entry is the equation + R²; `.sr-only` mirror per the parity-stats precedent. Datetime X → warning, no fit.
+- **Data preview (Data Tools):** table directly under Summary statistics — 50 rows per page, Prev/Next + "rows X–Y of N", every cell escaped, dropped columns excluded, refreshes after every cleaning op. No full-table DOM at any size.
+
 Deliverables (dependency order per §18):
 - [ ] Log axes: per-plot xLog/yLog + renderer warnings for non-positive values; parity/histogram interactions as decided above (Frontend + Data Viz + Data Scientist)
 - [ ] Bar renderer with explicit aggregation + validation-error tests (Data Viz + Data Scientist + QA) *(parallel-safe with log axes)*
