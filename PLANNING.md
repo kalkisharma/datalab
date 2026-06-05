@@ -546,8 +546,25 @@ Deliverables (dependency order per §18):
 
 Exit criteria: lognormal/Weibull/KDE match independent-tool references; a v2.x session with `fitNormal: true` renders identically; violin renders with validation errors on wrong input; per-group fits are opt-in, capped, palette-matched; the spike doc is approved or rejected with rationale; a fresh clone gets a working hook by following the README; all prior tests green.
 
-### Phase 12+ — Future `(not scoped)`
-- Computed columns — gated on the Phase 11 security spike outcome (§8 expression-evaluation rule)
+### Phase 12 — Computed Columns `v2.5.0` *(scoped by the Phase 11 security spike)*
+**Goal:** formula columns in Data Tools — the highest-utility remaining gap (Excel's core feature), under the §8 expression-evaluation rule.
+
+**Security spike outcome (Phase 11, Security + Data Engineer, EL approved — verdict: ACCEPTED):**
+- **Grammar:** arithmetic only — column refs, numeric literals, `+ − * / % ^`, unary minus, parentheses, and a **frozen allowlist** of functions (`abs sqrt ln log10 exp pow min max round floor ceil`). No strings, comparisons, booleans, assignment, member access, or user-defined functions — filters already cover predicates.
+- **Column references:** bare identifiers matched against the dataset's actual headers (allowlist by construction); backtick-quoted for headers with spaces/symbols. Unknown column = parse-time error.
+- **Pipeline:** hand-written tokenizer (fixed alphabet) → recursive-descent parser → AST → per-row switch-interpreter with `finiteOrNaN` coercion. Parse once, evaluate per row. **No string-to-code path anywhere** (§8) — the evaluator is a switch over node types.
+- **Hard caps:** expression ≤ 500 chars, ≤ 200 tokens, AST depth ≤ 32 — bounds both abuse and accidental pathology.
+- **Materialization:** the new column is computed once and stored as plain row data (sessions carry values, not formulas); the expression string is kept as dataset metadata for display. Re-deriving after data edits is an explicit user action — silent recomputation hides provenance (DS).
+- **Performance:** interpreter cost ~tens of ns per node per row → 1M rows × a small AST sits well inside the filter-evaluation budget; measured at implementation against §11.
+
+Deliverables *(UX flow description per §12 to be recorded before implementation)*:
+- [ ] `expr.js`: tokenizer + parser + evaluator with caps; Security Engineer reviews the parser before merge (§8) (Data Engineer + Security)
+- [ ] Data Tools "New column": name + expression + live preview of the first 5 values; revision bump + series re-validation like every cleaning op (Frontend + UX)
+- [ ] Tests: arithmetic references, parse-error surfaces, abuse attempts rejected at parse (strings, unknown identifiers, member access, depth/length bombs), caps enforced, 1M-row timing informational (QA + Security)
+- [ ] CHANGELOG `## Schema` note: computed values are plain data; `ds.computed` metadata is additive (Data Engineer)
+- [ ] Exploratory test with real derivations — unit conversions, ratios, log transforms (Data Scientist)
+
+### Phase 13+ — Future `(not scoped)`
 - Distribution comparison tests (t-test, ANOVA) — Data Scientist owns scope
 - Dual Y axis — gated on Data Scientist conditions (see Landscape Review decision record)
 - Log-space histogram binning (deferred from Phase 9's log-axes work)

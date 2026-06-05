@@ -2839,6 +2839,7 @@ function sessionAlert(msg) {
 
 
 // stats.js — statistical engine and cleaning operations (Phase 5)
+// (distribution fits + KDE split to distributions.js at the Phase 11 exit)
 //
 // The Data Scientist owns the correctness of everything in this file.
 // Methodology notes are inline at each function; tests pin the outputs to
@@ -2960,6 +2961,101 @@ function linearFit(xs, ys) {
   const r2 = syy === 0 ? NaN : (sxy * sxy) / (sxx * syy);
   return { a, b, r2, n };
 }
+
+// ── Cleaning operations ───────────────────────────────────────────────────
+// All operations mutate the dataset in place; CALLERS must bump the dataset
+// revision and re-validate series afterwards (the Data Tools modal does).
+
+/**
+ * Rename a column. Row keys are rewritten; series references are the
+ * caller's responsibility (renameColumnRefs).
+ * @returns {boolean} false if the new name collides
+ */
+function renameColumn(ds, oldName, newName) {
+  if (!newName || ds.headers.includes(newName)) return false;
+  ds.headers = ds.headers.map(h => h === oldName ? newName : h);
+  for (const r of ds.rows) { r[newName] = r[oldName]; delete r[oldName]; }
+  if (ds.dateFormats?.[oldName]) {
+    ds.dateFormats[newName] = ds.dateFormats[oldName];
+    delete ds.dateFormats[oldName];
+  }
+  return true;
+}
+
+// Follow a rename through every series referencing the dataset's column —
+// without this, renaming breaks plots that were built on the old name.
+function renameColumnRefs(seriesList, dsId, oldName, newName) {
+  let touched = 0;
+  for (const s of seriesList) {
+    const own  = s.datasetId === dsId;
+    const join = s.joinDatasetId === dsId;
+    if (!own && !join) continue;
+    let hit = false;
+    if (own) {
+      for (const k of ['xCol', 'colorCol', 'zCol']) {
+        if (s[k] === oldName) { s[k] = newName; hit = true; }
+      }
+      if (s.chartType !== 'parity' && s.yCol === oldName) { s.yCol = newName; hit = true; }
+      (s.filters || []).forEach(f => { if (f.col === oldName) { f.col = newName; hit = true; } });
+    }
+    if (join && s.chartType === 'parity' && s.yCol === oldName) { s.yCol = newName; hit = true; }
+    if (s.joinKey === oldName && (own || join)) { s.joinKey = newName; hit = true; }
+    if (hit) touched++;
+  }
+  return touched;
+}
+
+// Drop = remove from headers only; row values stay (cheap at 1M rows) but
+// are invisible to pickers and excluded from CSV export (unparse uses the
+// header list as its column set).
+function dropColumn(ds, col) {
+  ds.headers = ds.headers.filter(h => h !== col);
+}
+
+/** @returns {number} count of values that could not be parsed (set to null) */
+function castNumeric(ds, col) {
+  let failed = 0;
+  for (const r of ds.rows) {
+    const v = r[col];
+    if (v === null || v === undefined || v === '') { r[col] = null; continue; }
+    const n = Number(v);
+    if (Number.isFinite(n)) r[col] = n;
+    else { r[col] = null; failed++; }
+  }
+  return failed;
+}
+
+/**
+ * @param {'drop'|'mean'|'median'|'value'} mode
+ * @param {*} [fillValue] - used when mode === 'value'
+ * @returns {number} rows dropped or values filled
+ */
+function handleMissing(ds, col, mode, fillValue) {
+  const isMissing = v => v === null || v === undefined || v === '' ||
+                         (typeof v === 'number' && !Number.isFinite(v));
+  if (mode === 'drop') {
+    const before = ds.rows.length;
+    ds.rows = ds.rows.filter(r => !isMissing(r[col]));
+    return before - ds.rows.length;
+  }
+  let fill;
+  if (mode === 'value') fill = fillValue;
+  else {
+    const stats = summaryStats(ds.rows, col);
+    if (!stats) return 0;
+    fill = mode === 'mean' ? stats.mean : stats.median;
+  }
+  let filled = 0;
+  for (const r of ds.rows) {
+    if (isMissing(r[col])) { r[col] = fill; filled++; }
+  }
+  return filled;
+}
+
+
+// distributions.js — distribution fitting and density estimation
+// (split from stats.js at the Phase 11 exit refactor review — verbatim move.
+// The Data Scientist owns correctness; references per STANDARDS §20.)
 
 // ── Normal distribution fit ───────────────────────────────────────────────
 // Maximum-likelihood-style fit using the sample mean and SAMPLE std (n−1).
@@ -3111,96 +3207,6 @@ function kdeBinned(vals, lo, hi, binWidth) {
     xs.push(gx); ys.push(acc * norm);
   }
   return { xs, ys };
-}
-
-// ── Cleaning operations ───────────────────────────────────────────────────
-// All operations mutate the dataset in place; CALLERS must bump the dataset
-// revision and re-validate series afterwards (the Data Tools modal does).
-
-/**
- * Rename a column. Row keys are rewritten; series references are the
- * caller's responsibility (renameColumnRefs).
- * @returns {boolean} false if the new name collides
- */
-function renameColumn(ds, oldName, newName) {
-  if (!newName || ds.headers.includes(newName)) return false;
-  ds.headers = ds.headers.map(h => h === oldName ? newName : h);
-  for (const r of ds.rows) { r[newName] = r[oldName]; delete r[oldName]; }
-  if (ds.dateFormats?.[oldName]) {
-    ds.dateFormats[newName] = ds.dateFormats[oldName];
-    delete ds.dateFormats[oldName];
-  }
-  return true;
-}
-
-// Follow a rename through every series referencing the dataset's column —
-// without this, renaming breaks plots that were built on the old name.
-function renameColumnRefs(seriesList, dsId, oldName, newName) {
-  let touched = 0;
-  for (const s of seriesList) {
-    const own  = s.datasetId === dsId;
-    const join = s.joinDatasetId === dsId;
-    if (!own && !join) continue;
-    let hit = false;
-    if (own) {
-      for (const k of ['xCol', 'colorCol', 'zCol']) {
-        if (s[k] === oldName) { s[k] = newName; hit = true; }
-      }
-      if (s.chartType !== 'parity' && s.yCol === oldName) { s.yCol = newName; hit = true; }
-      (s.filters || []).forEach(f => { if (f.col === oldName) { f.col = newName; hit = true; } });
-    }
-    if (join && s.chartType === 'parity' && s.yCol === oldName) { s.yCol = newName; hit = true; }
-    if (s.joinKey === oldName && (own || join)) { s.joinKey = newName; hit = true; }
-    if (hit) touched++;
-  }
-  return touched;
-}
-
-// Drop = remove from headers only; row values stay (cheap at 1M rows) but
-// are invisible to pickers and excluded from CSV export (unparse uses the
-// header list as its column set).
-function dropColumn(ds, col) {
-  ds.headers = ds.headers.filter(h => h !== col);
-}
-
-/** @returns {number} count of values that could not be parsed (set to null) */
-function castNumeric(ds, col) {
-  let failed = 0;
-  for (const r of ds.rows) {
-    const v = r[col];
-    if (v === null || v === undefined || v === '') { r[col] = null; continue; }
-    const n = Number(v);
-    if (Number.isFinite(n)) r[col] = n;
-    else { r[col] = null; failed++; }
-  }
-  return failed;
-}
-
-/**
- * @param {'drop'|'mean'|'median'|'value'} mode
- * @param {*} [fillValue] - used when mode === 'value'
- * @returns {number} rows dropped or values filled
- */
-function handleMissing(ds, col, mode, fillValue) {
-  const isMissing = v => v === null || v === undefined || v === '' ||
-                         (typeof v === 'number' && !Number.isFinite(v));
-  if (mode === 'drop') {
-    const before = ds.rows.length;
-    ds.rows = ds.rows.filter(r => !isMissing(r[col]));
-    return before - ds.rows.length;
-  }
-  let fill;
-  if (mode === 'value') fill = fillValue;
-  else {
-    const stats = summaryStats(ds.rows, col);
-    if (!stats) return 0;
-    fill = mode === 'mean' ? stats.mean : stats.median;
-  }
-  let filled = 0;
-  for (const r of ds.rows) {
-    if (isMissing(r[col])) { r[col] = fill; filled++; }
-  }
-  return filled;
 }
 
 

@@ -62,6 +62,7 @@ const appJs = [
   'src/js/export.js',
   'src/js/sessions.js',
   'src/js/stats.js',
+  'src/js/distributions.js',
   'src/js/datatools.js',
   'src/js/saves.js',
   'src/js/wiring.js',

@@ -26,10 +26,14 @@ Maintainer: Kalki Sharma <kalkijsharma@gmail.com>
 - **Chart types:** scatter, line, bar (explicit aggregation — count, sum,
   mean, median), parity (model-vs-observed with NSE/MAE/RMSE stats and
   error bands), contour (pre-gridded data), histogram (Freedman-Diaconis
-  auto-binning), box plot (Tukey whiskers)
-- **Analysis on the plot:** linear trendlines with R², error bars from a
-  ± column or computed SD/SEM (always labeled with what they represent),
-  per-plot log axes
+  auto-binning), box plot (Tukey whiskers), violin
+- **Analysis on the plot:** distribution fits on histograms (normal,
+  lognormal, Weibull MLE) with KDE overlay; linear trendlines with R² —
+  overall or one fit per color group; error bars from a ± column or
+  computed SD/SEM (always labeled with what they represent); per-plot
+  log axes
+- **Subplot figures:** any plot becomes an r × c grid of subplots with
+  optional shared axes — one canvas, one exported image
 - **Filters:** per-series predicates with AND/OR logic, comparisons, numeric
   ranges, and categorical sets
 - **Datetime axes:** ISO 8601, MM/DD/YYYY, DD/MM/YYYY — ambiguous formats
