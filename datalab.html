@@ -1524,6 +1524,7 @@ function saveModalSeries() {
     errMode:   document.getElementById('mBarErr')?.value || null,           // bar only (sd|sem)
     errCol:    document.getElementById('mErrCol')?.value || null,           // scatter/line ± column
     trendline: document.getElementById('mTrend')?.checked ?? false,         // scatter only
+    trendDegree: parseInt(document.getElementById('mTrendDeg')?.value) || 1, // scatter only (Phase 13)
     trendGroups: document.getElementById('mTrendGroups')?.checked ?? false, // scatter only (Phase 11)
     colorCol:  document.getElementById('mColorCol')?.value || null,
     filters:   _modalFilters.map(f => ({ ...f })),
@@ -1645,13 +1646,18 @@ function renderDynamicFields(existing) {
         <div class="field-hint">Symmetric ± from a numeric column; the legend names the column.</div>
       </div>
       ${chartType === 'scatter' ? `
-      <div class="check-row">
+      <div class="check-row" style="align-items:center;gap:8px">
         <label><input type="checkbox" id="mTrend" ${existing?.trendline ? 'checked' : ''} />
-          Linear trendline (least squares; legend shows equation and R²)</label>
+          Trendline (least squares; legend shows equation and R²)</label>
+        <select id="mTrendDeg" aria-label="Trendline degree" ${existing?.trendline ? '' : 'disabled'}>
+          <option value="1" ${(existing?.trendDegree ?? 1) === 1 ? 'selected' : ''}>linear</option>
+          <option value="2" ${existing?.trendDegree === 2 ? 'selected' : ''}>quadratic</option>
+          <option value="3" ${existing?.trendDegree === 3 ? 'selected' : ''}>cubic</option>
+        </select>
       </div>
       <div class="check-row">
         <label><input type="checkbox" id="mTrendGroups" ${existing?.trendGroups ? 'checked' : ''} />
-          One fit per color group <span class="field-hint" style="margin:0">(needs a categorical Color-by; max 10 groups)</span></label>
+          One fit per color group <span class="field-hint" style="margin:0">(needs a categorical Color-by; max 10 groups; always linear)</span></label>
       </div>` : ''}`;
   } else if (chartType === 'bar') {
     const agg = existing?.agg || 'none';
@@ -1819,6 +1825,14 @@ function renderDynamicFields(existing) {
 
   // innerHTML: all column names escaped via colOptions()/escHtml(); dataset/series names escaped via escHtml()
   container.innerHTML = html;
+
+  // Scatter: the degree select only means something with the trendline on
+  const mTrend = document.getElementById('mTrend');
+  if (mTrend) {
+    mTrend.addEventListener('change', () => {
+      document.getElementById('mTrendDeg').disabled = !mTrend.checked;
+    });
+  }
 
   // Bar: aggregation drives which dependent fields make sense — Y is
   // meaningless for count; SD/SEM only exist for mean
@@ -2051,14 +2065,15 @@ function globalStyleKey() {
     .join('|');
 }
 
-function buildSeriesResult(s) {
+function buildSeriesResult(s, ctx) {
   const key = JSON.stringify(s)
     + '|' + datasetRev(s.datasetId)
     + (s.joinDatasetId ? '|' + datasetRev(s.joinDatasetId) : '')
-    + '|' + globalStyleKey();
+    + '|' + globalStyleKey()
+    + '|x' + (ctx?.xLog ? 1 : 0); // plot context affects histogram binning (Phase 13)
   const cached = _traceCache.get(s.id);
   if (cached && cached.key === key) return cached.result;
-  const result = RENDERERS[s.chartType](s, appState.datasets);
+  const result = RENDERERS[s.chartType](s, appState.datasets, ctx);
   _traceCache.set(s.id, { key, result });
   return result;
 }
@@ -2143,7 +2158,7 @@ function renderOnePlot(plot) {
       continue;
     }
 
-    const result = buildSeriesResult(s);
+    const result = buildSeriesResult(s, { xLog: !!plot.plotConfig.xLog });
     if (result.error) { errors.push({ name: label, error: result.error }); continue; }
     if (result.warning) warnings.push({ name: label, warning: result.warning });
 
@@ -2224,10 +2239,9 @@ function renderOnePlot(plot) {
   // Log-axis interactions (Phase 9, Data Scientist rulings)
   const cfg = plot.plotConfig;
   if (cfg.xLog || cfg.yLog) {
-    if (cfg.xLog && plotSeries(plot).some(s => s.chartType === 'histogram' && s.enabled !== false)) {
-      warnings.push({ name: 'Log X', warning:
-        'Histograms bin in linear space — Log X is ignored for this plot (Log Y works).' });
-    }
+    // (Phase 13: the histogram Log-X suppression is gone — histograms now
+    // bin in log space via ctx.xLog; the renderer warns about non-positive
+    // values itself.)
     // Plotly silently drops non-positive values on a log axis — surface it
     let nx = 0, ny = 0;
     for (const t of traces) {
@@ -2427,11 +2441,10 @@ function buildBaseLayout(plot) {
   const frameWidth = iv('frameWidth', 1);
   const gridWidth  = iv('gridWidth', 1);
 
-  // Log scales (Phase 9). Histograms keep a linear X — bins are computed in
-  // linear space (log-space binning deferred with the distributions work);
-  // renderOnePlot emits the user-facing warning for that case.
-  const hasHist = plotSeries(plot).some(s => s.chartType === 'histogram' && s.enabled !== false);
-  const xLog = (cfg.xLog ?? false) && !hasHist;
+  // Log scales (Phase 9). Histograms bin in log space when Log X is on
+  // (Phase 13 — the documented deferral is complete; the renderer receives
+  // ctx.xLog and emits log-unit xbins).
+  const xLog = cfg.xLog ?? false;
   const yLog = cfg.yLog ?? false;
 
   // Manual axis ranges live in the plot's config ('' = auto). Users enter
@@ -2962,6 +2975,59 @@ function linearFit(xs, ys) {
   return { a, b, r2, n };
 }
 
+// ── Polynomial least squares (Phase 13, trendline degrees 2–3) ───────────
+// Normal equations XᵀXβ = Xᵀy solved by Gaussian elimination with partial
+// pivoting (matrix is at most 4×4 for cubic). R² = 1 − SSres/SStot.
+// Tests use exact-recovery references (fitting degree-d data returns its
+// coefficients — hand-derivable) plus the defining normal-equation
+// property: residuals are orthogonal to every design column (§20).
+/**
+ * @param {number[]} xs
+ * @param {number[]} ys  - same length, finite pairs only
+ * @param {number}   deg - 1..3
+ * @returns {{ coef: number[], r2: number, n: number }|null} coef[k] · xᵏ
+ */
+function polyFit(xs, ys, deg) {
+  const n = xs.length, m = deg + 1;
+  if (n < m || deg < 1 || deg > 3) return null;
+  // Power sums Σxᵏ (k ≤ 2·deg) and moment sums Σy·xᵏ
+  const sx = new Array(2 * deg + 1).fill(0);
+  const sy = new Array(m).fill(0);
+  for (let i = 0; i < n; i++) {
+    let p = 1;
+    for (let k = 0; k <= 2 * deg; k++) { sx[k] += p; if (k < m) sy[k] += ys[i] * p; p *= xs[i]; }
+  }
+  // Augmented system, partial-pivot elimination
+  const A = [];
+  for (let r = 0; r < m; r++) {
+    A.push([]);
+    for (let c = 0; c < m; c++) A[r][c] = sx[r + c];
+    A[r][m] = sy[r];
+  }
+  for (let col = 0; col < m; col++) {
+    let piv = col;
+    for (let r = col + 1; r < m; r++) if (Math.abs(A[r][col]) > Math.abs(A[piv][col])) piv = r;
+    if (Math.abs(A[piv][col]) < 1e-12) return null; // singular — degenerate x
+    [A[col], A[piv]] = [A[piv], A[col]];
+    for (let r = 0; r < m; r++) {
+      if (r === col) continue;
+      const fac = A[r][col] / A[col][col];
+      for (let c = col; c <= m; c++) A[r][c] -= fac * A[col][c];
+    }
+  }
+  const coef = A.map((row, r) => row[m] / row[r]);
+  // R²
+  const my = ys.reduce((a, b) => a + b, 0) / n;
+  let ssr = 0, sst = 0;
+  for (let i = 0; i < n; i++) {
+    let yh = 0, p = 1;
+    for (let k = 0; k < m; k++) { yh += coef[k] * p; p *= xs[i]; }
+    ssr += (ys[i] - yh) ** 2;
+    sst += (ys[i] - my) ** 2;
+  }
+  return { coef, r2: sst === 0 ? NaN : 1 - ssr / sst, n };
+}
+
 // ── Cleaning operations ───────────────────────────────────────────────────
 // All operations mutate the dataset in place; CALLERS must bump the dataset
 // revision and re-validate series afterwards (the Data Tools modal does).
@@ -3209,6 +3275,148 @@ function kdeBinned(vals, lo, hi, binWidth) {
   return { xs, ys };
 }
 
+// ── Hypothesis tests (Phase 13) ───────────────────────────────────────────
+//
+// p-values for t and F need the regularized incomplete beta I_x(a,b).
+// Hand-written (zero dependencies, §8/§9): Lanczos log-gamma + the
+// modified-Lentz continued fraction. References in tests come from
+// PUBLISHED STATISTICAL TABLES (the §20 independent source): e.g.
+// t(0.025,10) = 2.228 ⇒ two-tailed p(2.228, df 10) = 0.05;
+// F(0.05; 3,10) = 3.708 ⇒ p = 0.05.
+//
+// Reporting rule (§20): a p-value is NEVER displayed without its effect
+// size and per-group sample sizes — the callers in compare.js comply.
+
+// Lanczos approximation, g = 7, n = 9 — standard coefficients
+const _LANCZOS = [
+  0.99999999999980993, 676.5203681218851, -1259.1392167224028,
+  771.32342877765313, -176.61502916214059, 12.507343278686905,
+  -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7,
+];
+
+function logGamma(z) {
+  if (z < 0.5) { // reflection
+    return Math.log(Math.PI / Math.sin(Math.PI * z)) - logGamma(1 - z);
+  }
+  z -= 1;
+  let x = _LANCZOS[0];
+  for (let i = 1; i < 9; i++) x += _LANCZOS[i] / (z + i);
+  const t = z + 7.5;
+  return 0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t + Math.log(x);
+}
+
+// Continued fraction for I_x(a,b) — modified Lentz
+function _betacf(x, a, b) {
+  const EPS = 3e-14, FPMIN = 1e-300;
+  const qab = a + b, qap = a + 1, qam = a - 1;
+  let c = 1, d = 1 - qab * x / qap;
+  if (Math.abs(d) < FPMIN) d = FPMIN;
+  d = 1 / d;
+  let h = d;
+  for (let m = 1; m <= 200; m++) {
+    const m2 = 2 * m;
+    let aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+    d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+    c = 1 + aa / c;  if (Math.abs(c) < FPMIN) c = FPMIN;
+    d = 1 / d; h *= d * c;
+    aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+    d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+    c = 1 + aa / c;  if (Math.abs(c) < FPMIN) c = FPMIN;
+    d = 1 / d;
+    const del = d * c;
+    h *= del;
+    if (Math.abs(del - 1) < EPS) break;
+  }
+  return h;
+}
+
+/**
+ * Regularized incomplete beta I_x(a, b).
+ * @param {number} x - 0..1
+ * @param {number} a - > 0
+ * @param {number} b - > 0
+ * @returns {number}
+ */
+function regIncBeta(x, a, b) {
+  if (!(a > 0) || !(b > 0)) return NaN;
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
+  const lbeta = logGamma(a) + logGamma(b) - logGamma(a + b);
+  const front = Math.exp(a * Math.log(x) + b * Math.log(1 - x) - lbeta);
+  // Evaluate the continued fraction on whichever side converges; the flip
+  // is NON-recursive — a recursive 1 − I_{1−x}(b,a) loops forever exactly
+  // at the symmetric boundary (x = 0.5, a = b), found by the I(0.5,2,2) test
+  if (x < (a + 1) / (a + b + 2)) return front * _betacf(x, a, b) / a;
+  return 1 - front * _betacf(1 - x, b, a) / b;
+}
+
+// Two-tailed p for Student's t: p = I_{df/(df+t²)}(df/2, 1/2)
+function pTwoTailedT(t, df) {
+  if (!Number.isFinite(t) || !(df > 0)) return NaN;
+  return regIncBeta(df / (df + t * t), df / 2, 0.5);
+}
+
+// Upper-tail p for F(d1, d2): P(F > f) = I_{d2/(d2 + d1·f)}(d2/2, d1/2)
+function pUpperF(f, d1, d2) {
+  if (!Number.isFinite(f) || f < 0 || !(d1 > 0) || !(d2 > 0)) return NaN;
+  return regIncBeta(d2 / (d2 + d1 * f), d2 / 2, d1 / 2);
+}
+
+/**
+ * Welch's t-test (unequal variances — the only variant offered, DS ruling).
+ * Cohen's d uses the CLASSICAL POOLED SD ( √(((n1−1)s1²+(n2−1)s2²)/(n1+n2−2)) )
+ * — documented choice; d_av and d_s differ only in pathological imbalance.
+ * @param {number[]} xs - finite values, group 1 (n ≥ 2)
+ * @param {number[]} ys - finite values, group 2 (n ≥ 2)
+ * @returns {{ t, df, p, d, n1, n2, m1, m2, s1, s2 }|null}
+ */
+function tTestWelch(xs, ys) {
+  const n1 = xs.length, n2 = ys.length;
+  if (n1 < 2 || n2 < 2) return null;
+  const m1 = xs.reduce((a, b) => a + b, 0) / n1;
+  const m2 = ys.reduce((a, b) => a + b, 0) / n2;
+  const v1 = xs.reduce((s, x) => s + (x - m1) ** 2, 0) / (n1 - 1);
+  const v2 = ys.reduce((s, x) => s + (x - m2) ** 2, 0) / (n2 - 1);
+  const se2 = v1 / n1 + v2 / n2;
+  if (se2 === 0) return null; // both groups constant — no test
+  const t = (m1 - m2) / Math.sqrt(se2);
+  // Welch–Satterthwaite degrees of freedom
+  const df = se2 * se2 / ((v1 / n1) ** 2 / (n1 - 1) + (v2 / n2) ** 2 / (n2 - 1));
+  const sp = Math.sqrt(((n1 - 1) * v1 + (n2 - 1) * v2) / (n1 + n2 - 2));
+  const d = sp === 0 ? NaN : (m1 - m2) / sp;
+  return { t, df, p: pTwoTailedT(t, df), d,
+           n1, n2, m1, m2, s1: Math.sqrt(v1), s2: Math.sqrt(v2) };
+}
+
+/**
+ * One-way ANOVA. η² = SSB/SST.
+ * @param {number[][]} groups - each with ≥ 2 finite values, k ≥ 2
+ * @returns {{ F, dfb, dfw, p, eta2, groups: {n, mean, sd}[] }|null}
+ */
+function anovaOneWay(groups) {
+  const k = groups.length;
+  if (k < 2 || groups.some(g => g.length < 2)) return null;
+  const ns = groups.map(g => g.length);
+  const N = ns.reduce((a, b) => a + b, 0);
+  const means = groups.map(g => g.reduce((a, b) => a + b, 0) / g.length);
+  const grand = groups.flat().reduce((a, b) => a + b, 0) / N;
+  let ssb = 0, ssw = 0;
+  for (let i = 0; i < k; i++) {
+    ssb += ns[i] * (means[i] - grand) ** 2;
+    for (const x of groups[i]) ssw += (x - means[i]) ** 2;
+  }
+  const dfb = k - 1, dfw = N - k;
+  if (ssw === 0) return null; // all groups constant — F undefined
+  const F = (ssb / dfb) / (ssw / dfw);
+  return {
+    F, dfb, dfw, p: pUpperF(F, dfb, dfw), eta2: ssb / (ssb + ssw),
+    groups: groups.map((g, i) => ({
+      n: ns[i], mean: means[i],
+      sd: Math.sqrt(g.reduce((s, x) => s + (x - means[i]) ** 2, 0) / (ns[i] - 1)),
+    })),
+  };
+}
+
 
 // expr.js — safe arithmetic expression engine for computed columns (Phase 12)
 //
@@ -3429,6 +3637,96 @@ function evalExpr(node, row) {
 }
 
 
+// compare.js — Compare groups section of the Data Tools modal (Phase 13)
+// (own module from day one — EL §6 foresight ruling: datatools.js was at
+// 263 lines when this was scoped; tests in distributions.js, UI here)
+//
+// Reporting rule (§20): the verdict line always carries effect size and
+// per-group n — a p-value never renders alone.
+
+function compareSectionHTML(ds) {
+  const numericCols = ds.headers.filter(c => classifyColumn(ds.rows, c) === 'numeric');
+  if (numericCols.length === 0) return '';
+  // escHtml applied to all column names in both pickers
+  const numOpts = numericCols.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+  const grpOpts = ds.headers.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+  return `
+    <div class="modal-section-title">Compare groups</div>
+    <div class="modal-field">
+      <label class="modal-label" for="cmpVal">Numeric column</label>
+      <select id="cmpVal">${numOpts}</select>
+    </div>
+    <div class="modal-field">
+      <label class="modal-label" for="cmpGroup">Group column</label>
+      <select id="cmpGroup">${grpOpts}</select>
+    </div>
+    <button class="btn btn-sm" id="cmpRun">Compare</button>
+    <div id="cmpResult" aria-live="polite"></div>`;
+}
+
+function wireCompareSection(ds) {
+  const btn = document.getElementById('cmpRun');
+  if (!btn) return; // dataset had no numeric columns
+  btn.addEventListener('click', () => runCompare(ds));
+}
+
+function runCompare(ds) {
+  const valCol = document.getElementById('cmpVal').value;
+  const grpCol = document.getElementById('cmpGroup').value;
+  const box = document.getElementById('cmpResult');
+  // textContent for messages; table path below escapes all user strings
+  const msg = t => { box.textContent = t; };
+
+  // Group finite values by category, preserving first-seen order
+  const byCat = new Map();
+  for (const r of ds.rows) {
+    const v = finiteOrNaN(r[valCol]);
+    if (!Number.isFinite(v)) continue;
+    const cat = String(r[grpCol] ?? '(blank)');
+    if (!byCat.has(cat)) byCat.set(cat, []);
+    byCat.get(cat).push(v);
+  }
+  const excluded = [...byCat.entries()].filter(([, v]) => v.length < 2).map(([c]) => c);
+  const usable   = [...byCat.entries()].filter(([, v]) => v.length >= 2);
+  if (usable.length < 2) { msg('Need at least 2 groups with 2+ finite values each.'); return; }
+  if (usable.length > 50) { msg(`"${grpCol}" has ${usable.length} groups — filter to fewer than 50 to compare.`); return; }
+
+  const names  = usable.map(([c]) => c);
+  const groups = usable.map(([, v]) => v);
+  const fmt  = v => Number(v).toPrecision(4);
+  const fmtP = p => p < 0.0001 ? 'p < 0.0001' : `p = ${Number(p).toPrecision(2)}`;
+
+  let verdict, rows;
+  if (groups.length === 2) {
+    const r = tTestWelch(groups[0], groups[1]);
+    if (!r) { msg('Both groups are constant — no variance to test.'); return; }
+    verdict = `Welch t = ${fmt(r.t)}, df = ${fmt(r.df)}, ${fmtP(r.p)}, Cohen's d = ${fmt(r.d)}`;
+    rows = [
+      { name: names[0], n: r.n1, mean: r.m1, sd: r.s1 },
+      { name: names[1], n: r.n2, mean: r.m2, sd: r.s2 },
+    ];
+  } else {
+    const r = anovaOneWay(groups);
+    if (!r) { msg('All groups are constant — no variance to test.'); return; }
+    verdict = `F(${r.dfb}, ${r.dfw}) = ${fmt(r.F)}, ${fmtP(r.p)}, η² = ${fmt(r.eta2)}`;
+    rows = r.groups.map((g, i) => ({ name: names[i], ...g }));
+  }
+
+  // escHtml applied to group names and the excluded list — user data;
+  // verdict numbers are computed numerics
+  box.innerHTML = `
+    <table class="stats-table" style="margin-top:8px">
+      <thead><tr><th scope="col">Group</th><th scope="col">n</th>
+        <th scope="col">mean</th><th scope="col">SD</th></tr></thead>
+      <tbody>${rows.map(g =>
+        `<tr><td>${escHtml(g.name)}</td><td>${g.n}</td><td>${fmt(g.mean)}</td><td>${fmt(g.sd)}</td></tr>`).join('')}
+      </tbody>
+    </table>
+    <div class="field-hint" style="margin-top:6px"><strong>${verdict}</strong>${
+      excluded.length ? ` — excluded (fewer than 2 values): ${excluded.map(escHtml).join(', ')}` : ''}</div>`;
+}
+
+
 // datatools.js — per-dataset Data Tools modal: summary stats, cleaning
 // operations, correlation heatmap, CSV export (Phase 5)
 
@@ -3539,7 +3837,8 @@ function renderDataToolsBody(ds) {
              placeholder="(temp - 32) * 5/9 — columns by name, \`backticks\` for spaces" />
       <div class="field-hint" id="dtNcPreview" aria-live="polite"></div>
     </div>
-    <button class="btn btn-sm" id="dtNcAdd" disabled>Add column</button>`;
+    <button class="btn btn-sm" id="dtNcAdd" disabled>Add column</button>
+    ${compareSectionHTML(ds)}`;
 
   // Wire cleaning ops
   const col = () => document.getElementById('dtCol').value;
@@ -3611,6 +3910,7 @@ function renderDataToolsBody(ds) {
     afterCleaningOp(ds, `Added "${name}" = ${ncExpr.value} — materialized; later source edits do not recompute.`);
   });
 
+  wireCompareSection(ds); // Compare groups lives in compare.js (Phase 13)
   renderDTPreview(ds); // preview reflects the dataset as it currently stands
 }
 
@@ -4121,10 +4421,14 @@ document.addEventListener('DOMContentLoaded', init);
 //
 // Every renderer exports a function with this signature:
 //
-//   buildTrace(series, datasets) → { traces: Plotly.Data[], error: string | null, warning?: string | null }
+//   buildTrace(series, datasets, ctx?) → { traces: Plotly.Data[], error: string | null, warning?: string | null }
 //
 //   series   — one entry from appState.series
 //   datasets — the full appState.datasets array
+//   ctx      — OPTIONAL plot-level context (Phase 13 amendment per §7,
+//              Data Viz authored, EL approved): currently { xLog: boolean }.
+//              Only renderers whose OUTPUT depends on plot state read it
+//              (histogram log-space binning); the trace cache keys on it.
 //   traces   — array of Plotly trace objects (may be empty if error is set)
 //   error    — human-readable message if the series cannot render, else null
 //   warning  — optional non-blocking message (rendering proceeds); same
@@ -4373,11 +4677,18 @@ function buildScatterTrace(series, datasets) {
     return fit;
   };
 
+  // Degree (Phase 13): linear default; 2–3 fit via polyFit. Per-group fits
+  // stay linear regardless (overfitting per tiny group — DS ruling).
+  const degree = Math.min(3, Math.max(1, series.trendDegree || 1));
+
   if (series.trendline) {
     if (isDatetime) {
       warning = 'Trendline needs a numeric X — not drawn for datetime axes.';
     } else {
       let perGroup = false;
+      if (series.trendGroups && degree > 1) {
+        warning = 'Per-group fits are linear — the degree setting applies to the single overall fit only.';
+      }
       if (series.trendGroups) {
         if (!series.colorCol) {
           warning = 'Per-group fits need a Color-by column — drew one overall fit.';
@@ -4413,14 +4724,47 @@ function buildScatterTrace(series, datasets) {
         for (let i = 0; i < xV.length; i++) {
           if (Number.isFinite(xV[i]) && Number.isFinite(yV[i])) { fx.push(xV[i]); fy.push(yV[i]); }
         }
-        const fit = fitLine(fx, fy, 'Fit', '#d55e00');
-        if (!fit) {
-          warning = 'Trendline needs at least 2 points with varying X.';
+        if (degree === 1) {
+          const fit = fitLine(fx, fy, 'Fit', '#d55e00');
+          if (!fit) {
+            warning = 'Trendline needs at least 2 points with varying X.';
+          } else {
+            fitAnnot = {
+              // Series name is user data — escHtml applied at the sr-only sink
+              sr: `${series.name} linear fit: slope=${f(fit.a)}, intercept=${f(fit.b)}, R2=${f(fit.r2)}, n=${fit.n}`,
+            };
+          }
         } else {
-          fitAnnot = {
-            // Series name is user data — escHtml applied at the sr-only sink
-            sr: `${series.name} linear fit: slope=${f(fit.a)}, intercept=${f(fit.b)}, R2=${f(fit.r2)}, n=${fit.n}`,
-          };
+          const fit = polyFit(fx, fy, degree);
+          if (!fit) {
+            warning = `A degree-${degree} fit needs at least ${degree + 1} points with varying X.`;
+          } else {
+            const lo = Math.min(...fx), hi = Math.max(...fx);
+            const cx = [], cy = [];
+            for (let i = 0; i <= 200; i++) {
+              const x = lo + (hi - lo) * i / 200;
+              let yh = 0, p = 1;
+              for (let k = 0; k <= degree; k++) { yh += fit.coef[k] * p; p *= x; }
+              cx.push(x); cy.push(yh);
+            }
+            // Equation rendered highest power first
+            const terms = [];
+            for (let k = degree; k >= 0; k--) {
+              const c = fit.coef[k];
+              const mag = f(Math.abs(c));
+              const xs2 = k === 0 ? '' : k === 1 ? 'x' : `x${k === 2 ? '²' : '³'}`;
+              terms.push(`${terms.length === 0 ? (c < 0 ? '−' : '') : (c < 0 ? '− ' : '+ ')}${mag}${xs2}`);
+            }
+            traces.push({
+              type: 'scatter', mode: 'lines', x: cx, y: cy,
+              name: `Fit (deg ${degree}): y = ${terms.join(' ')} (R² = ${f(fit.r2)})`,
+              line: { color: '#d55e00', width: 2, dash: 'dash' },
+              hoverinfo: 'skip',
+            });
+            fitAnnot = {
+              sr: `${series.name} degree-${degree} fit: coefficients high-to-low ${[...fit.coef].reverse().map(f).join(', ')}, R2=${f(fit.r2)}, n=${fit.n}`,
+            };
+          }
         }
       }
     }
@@ -4871,9 +5215,10 @@ function fdBinCount(vals) {
 /**
  * @param {object}   series
  * @param {object[]} datasets
+ * @param {object}   [ctx] - { xLog } plot context (contract amendment, §7)
  * @returns {{ traces: object[], error: string|null }}
  */
-function buildHistogramTrace(series, datasets) {
+function buildHistogramTrace(series, datasets, ctx) {
   const ds = datasets.find(d => d.id === series.datasetId);
   if (!ds) return { traces: [], error: 'Dataset not found.' };
 
@@ -4888,18 +5233,30 @@ function buildHistogramTrace(series, datasets) {
   const xV = colVals(rows, series.xCol).filter(Number.isFinite);
   if (!xV.length) return { traces: [], error: `No finite numeric values in "${series.xCol}".` };
 
+  // Log-space binning (Phase 13 — completes the Phase 9 deferral): when the
+  // owning plot has Log X, FD runs on log10 values and the xbins are emitted
+  // in LOG UNITS (what Plotly expects on a log axis) — equal bins in log
+  // space, exponential edges in data space. dataVals stays in data space
+  // for the fit estimators.
+  const logX = !!(ctx && ctx.xLog);
+  const dataVals = logX ? xV.filter(v => v > 0) : xV;
+  if (logX && !dataVals.length) {
+    return { traces: [], error: `Log X histogram needs positive values — none in "${series.xCol}".` };
+  }
+  const binVals = logX ? dataVals.map(Math.log10) : xV; // binning space
+
   const bins = (series.binCount && series.binCount > 0)
     ? Math.min(500, series.binCount)
-    : fdBinCount(xV);
+    : fdBinCount(binVals);
 
-  // Loop, not Math.min(...xV) — spread overflows the stack on huge columns
+  // Loop, not Math.min(...) — spread overflows the stack on huge columns
   let lo = Infinity, hi = -Infinity;
-  for (const v of xV) { if (v < lo) lo = v; if (v > hi) hi = v; }
-  const binWidth = (hi - lo) / bins;
+  for (const v of binVals) { if (v < lo) lo = v; if (v > hi) hi = v; }
+  const binWidth = (hi - lo) / bins; // in binning space (log10 units when logX)
 
   const traces = [{
     type: 'histogram',
-    x: xV,
+    x: dataVals,
     nbinsx: bins, // requested count, kept for reference — xbins below is authoritative
     name: series.name || 'Histogram',
     marker: { color: series.style?.color ?? (ds.color ?? '#5b8dee') },
@@ -4910,10 +5267,15 @@ function buildHistogramTrace(series, datasets) {
 
   // Explicit bin edges (Phase 8 fix): nbinsx is only a hint — Plotly snaps
   // to "nice" boundaries, so the actual bin width could differ from the FD
-  // width the normal-fit overlay scales by, mis-scaling the curve
+  // width the fit overlays scale by, mis-scaling the curves
   if (binWidth > 0) {
     traces[0].autobinx = false;
     traces[0].xbins = { start: lo, end: hi + binWidth / 1e6, size: binWidth };
+  }
+
+  let warning = null;
+  if (logX && dataVals.length < xV.length) {
+    warning = `${xV.length - dataVals.length} non-positive value(s) excluded from the log-binned histogram.`;
   }
 
   // Distribution fit overlay (Phase 5 normal; Phase 11 picker). The pdf is
@@ -4924,14 +5286,18 @@ function buildHistogramTrace(series, datasets) {
   // Back-compat: fitNormal (Phase 5 boolean) reads as fitDist 'normal'.
   const fitDist = series.fitDist ?? (series.fitNormal ? 'normal' : null);
   let fitAnnot = null;
-  let warning  = null;
   const f = v => Number(v).toPrecision(4);
+  // Curve sampling follows the binning space: linear bins sample linearly;
+  // log bins sample geometrically and scale by the LOCAL bin width
+  // x·ln10·size10 — expected count in the bin containing x (Phase 13)
   const curve = (pdf, count, name) => {
     const cx = [], cy = [];
     for (let i = 0; i <= 200; i++) {
-      const x = lo + (hi - lo) * i / 200;
+      const u = lo + (hi - lo) * i / 200;       // binning space
+      const x = logX ? Math.pow(10, u) : u;     // data space
+      const localW = logX ? x * Math.LN10 * binWidth : binWidth;
       cx.push(x);
-      cy.push(pdf(x) * count * binWidth);
+      cy.push(pdf(x) * count * localW);
     }
     traces.push({
       type: 'scatter', mode: 'lines', x: cx, y: cy, name,
@@ -4940,42 +5306,45 @@ function buildHistogramTrace(series, datasets) {
   };
 
   if (fitDist && binWidth > 0) {
-    const nonPos = xV.filter(v => v <= 0).length;
+    // Estimators run in DATA space (dataVals is already positive-only when
+    // logX; otherwise lognormal/Weibull do their own positive filtering)
+    const nonPos = dataVals.filter(v => v <= 0).length;
     if (fitDist === 'normal') {
-      const fit = fitNormal(xV);
+      const fit = fitNormal(dataVals);
       if (fit && fit.sigma > 0) {
         curve(x => normalPdf(x, fit.mu, fit.sigma), fit.n, `Normal fit (μ=${f(fit.mu)}, σ=${f(fit.sigma)})`);
         fitAnnot = { sr: `${series.name} normal fit: mu=${f(fit.mu)}, sigma=${f(fit.sigma)}, n=${fit.n}` };
       }
-    } else if (nonPos === xV.length) {
+    } else if (nonPos === dataVals.length) {
       warning = `${fitDist} fits need positive data — no positive values in "${series.xCol}".`;
     } else if (fitDist === 'lognormal') {
-      const fit = fitLognormal(xV);
+      const fit = fitLognormal(dataVals);
       if (fit) {
         curve(x => lognormalPdf(x, fit.mu, fit.sigma), fit.n, `Lognormal fit (μ=${f(fit.mu)}, σ=${f(fit.sigma)})`);
         fitAnnot = { sr: `${series.name} lognormal fit: mu=${f(fit.mu)}, sigma=${f(fit.sigma)}, n=${fit.n}` };
       }
-      if (nonPos) warning = `Lognormal fit uses the ${xV.length - nonPos} positive value(s) — ${nonPos} non-positive excluded.`;
+      if (nonPos) warning = `Lognormal fit uses the ${dataVals.length - nonPos} positive value(s) — ${nonPos} non-positive excluded.`;
     } else if (fitDist === 'weibull') {
-      const fit = fitWeibull(xV);
+      const fit = fitWeibull(dataVals);
       if (fit) {
         curve(x => weibullPdf(x, fit.k, fit.lambda), fit.n, `Weibull fit (k=${f(fit.k)}, λ=${f(fit.lambda)})`);
         fitAnnot = { sr: `${series.name} Weibull fit: k=${f(fit.k)}, lambda=${f(fit.lambda)}, n=${fit.n}` };
       } else {
         warning = 'Weibull fit did not converge for this data.';
       }
-      if (fit && nonPos) warning = `Weibull fit uses the ${xV.length - nonPos} positive value(s) — ${nonPos} non-positive excluded.`;
+      if (fit && nonPos) warning = `Weibull fit uses the ${dataVals.length - nonPos} positive value(s) — ${nonPos} non-positive excluded.`;
     }
   }
 
-  // KDE overlay (Phase 11): binned Gaussian KDE, Silverman bandwidth —
-  // density scaled to the count axis like the fits
+  // KDE overlay (Phase 11; log-aware Phase 13): KDE runs in BINNING space —
+  // on log bins that is a log10-domain density, mapped back geometrically
   if (series.kde && binWidth > 0) {
-    const kde = kdeBinned(xV, lo, hi, binWidth);
+    const kde = kdeBinned(binVals, lo, hi, binWidth);
     if (kde) {
       traces.push({
         type: 'scatter', mode: 'lines',
-        x: kde.xs, y: kde.ys.map(d => d * xV.length * binWidth),
+        x: logX ? kde.xs.map(u => Math.pow(10, u)) : kde.xs,
+        y: kde.ys.map(d => d * binVals.length * binWidth),
         name: 'KDE (Silverman)',
         line: { color: '#999999', width: 2, dash: 'dot' },
         hoverinfo: 'skip',

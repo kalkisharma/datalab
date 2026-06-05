@@ -223,6 +223,7 @@ function saveModalSeries() {
     errMode:   document.getElementById('mBarErr')?.value || null,           // bar only (sd|sem)
     errCol:    document.getElementById('mErrCol')?.value || null,           // scatter/line ± column
     trendline: document.getElementById('mTrend')?.checked ?? false,         // scatter only
+    trendDegree: parseInt(document.getElementById('mTrendDeg')?.value) || 1, // scatter only (Phase 13)
     trendGroups: document.getElementById('mTrendGroups')?.checked ?? false, // scatter only (Phase 11)
     colorCol:  document.getElementById('mColorCol')?.value || null,
     filters:   _modalFilters.map(f => ({ ...f })),

@@ -4,10 +4,14 @@
 //
 // Every renderer exports a function with this signature:
 //
-//   buildTrace(series, datasets) → { traces: Plotly.Data[], error: string | null, warning?: string | null }
+//   buildTrace(series, datasets, ctx?) → { traces: Plotly.Data[], error: string | null, warning?: string | null }
 //
 //   series   — one entry from appState.series
 //   datasets — the full appState.datasets array
+//   ctx      — OPTIONAL plot-level context (Phase 13 amendment per §7,
+//              Data Viz authored, EL approved): currently { xLog: boolean }.
+//              Only renderers whose OUTPUT depends on plot state read it
+//              (histogram log-space binning); the trace cache keys on it.
 //   traces   — array of Plotly trace objects (may be empty if error is set)
 //   error    — human-readable message if the series cannot render, else null
 //   warning  — optional non-blocking message (rendering proceeds); same

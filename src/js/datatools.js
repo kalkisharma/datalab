@@ -108,7 +108,8 @@ function renderDataToolsBody(ds) {
              placeholder="(temp - 32) * 5/9 — columns by name, \`backticks\` for spaces" />
       <div class="field-hint" id="dtNcPreview" aria-live="polite"></div>
     </div>
-    <button class="btn btn-sm" id="dtNcAdd" disabled>Add column</button>`;
+    <button class="btn btn-sm" id="dtNcAdd" disabled>Add column</button>
+    ${compareSectionHTML(ds)}`;
 
   // Wire cleaning ops
   const col = () => document.getElementById('dtCol').value;
@@ -180,6 +181,7 @@ function renderDataToolsBody(ds) {
     afterCleaningOp(ds, `Added "${name}" = ${ncExpr.value} — materialized; later source edits do not recompute.`);
   });
 
+  wireCompareSection(ds); // Compare groups lives in compare.js (Phase 13)
   renderDTPreview(ds); // preview reflects the dataset as it currently stands
 }
 

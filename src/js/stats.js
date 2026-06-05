@@ -122,6 +122,59 @@ function linearFit(xs, ys) {
   return { a, b, r2, n };
 }
 
+// ── Polynomial least squares (Phase 13, trendline degrees 2–3) ───────────
+// Normal equations XᵀXβ = Xᵀy solved by Gaussian elimination with partial
+// pivoting (matrix is at most 4×4 for cubic). R² = 1 − SSres/SStot.
+// Tests use exact-recovery references (fitting degree-d data returns its
+// coefficients — hand-derivable) plus the defining normal-equation
+// property: residuals are orthogonal to every design column (§20).
+/**
+ * @param {number[]} xs
+ * @param {number[]} ys  - same length, finite pairs only
+ * @param {number}   deg - 1..3
+ * @returns {{ coef: number[], r2: number, n: number }|null} coef[k] · xᵏ
+ */
+function polyFit(xs, ys, deg) {
+  const n = xs.length, m = deg + 1;
+  if (n < m || deg < 1 || deg > 3) return null;
+  // Power sums Σxᵏ (k ≤ 2·deg) and moment sums Σy·xᵏ
+  const sx = new Array(2 * deg + 1).fill(0);
+  const sy = new Array(m).fill(0);
+  for (let i = 0; i < n; i++) {
+    let p = 1;
+    for (let k = 0; k <= 2 * deg; k++) { sx[k] += p; if (k < m) sy[k] += ys[i] * p; p *= xs[i]; }
+  }
+  // Augmented system, partial-pivot elimination
+  const A = [];
+  for (let r = 0; r < m; r++) {
+    A.push([]);
+    for (let c = 0; c < m; c++) A[r][c] = sx[r + c];
+    A[r][m] = sy[r];
+  }
+  for (let col = 0; col < m; col++) {
+    let piv = col;
+    for (let r = col + 1; r < m; r++) if (Math.abs(A[r][col]) > Math.abs(A[piv][col])) piv = r;
+    if (Math.abs(A[piv][col]) < 1e-12) return null; // singular — degenerate x
+    [A[col], A[piv]] = [A[piv], A[col]];
+    for (let r = 0; r < m; r++) {
+      if (r === col) continue;
+      const fac = A[r][col] / A[col][col];
+      for (let c = col; c <= m; c++) A[r][c] -= fac * A[col][c];
+    }
+  }
+  const coef = A.map((row, r) => row[m] / row[r]);
+  // R²
+  const my = ys.reduce((a, b) => a + b, 0) / n;
+  let ssr = 0, sst = 0;
+  for (let i = 0; i < n; i++) {
+    let yh = 0, p = 1;
+    for (let k = 0; k < m; k++) { yh += coef[k] * p; p *= xs[i]; }
+    ssr += (ys[i] - yh) ** 2;
+    sst += (ys[i] - my) ** 2;
+  }
+  return { coef, r2: sst === 0 ? NaN : 1 - ssr / sst, n };
+}
+
 // ── Cleaning operations ───────────────────────────────────────────────────
 // All operations mutate the dataset in place; CALLERS must bump the dataset
 // revision and re-validate series afterwards (the Data Tools modal does).

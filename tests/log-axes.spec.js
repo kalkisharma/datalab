@@ -87,7 +87,9 @@ test('non-positive values on a log axis produce a warning with the count', async
   expect(warn).toContain('2 non-positive');
 });
 
-test('histogram ignores Log X with a warning; Log Y applies', async ({ page }) => {
+test('histogram honors Log X with log-space bins; Log Y applies', async ({ page }) => {
+  // Phase 13 completed the Phase 9 deferral (§3 documented-deferral
+  // carve-out): this test previously asserted the warn-and-ignore behavior
   await page.goto(FILE_URL);
   await loadCSV(page, 'v\n1\n2\n2\n3\n3\n3\n8\n9', '_log_hist.csv');
   await page.click('#addSeriesBtn');
@@ -103,11 +105,15 @@ test('histogram ignores Log X with a warning; Log Y applies', async ({ page }) =
   const out = await page.evaluate(() => ({
     xType: activePlotDiv()._fullLayout.xaxis.type,
     yType: activePlotDiv()._fullLayout.yaxis.type,
+    xbins: activePlotDiv().data[0].xbins,
     warn: document.querySelector('.panel-errors')?.textContent ?? '',
   }));
-  expect(out.xType).not.toBe('log'); // linear bins
+  expect(out.xType).toBe('log');             // honored (Phase 13)
   expect(out.yType).toBe('log');
-  expect(out.warn).toContain('Log X is ignored');
+  // log10 units: data 1..9 → bins start at log10(1) = 0, end ≈ log10(9)
+  expect(out.xbins.start).toBeCloseTo(0, 6);
+  expect(out.xbins.size).toBeLessThan(1);
+  expect(out.warn).not.toContain('ignored'); // old warning retired
 });
 
 test('parity falls back to linear unless log-log with positive data', async ({ page }) => {

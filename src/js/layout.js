@@ -73,11 +73,10 @@ function buildBaseLayout(plot) {
   const frameWidth = iv('frameWidth', 1);
   const gridWidth  = iv('gridWidth', 1);
 
-  // Log scales (Phase 9). Histograms keep a linear X — bins are computed in
-  // linear space (log-space binning deferred with the distributions work);
-  // renderOnePlot emits the user-facing warning for that case.
-  const hasHist = plotSeries(plot).some(s => s.chartType === 'histogram' && s.enabled !== false);
-  const xLog = (cfg.xLog ?? false) && !hasHist;
+  // Log scales (Phase 9). Histograms bin in log space when Log X is on
+  // (Phase 13 — the documented deferral is complete; the renderer receives
+  // ctx.xLog and emits log-unit xbins).
+  const xLog = cfg.xLog ?? false;
   const yLog = cfg.yLog ?? false;
 
   // Manual axis ranges live in the plot's config ('' = auto). Users enter

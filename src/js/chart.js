@@ -27,14 +27,15 @@ function globalStyleKey() {
     .join('|');
 }
 
-function buildSeriesResult(s) {
+function buildSeriesResult(s, ctx) {
   const key = JSON.stringify(s)
     + '|' + datasetRev(s.datasetId)
     + (s.joinDatasetId ? '|' + datasetRev(s.joinDatasetId) : '')
-    + '|' + globalStyleKey();
+    + '|' + globalStyleKey()
+    + '|x' + (ctx?.xLog ? 1 : 0); // plot context affects histogram binning (Phase 13)
   const cached = _traceCache.get(s.id);
   if (cached && cached.key === key) return cached.result;
-  const result = RENDERERS[s.chartType](s, appState.datasets);
+  const result = RENDERERS[s.chartType](s, appState.datasets, ctx);
   _traceCache.set(s.id, { key, result });
   return result;
 }
@@ -119,7 +120,7 @@ function renderOnePlot(plot) {
       continue;
     }
 
-    const result = buildSeriesResult(s);
+    const result = buildSeriesResult(s, { xLog: !!plot.plotConfig.xLog });
     if (result.error) { errors.push({ name: label, error: result.error }); continue; }
     if (result.warning) warnings.push({ name: label, warning: result.warning });
 
@@ -200,10 +201,9 @@ function renderOnePlot(plot) {
   // Log-axis interactions (Phase 9, Data Scientist rulings)
   const cfg = plot.plotConfig;
   if (cfg.xLog || cfg.yLog) {
-    if (cfg.xLog && plotSeries(plot).some(s => s.chartType === 'histogram' && s.enabled !== false)) {
-      warnings.push({ name: 'Log X', warning:
-        'Histograms bin in linear space — Log X is ignored for this plot (Log Y works).' });
-    }
+    // (Phase 13: the histogram Log-X suppression is gone — histograms now
+    // bin in log space via ctx.xLog; the renderer warns about non-positive
+    // values itself.)
     // Plotly silently drops non-positive values on a log axis — surface it
     let nx = 0, ny = 0;
     for (const t of traces) {

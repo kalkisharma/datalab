@@ -48,13 +48,18 @@ function renderDynamicFields(existing) {
         <div class="field-hint">Symmetric ± from a numeric column; the legend names the column.</div>
       </div>
       ${chartType === 'scatter' ? `
-      <div class="check-row">
+      <div class="check-row" style="align-items:center;gap:8px">
         <label><input type="checkbox" id="mTrend" ${existing?.trendline ? 'checked' : ''} />
-          Linear trendline (least squares; legend shows equation and R²)</label>
+          Trendline (least squares; legend shows equation and R²)</label>
+        <select id="mTrendDeg" aria-label="Trendline degree" ${existing?.trendline ? '' : 'disabled'}>
+          <option value="1" ${(existing?.trendDegree ?? 1) === 1 ? 'selected' : ''}>linear</option>
+          <option value="2" ${existing?.trendDegree === 2 ? 'selected' : ''}>quadratic</option>
+          <option value="3" ${existing?.trendDegree === 3 ? 'selected' : ''}>cubic</option>
+        </select>
       </div>
       <div class="check-row">
         <label><input type="checkbox" id="mTrendGroups" ${existing?.trendGroups ? 'checked' : ''} />
-          One fit per color group <span class="field-hint" style="margin:0">(needs a categorical Color-by; max 10 groups)</span></label>
+          One fit per color group <span class="field-hint" style="margin:0">(needs a categorical Color-by; max 10 groups; always linear)</span></label>
       </div>` : ''}`;
   } else if (chartType === 'bar') {
     const agg = existing?.agg || 'none';
@@ -222,6 +227,14 @@ function renderDynamicFields(existing) {
 
   // innerHTML: all column names escaped via colOptions()/escHtml(); dataset/series names escaped via escHtml()
   container.innerHTML = html;
+
+  // Scatter: the degree select only means something with the trendline on
+  const mTrend = document.getElementById('mTrend');
+  if (mTrend) {
+    mTrend.addEventListener('change', () => {
+      document.getElementById('mTrendDeg').disabled = !mTrend.checked;
+    });
+  }
 
   // Bar: aggregation drives which dependent fields make sense — Y is
   // meaningless for count; SD/SEM only exist for mean

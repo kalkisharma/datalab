@@ -80,11 +80,18 @@ function buildScatterTrace(series, datasets) {
     return fit;
   };
 
+  // Degree (Phase 13): linear default; 2–3 fit via polyFit. Per-group fits
+  // stay linear regardless (overfitting per tiny group — DS ruling).
+  const degree = Math.min(3, Math.max(1, series.trendDegree || 1));
+
   if (series.trendline) {
     if (isDatetime) {
       warning = 'Trendline needs a numeric X — not drawn for datetime axes.';
     } else {
       let perGroup = false;
+      if (series.trendGroups && degree > 1) {
+        warning = 'Per-group fits are linear — the degree setting applies to the single overall fit only.';
+      }
       if (series.trendGroups) {
         if (!series.colorCol) {
           warning = 'Per-group fits need a Color-by column — drew one overall fit.';
@@ -120,14 +127,47 @@ function buildScatterTrace(series, datasets) {
         for (let i = 0; i < xV.length; i++) {
           if (Number.isFinite(xV[i]) && Number.isFinite(yV[i])) { fx.push(xV[i]); fy.push(yV[i]); }
         }
-        const fit = fitLine(fx, fy, 'Fit', '#d55e00');
-        if (!fit) {
-          warning = 'Trendline needs at least 2 points with varying X.';
+        if (degree === 1) {
+          const fit = fitLine(fx, fy, 'Fit', '#d55e00');
+          if (!fit) {
+            warning = 'Trendline needs at least 2 points with varying X.';
+          } else {
+            fitAnnot = {
+              // Series name is user data — escHtml applied at the sr-only sink
+              sr: `${series.name} linear fit: slope=${f(fit.a)}, intercept=${f(fit.b)}, R2=${f(fit.r2)}, n=${fit.n}`,
+            };
+          }
         } else {
-          fitAnnot = {
-            // Series name is user data — escHtml applied at the sr-only sink
-            sr: `${series.name} linear fit: slope=${f(fit.a)}, intercept=${f(fit.b)}, R2=${f(fit.r2)}, n=${fit.n}`,
-          };
+          const fit = polyFit(fx, fy, degree);
+          if (!fit) {
+            warning = `A degree-${degree} fit needs at least ${degree + 1} points with varying X.`;
+          } else {
+            const lo = Math.min(...fx), hi = Math.max(...fx);
+            const cx = [], cy = [];
+            for (let i = 0; i <= 200; i++) {
+              const x = lo + (hi - lo) * i / 200;
+              let yh = 0, p = 1;
+              for (let k = 0; k <= degree; k++) { yh += fit.coef[k] * p; p *= x; }
+              cx.push(x); cy.push(yh);
+            }
+            // Equation rendered highest power first
+            const terms = [];
+            for (let k = degree; k >= 0; k--) {
+              const c = fit.coef[k];
+              const mag = f(Math.abs(c));
+              const xs2 = k === 0 ? '' : k === 1 ? 'x' : `x${k === 2 ? '²' : '³'}`;
+              terms.push(`${terms.length === 0 ? (c < 0 ? '−' : '') : (c < 0 ? '− ' : '+ ')}${mag}${xs2}`);
+            }
+            traces.push({
+              type: 'scatter', mode: 'lines', x: cx, y: cy,
+              name: `Fit (deg ${degree}): y = ${terms.join(' ')} (R² = ${f(fit.r2)})`,
+              line: { color: '#d55e00', width: 2, dash: 'dash' },
+              hoverinfo: 'skip',
+            });
+            fitAnnot = {
+              sr: `${series.name} degree-${degree} fit: coefficients high-to-low ${[...fit.coef].reverse().map(f).join(', ')}, R2=${f(fit.r2)}, n=${fit.n}`,
+            };
+          }
         }
       }
     }
