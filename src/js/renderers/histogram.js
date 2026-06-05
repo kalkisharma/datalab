@@ -80,36 +80,72 @@ function buildHistogramTrace(series, datasets) {
     traces[0].xbins = { start: lo, end: hi + binWidth / 1e6, size: binWidth };
   }
 
-  // Normal fit overlay (Phase 5, Data Scientist spec): the pdf is scaled by
-  // n·binWidth so the curve lives on the COUNT axis the bars use — plotting
-  // the raw density against counts is the classic scaling mistake.
+  // Distribution fit overlay (Phase 5 normal; Phase 11 picker). The pdf is
+  // scaled by n·binWidth so the curve lives on the COUNT axis the bars use —
+  // plotting raw density against counts is the classic scaling mistake.
+  // For lognormal/Weibull, n is the POSITIVE-value count (the fitted
+  // subset), so the curve matches the bars it actually models.
+  // Back-compat: fitNormal (Phase 5 boolean) reads as fitDist 'normal'.
+  const fitDist = series.fitDist ?? (series.fitNormal ? 'normal' : null);
   let fitAnnot = null;
-  if (series.fitNormal) {
-    const fit = fitNormal(xV);
-    if (fit && fit.sigma > 0 && binWidth > 0) {
-      // Same lo/hi/binWidth as the explicit xbins above — the curve is now
-      // guaranteed to scale by the width the bars actually use
-      const cx = [], cy = [];
-      for (let i = 0; i <= 200; i++) {
-        const x = lo + (hi - lo) * i / 200;
-        cx.push(x);
-        cy.push(normalPdf(x, fit.mu, fit.sigma) * fit.n * binWidth);
+  let warning  = null;
+  const f = v => Number(v).toPrecision(4);
+  const curve = (pdf, count, name) => {
+    const cx = [], cy = [];
+    for (let i = 0; i <= 200; i++) {
+      const x = lo + (hi - lo) * i / 200;
+      cx.push(x);
+      cy.push(pdf(x) * count * binWidth);
+    }
+    traces.push({
+      type: 'scatter', mode: 'lines', x: cx, y: cy, name,
+      line: { color: '#d55e00', width: 2 }, hoverinfo: 'skip',
+    });
+  };
+
+  if (fitDist && binWidth > 0) {
+    const nonPos = xV.filter(v => v <= 0).length;
+    if (fitDist === 'normal') {
+      const fit = fitNormal(xV);
+      if (fit && fit.sigma > 0) {
+        curve(x => normalPdf(x, fit.mu, fit.sigma), fit.n, `Normal fit (μ=${f(fit.mu)}, σ=${f(fit.sigma)})`);
+        fitAnnot = { sr: `${series.name} normal fit: mu=${f(fit.mu)}, sigma=${f(fit.sigma)}, n=${fit.n}` };
       }
-      const f = v => Number(v).toPrecision(4);
-      traces.push({
-        type: 'scatter', mode: 'lines',
-        x: cx, y: cy,
-        name: `Normal fit (μ=${f(fit.mu)}, σ=${f(fit.sigma)})`,
-        line: { color: '#d55e00', width: 2 },
-        hoverinfo: 'skip',
-      });
-      fitAnnot = {
-        // Series name is user data — caller inserts text into a Plotly
-        // annotation (restricted pseudo-HTML) → escHtml at build site (chart.js)
-        sr: `${series.name} normal fit: mu=${f(fit.mu)}, sigma=${f(fit.sigma)}, n=${fit.n}`,
-      };
+    } else if (nonPos === xV.length) {
+      warning = `${fitDist} fits need positive data — no positive values in "${series.xCol}".`;
+    } else if (fitDist === 'lognormal') {
+      const fit = fitLognormal(xV);
+      if (fit) {
+        curve(x => lognormalPdf(x, fit.mu, fit.sigma), fit.n, `Lognormal fit (μ=${f(fit.mu)}, σ=${f(fit.sigma)})`);
+        fitAnnot = { sr: `${series.name} lognormal fit: mu=${f(fit.mu)}, sigma=${f(fit.sigma)}, n=${fit.n}` };
+      }
+      if (nonPos) warning = `Lognormal fit uses the ${xV.length - nonPos} positive value(s) — ${nonPos} non-positive excluded.`;
+    } else if (fitDist === 'weibull') {
+      const fit = fitWeibull(xV);
+      if (fit) {
+        curve(x => weibullPdf(x, fit.k, fit.lambda), fit.n, `Weibull fit (k=${f(fit.k)}, λ=${f(fit.lambda)})`);
+        fitAnnot = { sr: `${series.name} Weibull fit: k=${f(fit.k)}, lambda=${f(fit.lambda)}, n=${fit.n}` };
+      } else {
+        warning = 'Weibull fit did not converge for this data.';
+      }
+      if (fit && nonPos) warning = `Weibull fit uses the ${xV.length - nonPos} positive value(s) — ${nonPos} non-positive excluded.`;
     }
   }
 
-  return { traces, error: null, fitAnnot };
+  // KDE overlay (Phase 11): binned Gaussian KDE, Silverman bandwidth —
+  // density scaled to the count axis like the fits
+  if (series.kde && binWidth > 0) {
+    const kde = kdeBinned(xV, lo, hi, binWidth);
+    if (kde) {
+      traces.push({
+        type: 'scatter', mode: 'lines',
+        x: kde.xs, y: kde.ys.map(d => d * xV.length * binWidth),
+        name: 'KDE (Silverman)',
+        line: { color: '#999999', width: 2, dash: 'dot' },
+        hoverinfo: 'skip',
+      });
+    }
+  }
+
+  return { traces, error: null, warning, fitAnnot };
 }

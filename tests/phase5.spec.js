@@ -199,7 +199,9 @@ test('histogram normal fit overlays a correctly scaled curve', async ({ page }) 
   await page.click('#addSeriesBtn');
   await page.click('.ct-btn[data-ct="histogram"]');
   await page.selectOption('#mXCol', 'v');
-  await page.check('#mFitNormal');
+  // Phase 11: the Fit normal checkbox became the fit picker; the old
+  // fitNormal boolean back-compat path is covered in distributions.spec.js
+  await page.selectOption('#mFitDist', 'normal');
   await page.click('#modalSave');
   await page.click('#renderBtn');
   await page.waitForTimeout(800);

@@ -73,6 +73,7 @@ const appJs = [
   'src/js/renderers/contour.js',
   'src/js/renderers/histogram.js',
   'src/js/renderers/boxplot.js',
+  'src/js/renderers/violin.js',
 ].map(read).join('\n\n');
 
 // ── Assemble ──────────────────────────────────────────────────────────────

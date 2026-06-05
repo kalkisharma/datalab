@@ -66,7 +66,7 @@ function buildModalBody(existing) {
     `<option value="${escHtml(ds.id)}" ${existing?.datasetId === ds.id ? 'selected' : ''}>${escHtml(ds.name)}</option>`
   ).join('');
 
-  const chartTypes = ['scatter','line','bar','parity','contour','histogram','boxplot'];
+  const chartTypes = ['scatter','line','bar','parity','contour','histogram','boxplot','violin'];
   const ctBtns = chartTypes.map(t =>
     `<button class="ct-btn ${existing?.chartType === t ? 'active' : ''}" data-ct="${t}">${t}</button>`
   ).join('');
@@ -207,7 +207,10 @@ function saveModalSeries() {
     yCol,
     zCol:      zCol || null,                                  // contour only
     binCount:  Number(document.getElementById('mBinCount')?.value) || null, // histogram only
-    fitNormal: document.getElementById('mFitNormal')?.checked ?? false,     // histogram only
+    // fitDist supersedes the Phase 5 fitNormal boolean; old sessions are
+    // read via the renderer's fitDist ?? fitNormal fallback
+    fitDist:   document.getElementById('mFitDist')?.value || null,          // histogram only
+    kde:       document.getElementById('mKde')?.checked ?? false,           // histogram only
     // Cell (Phase 10): from the picker when shown, else preserve — a series
     // keeps its cell when edited while its plot has no grid
     cell:      (() => {
@@ -220,6 +223,7 @@ function saveModalSeries() {
     errMode:   document.getElementById('mBarErr')?.value || null,           // bar only (sd|sem)
     errCol:    document.getElementById('mErrCol')?.value || null,           // scatter/line ± column
     trendline: document.getElementById('mTrend')?.checked ?? false,         // scatter only
+    trendGroups: document.getElementById('mTrendGroups')?.checked ?? false, // scatter only (Phase 11)
     colorCol:  document.getElementById('mColorCol')?.value || null,
     filters:   _modalFilters.map(f => ({ ...f })),
     filterLogic: document.getElementById('mFilterLogic')?.value || 'and',

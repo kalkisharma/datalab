@@ -229,6 +229,7 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
 .dt-preview td{white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis;}
 .dt-page-row{display:flex;align-items:center;gap:10px;margin-top:8px;}
 .dt-page-info{font-family:var(--mono);font-size:11px;color:var(--text3);}
+.series-badge.violin{background:rgba(204,121,167,0.18);color:#cc79a7;}
 
 </style>
 </head>
@@ -1366,7 +1367,7 @@ function buildModalBody(existing) {
     `<option value="${escHtml(ds.id)}" ${existing?.datasetId === ds.id ? 'selected' : ''}>${escHtml(ds.name)}</option>`
   ).join('');
 
-  const chartTypes = ['scatter','line','bar','parity','contour','histogram','boxplot'];
+  const chartTypes = ['scatter','line','bar','parity','contour','histogram','boxplot','violin'];
   const ctBtns = chartTypes.map(t =>
     `<button class="ct-btn ${existing?.chartType === t ? 'active' : ''}" data-ct="${t}">${t}</button>`
   ).join('');
@@ -1507,7 +1508,10 @@ function saveModalSeries() {
     yCol,
     zCol:      zCol || null,                                  // contour only
     binCount:  Number(document.getElementById('mBinCount')?.value) || null, // histogram only
-    fitNormal: document.getElementById('mFitNormal')?.checked ?? false,     // histogram only
+    // fitDist supersedes the Phase 5 fitNormal boolean; old sessions are
+    // read via the renderer's fitDist ?? fitNormal fallback
+    fitDist:   document.getElementById('mFitDist')?.value || null,          // histogram only
+    kde:       document.getElementById('mKde')?.checked ?? false,           // histogram only
     // Cell (Phase 10): from the picker when shown, else preserve — a series
     // keeps its cell when edited while its plot has no grid
     cell:      (() => {
@@ -1520,6 +1524,7 @@ function saveModalSeries() {
     errMode:   document.getElementById('mBarErr')?.value || null,           // bar only (sd|sem)
     errCol:    document.getElementById('mErrCol')?.value || null,           // scatter/line ± column
     trendline: document.getElementById('mTrend')?.checked ?? false,         // scatter only
+    trendGroups: document.getElementById('mTrendGroups')?.checked ?? false, // scatter only (Phase 11)
     colorCol:  document.getElementById('mColorCol')?.value || null,
     filters:   _modalFilters.map(f => ({ ...f })),
     filterLogic: document.getElementById('mFilterLogic')?.value || 'and',
@@ -1643,6 +1648,10 @@ function renderDynamicFields(existing) {
       <div class="check-row">
         <label><input type="checkbox" id="mTrend" ${existing?.trendline ? 'checked' : ''} />
           Linear trendline (least squares; legend shows equation and R²)</label>
+      </div>
+      <div class="check-row">
+        <label><input type="checkbox" id="mTrendGroups" ${existing?.trendGroups ? 'checked' : ''} />
+          One fit per color group <span class="field-hint" style="margin:0">(needs a categorical Color-by; max 10 groups)</span></label>
       </div>` : ''}`;
   } else if (chartType === 'bar') {
     const agg = existing?.agg || 'none';
@@ -1729,10 +1738,21 @@ function renderDynamicFields(existing) {
         <input type="number" class="ctrl-input" id="mBinCount" min="1" max="500"
                value="${existing?.binCount ?? ''}" placeholder="auto" />
       </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mFitDist">Fit distribution</label>
+        <select id="mFitDist">
+          <option value="">None</option>
+          <option value="normal"    ${(existing?.fitDist ?? (existing?.fitNormal ? 'normal' : '')) === 'normal'    ? 'selected' : ''}>Normal (μ, σ)</option>
+          <option value="lognormal" ${existing?.fitDist === 'lognormal' ? 'selected' : ''}>Lognormal (μ, σ of ln x)</option>
+          <option value="weibull"   ${existing?.fitDist === 'weibull'   ? 'selected' : ''}>Weibull (k, λ — MLE)</option>
+        </select>
+        <div class="field-hint">Lognormal and Weibull need positive data; non-positive values are excluded with a warning.</div>
+      </div>
       <div class="check-row">
-        <label><input type="checkbox" id="mFitNormal" ${existing?.fitNormal ? 'checked' : ''} /> Fit normal distribution (overlay with μ, σ)</label>
+        <label><input type="checkbox" id="mKde" ${existing?.kde ? 'checked' : ''} /> KDE overlay (Gaussian kernel, Silverman bandwidth)</label>
       </div>`;
-  } else if (chartType === 'boxplot') {
+  } else if (chartType === 'boxplot' || chartType === 'violin') {
+    const thing = chartType === 'violin' ? 'violin' : 'box';
     html = `
       <div class="modal-section-title">Columns</div>
       <div class="modal-field">
@@ -1742,7 +1762,7 @@ function renderDynamicFields(existing) {
       <div class="modal-field">
         <label class="modal-label" for="mXCol">Group by X (optional, categorical)</label>
         <select id="mXCol"><option value="">None</option>${colOptions(existing?.xCol, true)}</select>
-        <div class="field-hint">One box per unique X value (max 50 before a readability warning).</div>
+        <div class="field-hint">One ${thing} per unique X value (max 50 before a readability warning).</div>
       </div>`;
   } else if (chartType === 'contour') {
     html = `
@@ -2013,6 +2033,7 @@ const RENDERERS = {
   contour:   buildContourTrace,
   histogram: buildHistogramTrace,
   boxplot:   buildBoxplotTrace,
+  violin:    buildViolinTrace,
 };
 
 // ── Trace cache (Phase 2, Performance) ────────────────────────────────────
@@ -2960,6 +2981,136 @@ function normalPdf(x, mu, sigma) {
   if (sigma === 0) return NaN;
   const z = (x - mu) / sigma;
   return Math.exp(-0.5 * z * z) / (sigma * Math.sqrt(2 * Math.PI));
+}
+
+// ── Lognormal fit (Phase 11) ──────────────────────────────────────────────
+// μ, σ are the mean and SAMPLE std (n−1) of ln(x) — same estimator family
+// as fitNormal for consistency across the fit picker (strict MLE would use
+// n; the difference vanishes for the n where a fit is meaningful).
+// Requires all-positive data; the caller filters and warns.
+/**
+ * @param {number[]} vals - finite POSITIVE values
+ * @returns {{ mu: number, sigma: number, n: number }|null}
+ */
+function fitLognormal(vals) {
+  const v = vals.filter(x => Number.isFinite(x) && x > 0);
+  const n = v.length;
+  if (n < 2) return null;
+  const lnx = v.map(Math.log);
+  const mu = lnx.reduce((a, b) => a + b, 0) / n;
+  const sigma = Math.sqrt(lnx.reduce((s, x) => s + (x - mu) ** 2, 0) / (n - 1));
+  if (sigma === 0) return null; // degenerate — all values equal
+  return { mu, sigma, n };
+}
+
+function lognormalPdf(x, mu, sigma) {
+  if (x <= 0 || sigma === 0) return 0;
+  const z = (Math.log(x) - mu) / sigma;
+  return Math.exp(-0.5 * z * z) / (x * sigma * Math.sqrt(2 * Math.PI));
+}
+
+// ── Weibull fit (Phase 11) ────────────────────────────────────────────────
+// Maximum likelihood: the shape k̂ solves
+//   g(k) = Σxᵏln x / Σxᵏ − 1/k − mean(ln x) = 0
+// and the scale is λ̂ = (Σxᵏ/n)^(1/k). Newton iteration with a numerical
+// derivative, halving on overshoot, hard bounds, and a residual check —
+// no convergence ⇒ null, never a bogus fit. Rank-regression was rejected
+// at scoping (biased). Tests verify the MLE equations hold at the returned
+// estimates (definition-residual, §20) — Weibull MLE has no closed form
+// to hand-derive.
+/**
+ * @param {number[]} vals - finite POSITIVE values
+ * @returns {{ k: number, lambda: number, n: number }|null}
+ */
+function fitWeibull(vals) {
+  const v = vals.filter(x => Number.isFinite(x) && x > 0);
+  const n = v.length;
+  if (n < 2) return null;
+  const lnx = v.map(Math.log);
+  const L = lnx.reduce((a, b) => a + b, 0) / n;
+  const sdln = Math.sqrt(lnx.reduce((s, x) => s + (x - L) ** 2, 0) / n);
+  if (sdln === 0) return null; // all values equal — k → ∞, no finite MLE
+
+  const g = k => {
+    let A = 0, B = 0;
+    for (let i = 0; i < n; i++) { const xk = v[i] ** k; A += xk * lnx[i]; B += xk; }
+    return A / B - 1 / k - L;
+  };
+
+  let k = Math.min(100, Math.max(0.05, 1.2 / sdln)); // standard starting point
+  let converged = false;
+  for (let it = 0; it < 60; it++) {
+    const gk = g(k);
+    if (Math.abs(gk) < 1e-12) { converged = true; break; }
+    const h = Math.max(1e-8, k * 1e-6);
+    const d = (g(k + h) - gk) / h;
+    if (!Number.isFinite(d) || d === 0) break;
+    let next = k - gk / d;
+    if (!Number.isFinite(next) || next <= 0 || next > 1e4) next = k / 2; // guard overshoot
+    if (Math.abs(next - k) < 1e-12 * Math.max(1, k)) { k = next; converged = true; break; }
+    k = next;
+  }
+  if (!converged && Math.abs(g(k)) > 1e-8) return null;
+
+  const lambda = Math.pow(v.reduce((s, x) => s + x ** k, 0) / n, 1 / k);
+  return { k, lambda, n };
+}
+
+function weibullPdf(x, k, lambda) {
+  if (x <= 0 || k <= 0 || lambda <= 0) return 0;
+  const t = x / lambda;
+  return (k / lambda) * Math.pow(t, k - 1) * Math.exp(-Math.pow(t, k));
+}
+
+// ── Binned KDE (Phase 11) ─────────────────────────────────────────────────
+// Gaussian kernel, Silverman's rule bandwidth, evaluated from BIN COUNTS
+// rather than raw points (Performance ruling at scoping): O(bins × grid)
+// instead of O(n × grid) — visually identical for an overlay; the
+// approximation error is below a pixel at any plot size.
+/**
+ * @param {number[]} vals - finite values (bandwidth needs raw spread)
+ * @param {number}   lo
+ * @param {number}   hi
+ * @param {number}   binWidth
+ * @returns {{ xs: number[], ys: number[] }|null} density on a 200-pt grid
+ */
+function kdeBinned(vals, lo, hi, binWidth) {
+  const n = vals.length;
+  if (n < 2 || !(binWidth > 0)) return null;
+  // Silverman: h = 0.9·min(sd, IQR/1.34)·n^(−1/5)
+  const sorted = [...vals].sort((a, b) => a - b);
+  const mean = vals.reduce((a, b) => a + b, 0) / n;
+  const sd = Math.sqrt(vals.reduce((s, x) => s + (x - mean) ** 2, 0) / (n - 1));
+  const iqr = quantile(sorted, 0.75) - quantile(sorted, 0.25);
+  const spread = Math.min(sd || Infinity, iqr ? iqr / 1.34 : Infinity);
+  if (!Number.isFinite(spread) || spread === 0) return null;
+  const h = 0.9 * spread * Math.pow(n, -0.2);
+
+  // Bin the data once
+  const nBins = Math.max(1, Math.round((hi - lo) / binWidth));
+  const counts = new Array(nBins).fill(0);
+  for (const x of vals) {
+    const b = Math.min(nBins - 1, Math.max(0, Math.floor((x - lo) / binWidth)));
+    counts[b]++;
+  }
+  const centers = counts.map((_, b) => lo + (b + 0.5) * binWidth);
+
+  // Evaluate on a 200-point grid extended one bandwidth past the data
+  const gLo = lo - h, gHi = hi + h;
+  const xs = [], ys = [];
+  const norm = 1 / (n * h * Math.sqrt(2 * Math.PI));
+  for (let i = 0; i <= 200; i++) {
+    const gx = gLo + (gHi - gLo) * i / 200;
+    let acc = 0;
+    for (let b = 0; b < nBins; b++) {
+      if (!counts[b]) continue;
+      const z = (gx - centers[b]) / h;
+      if (z > 6 || z < -6) continue; // kernel support cutoff
+      acc += counts[b] * Math.exp(-0.5 * z * z);
+    }
+    xs.push(gx); ys.push(acc * norm);
+  }
+  return { xs, ys };
 }
 
 // ── Cleaning operations ───────────────────────────────────────────────────
@@ -3931,34 +4082,76 @@ function buildScatterTrace(series, datasets) {
   if (eV) traces[0].error_y = errorBarsFromCol(eV);
 
   // Linear trendline (Phase 9): least squares on the finite pairs; the
-  // legend entry IS the annotation — equation + R² (linearFit in stats.js)
+  // legend entry IS the annotation — equation + R² (linearFit in stats.js).
+  // Per-group fits (Phase 11, OPT-IN per §3): one fit per categorical
+  // color-by group, palette-colored, capped at 10; anything else falls
+  // back to the single overall fit with a warning.
   let fitAnnot = null;
   let warning  = null;
+  const f = v => Number(v).toPrecision(4);
+  const fitLine = (fx, fy, name, color) => {
+    const fit = linearFit(fx, fy);
+    if (!fit) return null;
+    const lo = Math.min(...fx), hi = Math.max(...fx);
+    traces.push({
+      type: 'scatter', mode: 'lines',
+      x: [lo, hi], y: [fit.a * lo + fit.b, fit.a * hi + fit.b],
+      name: `${name}: y = ${f(fit.a)}x ${fit.b < 0 ? '−' : '+'} ${f(Math.abs(fit.b))} (R² = ${f(fit.r2)})`,
+      line: { color, width: 2, dash: 'dash' },
+      hoverinfo: 'skip',
+    });
+    return fit;
+  };
+
   if (series.trendline) {
     if (isDatetime) {
       warning = 'Trendline needs a numeric X — not drawn for datetime axes.';
     } else {
-      const fx = [], fy = [];
-      for (let i = 0; i < xV.length; i++) {
-        if (Number.isFinite(xV[i]) && Number.isFinite(yV[i])) { fx.push(xV[i]); fy.push(yV[i]); }
+      let perGroup = false;
+      if (series.trendGroups) {
+        if (!series.colorCol) {
+          warning = 'Per-group fits need a Color-by column — drew one overall fit.';
+        } else if (colorMapping(rows, series.colorCol).isNumeric) {
+          warning = 'Per-group fits need a CATEGORICAL Color-by — drew one overall fit.';
+        } else {
+          const groups = new Map(); // cat → { fx: [], fy: [] }
+          for (let i = 0; i < rows.length; i++) {
+            if (!Number.isFinite(xV[i]) || !Number.isFinite(yV[i])) continue;
+            const cat = String(rows[i][series.colorCol] ?? '(blank)');
+            if (!groups.has(cat)) groups.set(cat, { fx: [], fy: [] });
+            const g2 = groups.get(cat);
+            g2.fx.push(xV[i]); g2.fy.push(yV[i]);
+          }
+          if (groups.size > 10) {
+            warning = `"${series.colorCol}" has ${groups.size} groups — more than 10 fits is unreadable; drew one overall fit.`;
+          } else {
+            perGroup = true;
+            const srs = [];
+            let gi = 0;
+            for (const [cat, g2] of groups) {
+              const fit = fitLine(g2.fx, g2.fy, cat, PALETTE[gi++ % PALETTE.length]);
+              if (fit) srs.push(`${cat}: slope=${f(fit.a)}, R2=${f(fit.r2)}, n=${fit.n}`);
+            }
+            if (srs.length) {
+              fitAnnot = { sr: `${series.name} per-group linear fits — ${srs.join('; ')}` };
+            }
+          }
+        }
       }
-      const fit = linearFit(fx, fy);
-      if (!fit) {
-        warning = 'Trendline needs at least 2 points with varying X.';
-      } else {
-        const f = v => Number(v).toPrecision(4);
-        const lo = Math.min(...fx), hi = Math.max(...fx);
-        traces.push({
-          type: 'scatter', mode: 'lines',
-          x: [lo, hi], y: [fit.a * lo + fit.b, fit.a * hi + fit.b],
-          name: `Fit: y = ${f(fit.a)}x ${fit.b < 0 ? '−' : '+'} ${f(Math.abs(fit.b))} (R² = ${f(fit.r2)})`,
-          line: { color: '#d55e00', width: 2, dash: 'dash' },
-          hoverinfo: 'skip',
-        });
-        fitAnnot = {
-          // Series name is user data — escHtml applied at the sr-only sink
-          sr: `${series.name} linear fit: slope=${f(fit.a)}, intercept=${f(fit.b)}, R2=${f(fit.r2)}, n=${fit.n}`,
-        };
+      if (!perGroup) {
+        const fx = [], fy = [];
+        for (let i = 0; i < xV.length; i++) {
+          if (Number.isFinite(xV[i]) && Number.isFinite(yV[i])) { fx.push(xV[i]); fy.push(yV[i]); }
+        }
+        const fit = fitLine(fx, fy, 'Fit', '#d55e00');
+        if (!fit) {
+          warning = 'Trendline needs at least 2 points with varying X.';
+        } else {
+          fitAnnot = {
+            // Series name is user data — escHtml applied at the sr-only sink
+            sr: `${series.name} linear fit: slope=${f(fit.a)}, intercept=${f(fit.b)}, R2=${f(fit.r2)}, n=${fit.n}`,
+          };
+        }
       }
     }
   }
@@ -4453,38 +4646,74 @@ function buildHistogramTrace(series, datasets) {
     traces[0].xbins = { start: lo, end: hi + binWidth / 1e6, size: binWidth };
   }
 
-  // Normal fit overlay (Phase 5, Data Scientist spec): the pdf is scaled by
-  // n·binWidth so the curve lives on the COUNT axis the bars use — plotting
-  // the raw density against counts is the classic scaling mistake.
+  // Distribution fit overlay (Phase 5 normal; Phase 11 picker). The pdf is
+  // scaled by n·binWidth so the curve lives on the COUNT axis the bars use —
+  // plotting raw density against counts is the classic scaling mistake.
+  // For lognormal/Weibull, n is the POSITIVE-value count (the fitted
+  // subset), so the curve matches the bars it actually models.
+  // Back-compat: fitNormal (Phase 5 boolean) reads as fitDist 'normal'.
+  const fitDist = series.fitDist ?? (series.fitNormal ? 'normal' : null);
   let fitAnnot = null;
-  if (series.fitNormal) {
-    const fit = fitNormal(xV);
-    if (fit && fit.sigma > 0 && binWidth > 0) {
-      // Same lo/hi/binWidth as the explicit xbins above — the curve is now
-      // guaranteed to scale by the width the bars actually use
-      const cx = [], cy = [];
-      for (let i = 0; i <= 200; i++) {
-        const x = lo + (hi - lo) * i / 200;
-        cx.push(x);
-        cy.push(normalPdf(x, fit.mu, fit.sigma) * fit.n * binWidth);
+  let warning  = null;
+  const f = v => Number(v).toPrecision(4);
+  const curve = (pdf, count, name) => {
+    const cx = [], cy = [];
+    for (let i = 0; i <= 200; i++) {
+      const x = lo + (hi - lo) * i / 200;
+      cx.push(x);
+      cy.push(pdf(x) * count * binWidth);
+    }
+    traces.push({
+      type: 'scatter', mode: 'lines', x: cx, y: cy, name,
+      line: { color: '#d55e00', width: 2 }, hoverinfo: 'skip',
+    });
+  };
+
+  if (fitDist && binWidth > 0) {
+    const nonPos = xV.filter(v => v <= 0).length;
+    if (fitDist === 'normal') {
+      const fit = fitNormal(xV);
+      if (fit && fit.sigma > 0) {
+        curve(x => normalPdf(x, fit.mu, fit.sigma), fit.n, `Normal fit (μ=${f(fit.mu)}, σ=${f(fit.sigma)})`);
+        fitAnnot = { sr: `${series.name} normal fit: mu=${f(fit.mu)}, sigma=${f(fit.sigma)}, n=${fit.n}` };
       }
-      const f = v => Number(v).toPrecision(4);
-      traces.push({
-        type: 'scatter', mode: 'lines',
-        x: cx, y: cy,
-        name: `Normal fit (μ=${f(fit.mu)}, σ=${f(fit.sigma)})`,
-        line: { color: '#d55e00', width: 2 },
-        hoverinfo: 'skip',
-      });
-      fitAnnot = {
-        // Series name is user data — caller inserts text into a Plotly
-        // annotation (restricted pseudo-HTML) → escHtml at build site (chart.js)
-        sr: `${series.name} normal fit: mu=${f(fit.mu)}, sigma=${f(fit.sigma)}, n=${fit.n}`,
-      };
+    } else if (nonPos === xV.length) {
+      warning = `${fitDist} fits need positive data — no positive values in "${series.xCol}".`;
+    } else if (fitDist === 'lognormal') {
+      const fit = fitLognormal(xV);
+      if (fit) {
+        curve(x => lognormalPdf(x, fit.mu, fit.sigma), fit.n, `Lognormal fit (μ=${f(fit.mu)}, σ=${f(fit.sigma)})`);
+        fitAnnot = { sr: `${series.name} lognormal fit: mu=${f(fit.mu)}, sigma=${f(fit.sigma)}, n=${fit.n}` };
+      }
+      if (nonPos) warning = `Lognormal fit uses the ${xV.length - nonPos} positive value(s) — ${nonPos} non-positive excluded.`;
+    } else if (fitDist === 'weibull') {
+      const fit = fitWeibull(xV);
+      if (fit) {
+        curve(x => weibullPdf(x, fit.k, fit.lambda), fit.n, `Weibull fit (k=${f(fit.k)}, λ=${f(fit.lambda)})`);
+        fitAnnot = { sr: `${series.name} Weibull fit: k=${f(fit.k)}, lambda=${f(fit.lambda)}, n=${fit.n}` };
+      } else {
+        warning = 'Weibull fit did not converge for this data.';
+      }
+      if (fit && nonPos) warning = `Weibull fit uses the ${xV.length - nonPos} positive value(s) — ${nonPos} non-positive excluded.`;
     }
   }
 
-  return { traces, error: null, fitAnnot };
+  // KDE overlay (Phase 11): binned Gaussian KDE, Silverman bandwidth —
+  // density scaled to the count axis like the fits
+  if (series.kde && binWidth > 0) {
+    const kde = kdeBinned(xV, lo, hi, binWidth);
+    if (kde) {
+      traces.push({
+        type: 'scatter', mode: 'lines',
+        x: kde.xs, y: kde.ys.map(d => d * xV.length * binWidth),
+        name: 'KDE (Silverman)',
+        line: { color: '#999999', width: 2, dash: 'dot' },
+        hoverinfo: 'skip',
+      });
+    }
+  }
+
+  return { traces, error: null, warning, fitAnnot };
 }
 
 
@@ -4549,6 +4778,71 @@ function buildBoxplotTrace(series, datasets) {
   } else {
     const ys = colVals(rows, series.yCol).filter(Number.isFinite);
     if (!ys.length) return { traces: [], error: `No finite numeric values in "${series.yCol}".`, warning: null };
+    trace.y = ys;
+  }
+
+  return { traces: [trace], error: null, warning };
+}
+
+
+// violin.js — violin plot renderer (numeric Y, optional categorical X, max 50 categories)
+//
+// Log scale guidance: same as boxplot — log Y when category distributions
+// span decades; X is categorical, never log.
+//
+// Distribution shape (Data Scientist sign-off, Phase 11): Plotly's native
+// violin trace — KDE-based density outline with the Tukey box and median
+// line shown inside (box.visible) so the violin stays comparable to the
+// boxplot it complements. Points beyond the whiskers drawn individually,
+// matching the boxplot convention.
+
+/**
+ * @param {object}   series
+ * @param {object[]} datasets
+ * @returns {{ traces: object[], error: string|null, warning?: string|null }}
+ */
+function buildViolinTrace(series, datasets) {
+  const ds = datasets.find(d => d.id === series.datasetId);
+  if (!ds) return { traces: [], error: 'Dataset not found.' };
+
+  const rows = applyFilters(ds.rows, series.filters || [], series.filterLogic || 'and');
+  if (!rows.length) return { traces: [], error: 'No rows pass the active filters.' };
+
+  if (!series.yCol) return { traces: [], error: 'A numeric Y column is required.' };
+  if (classifyColumn(ds.rows, series.yCol) !== 'numeric') {
+    return { traces: [], error: `Column "${series.yCol}" is not numeric — violin plots need a numeric Y.` };
+  }
+
+  const trace = {
+    type: 'violin',
+    name: series.name || 'Violin',
+    marker: { color: series.style?.color ?? (ds.color ?? '#5b8dee') },
+    box: { visible: true },       // Tukey box inside, comparable to boxplot
+    meanline: { visible: true },
+    points: 'outliers',
+  };
+
+  let warning = null;
+
+  if (series.xCol) {
+    // Grouped: one violin per category; pairs kept together (boxplot rule)
+    const xs = [], ys = [];
+    for (const r of rows) {
+      const y = Number(r[series.yCol]);
+      if (!Number.isFinite(y)) continue;
+      xs.push(String(r[series.xCol] ?? '(blank)'));
+      ys.push(y);
+    }
+    if (!ys.length) return { traces: [], error: `No finite numeric values in "${series.yCol}".` };
+    const nCats = new Set(xs).size;
+    if (nCats > BOXPLOT_MAX_CATEGORIES) {
+      warning = `"${series.xCol}" has ${nCats} categories — more than ${BOXPLOT_MAX_CATEGORIES} makes violins unreadable. Consider filtering or a different X column.`;
+    }
+    trace.x = xs;
+    trace.y = ys;
+  } else {
+    const ys = colVals(rows, series.yCol).filter(Number.isFinite);
+    if (!ys.length) return { traces: [], error: `No finite numeric values in "${series.yCol}".` };
     trace.y = ys;
   }
 

@@ -106,6 +106,15 @@ test('axe: series modal with bar fields has no violations', async ({ page }) => 
   expect(await audit(page, 'modal-bar')).toHaveLength(0);
 });
 
+test('axe: series modal with histogram fit picker has no violations', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'v\n1\n2\n3', '_a11y_hist.csv');
+  await page.click('#addSeriesBtn');
+  await page.click('.ct-btn[data-ct="histogram"]'); // fit picker + KDE (Phase 11)
+  await page.waitForTimeout(200);
+  expect(await audit(page, 'modal-histogram')).toHaveLength(0);
+});
+
 test('axe: preset category picker open has no violations', async ({ page }) => {
   await page.goto(FILE_URL);
   await page.evaluate(() => {

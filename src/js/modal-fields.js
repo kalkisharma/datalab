@@ -51,6 +51,10 @@ function renderDynamicFields(existing) {
       <div class="check-row">
         <label><input type="checkbox" id="mTrend" ${existing?.trendline ? 'checked' : ''} />
           Linear trendline (least squares; legend shows equation and R²)</label>
+      </div>
+      <div class="check-row">
+        <label><input type="checkbox" id="mTrendGroups" ${existing?.trendGroups ? 'checked' : ''} />
+          One fit per color group <span class="field-hint" style="margin:0">(needs a categorical Color-by; max 10 groups)</span></label>
       </div>` : ''}`;
   } else if (chartType === 'bar') {
     const agg = existing?.agg || 'none';
@@ -137,10 +141,21 @@ function renderDynamicFields(existing) {
         <input type="number" class="ctrl-input" id="mBinCount" min="1" max="500"
                value="${existing?.binCount ?? ''}" placeholder="auto" />
       </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mFitDist">Fit distribution</label>
+        <select id="mFitDist">
+          <option value="">None</option>
+          <option value="normal"    ${(existing?.fitDist ?? (existing?.fitNormal ? 'normal' : '')) === 'normal'    ? 'selected' : ''}>Normal (μ, σ)</option>
+          <option value="lognormal" ${existing?.fitDist === 'lognormal' ? 'selected' : ''}>Lognormal (μ, σ of ln x)</option>
+          <option value="weibull"   ${existing?.fitDist === 'weibull'   ? 'selected' : ''}>Weibull (k, λ — MLE)</option>
+        </select>
+        <div class="field-hint">Lognormal and Weibull need positive data; non-positive values are excluded with a warning.</div>
+      </div>
       <div class="check-row">
-        <label><input type="checkbox" id="mFitNormal" ${existing?.fitNormal ? 'checked' : ''} /> Fit normal distribution (overlay with μ, σ)</label>
+        <label><input type="checkbox" id="mKde" ${existing?.kde ? 'checked' : ''} /> KDE overlay (Gaussian kernel, Silverman bandwidth)</label>
       </div>`;
-  } else if (chartType === 'boxplot') {
+  } else if (chartType === 'boxplot' || chartType === 'violin') {
+    const thing = chartType === 'violin' ? 'violin' : 'box';
     html = `
       <div class="modal-section-title">Columns</div>
       <div class="modal-field">
@@ -150,7 +165,7 @@ function renderDynamicFields(existing) {
       <div class="modal-field">
         <label class="modal-label" for="mXCol">Group by X (optional, categorical)</label>
         <select id="mXCol"><option value="">None</option>${colOptions(existing?.xCol, true)}</select>
-        <div class="field-hint">One box per unique X value (max 50 before a readability warning).</div>
+        <div class="field-hint">One ${thing} per unique X value (max 50 before a readability warning).</div>
       </div>`;
   } else if (chartType === 'contour') {
     html = `

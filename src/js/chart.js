@@ -9,6 +9,7 @@ const RENDERERS = {
   contour:   buildContourTrace,
   histogram: buildHistogramTrace,
   boxplot:   buildBoxplotTrace,
+  violin:    buildViolinTrace,
 };
 
 // ── Trace cache (Phase 2, Performance) ────────────────────────────────────
