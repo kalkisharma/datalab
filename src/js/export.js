@@ -2,11 +2,16 @@
 
 // ── Export ────────────────────────────────────────────────────────────────
 
+// Shared filename sanitizer (Phase 8 refactor review — was duplicated at
+// every export site): strips symbols, collapses whitespace to underscores
+function safeFilename(s, fallback) {
+  return String(s || '').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || fallback;
+}
+
 function downloadPlot(format = 'png') {
   // Exports the ACTIVE panel; Export size sliders define the export size
   // (panels themselves autosize to their grid cell — Phase 7)
-  const title    = activePlot().plotConfig.title || activePlot().name || 'datalab_plot';
-  const filename = title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'datalab_plot';
+  const filename = safeFilename(activePlot().plotConfig.title || activePlot().name, 'datalab_plot');
   const w = parseInt(document.getElementById('figW').value);
   const h = parseInt(document.getElementById('figH').value);
   // Note: scattergl traces (WebGL, >10k points) are rasterized inside the
@@ -32,8 +37,7 @@ async function exportAllPlots() {
       if (!pd || !pd.data || !pd.data.length) continue; // skip empty panels
       n++;
       btn.textContent = `${n}…`;
-      const base = (plot.plotConfig.title || plot.name || '')
-        .replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || `plot_${n}`;
+      const base = safeFilename(plot.plotConfig.title || plot.name, `plot_${n}`);
       await Plotly.downloadImage(pd, { format: 'png', width: w, height: h,
         filename: `${String(n).padStart(2, '0')}_${base}` });
     }
@@ -179,7 +183,7 @@ async function downloadZip() {
       await Plotly.newPlot(div, snap.data, snap.layout, { staticPlot: true, displayModeBar: false });
       const url    = await Plotly.toImage(div, { format: 'png', width: w, height: h });
       const base64 = url.split(',')[1];
-      const name   = (snap.title || '').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || `plot_${i + 1}`;
+      const name   = safeFilename(snap.title, `plot_${i + 1}`);
       zip.file(`${String(i + 1).padStart(2, '0')}_${name}.png`, base64, { base64: true });
       Plotly.purge(div);
     }

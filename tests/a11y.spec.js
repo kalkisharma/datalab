@@ -96,3 +96,13 @@ test('axe: data tools modal open has no violations', async ({ page }) => {
   await page.waitForTimeout(300);
   expect(await audit(page, 'data-tools')).toHaveLength(0);
 });
+
+test('axe: preset category picker open has no violations', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await page.evaluate(() => {
+    document.getElementById('presetSaveBtn').closest('details').open = true;
+  });
+  await page.click('#presetSaveBtn');
+  await page.waitForTimeout(200);
+  expect(await audit(page, 'preset-picker')).toHaveLength(0);
+});

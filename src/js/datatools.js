@@ -200,7 +200,7 @@ function exportCleanedCSV() {
   const blob = new Blob([csv], { type: 'text/csv' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  const name = ds.name.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'dataset';
+  const name = safeFilename(ds.name, 'dataset'); // shared sanitizer in export.js
   a.href = url; a.download = `${name}_cleaned.csv`; a.click();
   URL.revokeObjectURL(url); // safe to revoke immediately — download is async
 }
