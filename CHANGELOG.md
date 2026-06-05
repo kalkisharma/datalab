@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (v2.1.0 — Phase 8 in progress)
+## v2.1.0 — Export, Presets & Control Refinements
 
 ### Features
 - **Export all** — one numbered PNG per visible plot at the Export size
