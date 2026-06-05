@@ -32,6 +32,7 @@
 - Version has exactly one source of truth: `VERSION` constant in `state.js`. Nowhere else.
 - All serialized session state carries a `version` field starting at `1` from day one.
 - **Schema change definition:** A migration stub is required when a required field is added, removed, renamed, or changes type. Adding a new optional field with a backward-compatible default does not require a migration. Adding a new filter operator type does not require a migration (parsed values are stored, not formats). Changing the behavior of an existing operator is a MAJOR version bump.
+- **Documented-deferral carve-out** (added Phase 13 scoping, log-binning case): when a stored setting is warned-and-ignored with the warning explicitly naming the deferred work, later honoring that setting is **completing the contract, not silently changing it** — MINOR. The user opted in; the warning was the IOU. The Phase 13/14 scoping notes relied on this reasoning before it was written here; now it is policy rather than per-phase argument.
 - **Statistical correctness carve-out** (added Phase 8 scoping, NSE finding): a fix that changes displayed statistical output to match the *documented definition* of the statistic is a correctness fix — PATCH (or rides the phase's MINOR), **not** MAJOR, even though re-rendered sessions show different numbers. The session data itself is untouched; only a wrong computation is corrected. Requires: Data Scientist sign-off, a `## Corrections` entry in `CHANGELOG.md` stating old vs new behavior, and updated reference tests. Silently *redefining* a statistic (changing which definition is documented) remains MAJOR.
 - Schema changes are logged in `CHANGELOG.md` under a `## Schema` section per version. Owned by the Data Engineer, updated as part of the release checklist. This covers **all file formats the app reads or writes** — session state, style presets, exported CSV conventions — not only session state.
 
@@ -312,6 +313,7 @@ The pre-commit hook greps `src/js/**` for:
   - Regression/trendline fitting (Phase 9+): formula, goodness-of-fit reporting (R²), and reference tests hand-derived per the reference-value rule below
   - Aggregation defaults (Phase 9+): silent aggregation is forbidden — when a chart aggregates rows, the aggregation is user-chosen and displayed
   - Computed-column evaluation semantics (Phase 12+): NaN propagation follows the missing-value rules; materialization is one-shot (source edits never silently recompute — provenance)
+  - Hypothesis-test reporting (Phase 13+): a p-value is never displayed without its effect size and per-group sample sizes — promoted from the Phase 13 scoping decision because it generalizes to every future test, exactly as the no-silent-aggregation rule did
   - Colormap perceptual uniformity and accuracy
   - Axis scale appropriateness (log vs. linear) and axis range defaults
   - Axis range manipulation — auto-range is acceptable for most chart types; parity plots require equal axis ranges (same min/max for X and Y, explicitly set in the renderer, not left to Plotly auto-range)
