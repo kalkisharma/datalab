@@ -1,5 +1,28 @@
 # Changelog
 
+## v2.5.0 — Computed Columns
+
+### Features
+- **Computed columns** — Data Tools → New column: derive a column from an
+  arithmetic expression over existing columns (`(temp - 32) * 5/9`,
+  `` log10(`flow rate`) ``, ratios, unit conversions). Live preview shows
+  the first results or the parse error as you type. Columns chain — a
+  computed column can reference an earlier one.
+- Expressions are arithmetic only — numbers, column names, `+ − * / % ^`,
+  parentheses, and 11 math functions. By design there is **no scripting**:
+  the expression engine has no access to strings, properties, or code of
+  any kind (see `src/js/expr.js` for the security contract).
+- Values are **materialized**: computed once, stored as plain data, saved
+  in sessions like any column. Editing source data later does not silently
+  recompute — re-derive deliberately. The defining expression is kept as
+  dataset metadata.
+
+## Schema
+### v2.5.0 (state version unchanged at 2 — all additive)
+- `dataset.computed` — `{ columnName: expressionString }` provenance
+  metadata; computed values live in rows as plain numbers (NaN saves as
+  null = missing). v2.0–v2.4 session files load unchanged.
+
 ## v2.4.0 — Distributions & Derived Analysis
 
 ### Features

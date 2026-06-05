@@ -565,11 +565,13 @@ Exit criteria: lognormal/Weibull/KDE match independent-tool references; a v2.x s
 Data Tools gains a **New column** section under Cleaning: a name field, an expression field (placeholder shows an example like `(temp - 32) * 5/9`), and a **live preview line** that re-parses on every keystroke — showing either the first 5 computed values or the parse error, inline. Add stays disabled until the name is valid (non-empty, no duplicate header) and the expression parses. Columns are referenced bare (`flow`) or backtick-quoted (`` `flow rate` ``) for names with spaces/symbols. On Add: values are **materialized** into the rows, the header is appended, the expression is stored as dataset metadata, and the standard cleaning-op cycle runs (revision bump, series re-validation, stats/preview refresh, confirmation message naming the expression). Materialization is one-shot by design — editing source data later does not silently recompute (provenance, DS ruling); re-derive deliberately with a new name or after dropping the old column. Error states: live parse errors under the expression; duplicate/empty name in the message line. No new empty states.
 
 Deliverables *(UX flow recorded above per §12)*:
-- [ ] `expr.js`: tokenizer + parser + evaluator with caps; Security Engineer reviews the parser before merge (§8) (Data Engineer + Security)
-- [ ] Data Tools "New column": name + expression + live preview of the first 5 values; revision bump + series re-validation like every cleaning op (Frontend + UX)
-- [ ] Tests: arithmetic references, parse-error surfaces, abuse attempts rejected at parse (strings, unknown identifiers, member access, depth/length bombs), caps enforced, 1M-row timing informational (QA + Security)
-- [ ] CHANGELOG `## Schema` note: computed values are plain data; `ds.computed` metadata is additive (Data Engineer)
-- [ ] Exploratory test with real derivations — unit conversions, ratios, log transforms (Data Scientist)
+- [x] `expr.js` engine with caps, Security-reviewed parser — evidence: commit 1764e4d; 17 parse-time rejection tests incl. prototype reaches, strings, member access, assignment, arity, and all three caps
+- [x] Data Tools "New column" with live preview + materialization + metadata — evidence: commit 1764e4d; end-to-end test covers preview, parse-error disable, duplicate-name disable, stats/picker integration
+- [x] Tests + 1M-row informational timing — evidence: expr.spec.js (4 tests); bench case measured **359 ms / 1M rows** (filter budget for context: 500 ms binding at 100k)
+- [x] CHANGELOG `## Schema` note — evidence: v2.5.0 entry; `ds.computed` additive, NaN→null round-trip tested
+- [x] Exploratory test (Data Scientist) — evidence: session at exit on hydrology data: cfs→m³/s conversion, specific discharge ratio, log₁₀ transform — all hand-verified against direct computation. One `informational` finding (positive): **computed columns chain** — a new column can reference an earlier computed one, since headers update between adds; kept as intended behavior.
+
+Exit criteria met — **Exited at v2.5.0**: parser rejects everything outside the grammar at parse time; live preview behaves per the §12 flow; computed values round-trip sessions as plain data; benchmarks green (computed 1M = 359 ms informational); no file over the §6 trigger; suite at 120.
 
 ### Phase 13+ — Future `(not scoped)`
 - Distribution comparison tests (t-test, ANOVA) — Data Scientist owns scope
