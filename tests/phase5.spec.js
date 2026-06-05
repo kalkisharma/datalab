@@ -151,9 +151,10 @@ test('Σ opens Data Tools with stats table; rename via UI follows series refs', 
 
   await page.click('.dataset-tools');
   await expect(page.locator('#dataToolsOverlay')).not.toHaveClass(/hidden/);
-  await expect(page.locator('.stats-table')).toContainText('temp');
+  // :not(.dt-preview) — the Phase 9 preview table shares the base class
+  await expect(page.locator('.stats-table:not(.dt-preview)')).toContainText('temp');
   // mean of [20,30,40] = 30.00
-  await expect(page.locator('.stats-table')).toContainText('30.00');
+  await expect(page.locator('.stats-table:not(.dt-preview)')).toContainText('30.00');
 
   await page.selectOption('#dtCol', 'temp');
   await page.fill('#dtNewName', 'temperature_C');
