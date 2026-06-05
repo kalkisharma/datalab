@@ -76,38 +76,36 @@ Only ~20–30% of parity-plotting is reusable. Its core (inner join, A/B state m
 **Critical decision: state-first, not DOM-first.**
 parity-plotting snapshots ~40 DOM element IDs. That approach breaks with N dynamic datasets/series. In datalab, `appState` is the source of truth — the DOM renders from state, not the other way around.
 
+> **Authoritative schema lives in `src/js/state.js`** — the sketch below is the orientation copy, updated at phase exits. (Record correction, Phase 8 scoping: this block had drifted — it still showed the v1 singleton `plotConfig` two phases after the v2 migration shipped.)
+
 ```js
-const appState = {
+const appState = {            // state version 2 (Phase 7)
+  version: 2,
   datasets: [
-    // { id, name, rows, headers, color }
+    // { id, name, rows, headers, color, dateFormats? }
   ],
   series: [
     // {
-    //   id, datasetId, xCol, yCol, colorCol, chartType,
-    //   // parity-specific (only when chartType === 'parity'):
-    //   joinDatasetId, joinKey, showBands, band5, band10,
-    //   // all series:
-    //   filters: [{ col, op, value, enabled }],
-    //   style: { color, markerSize, opacity, lineWidth }
+    //   id, name, plotId, datasetId, xCol, yCol, colorCol, chartType,
+    //   // chart-type-specific: zCol (contour), binCount/fitNormal (histogram),
+    //   // joinDatasetId, joinKey, band5, band10 (parity)
+    //   filters: [{ col, op, value, enabled }], filterLogic,
+    //   style: { color, markerSize, opacity, lineWidth }, enabled
     // }
   ],
-  plotConfig: {
-    title, xLabel, yLabel, figWidth, figHeight,
-    titleLocked, xLabelLocked, yLabelLocked,
-    annotPos, figInited,
-    majorGrid, minorGrid,
-  },
-  style: {
-    // Global defaults, overridden per-series
-    markerSize, markerOpacity, edgeColor, edgeWidth, colormap,
-    // font sizes
-  },
+  plots: [
+    // { id, name, plotConfig: { title, xLabel, yLabel, *Locked flags,
+    //   annotPos, legendShow, legendPos, xMin/xMax/yMin/yMax } }
+  ],
+  activePlotId,
+  style: { markerSize, markerOpacity, edgeColor, edgeWidth, colormap },
   savedPlots: [],
   plotRendered: false,
 };
 
-// Sessions = [{ name, state: {...appState} }]
-// Serializes cleanly with JSON.stringify — no DOM parsing
+// Session file = { _schema: 'datalab-session', app, saved, state: {...appState} }
+// Serializes cleanly with JSON.stringify — no DOM parsing.
+// Migrations per state version live in sessions.js (v1 → v2 shipped Phase 7).
 ```
 
 **Filter operator encoding** (defined in full in `applyFilters()` comment block — Phase 0 deliverable):
@@ -128,20 +126,18 @@ Defined in full in the comment block at the top of `shared.js` (Phase 0 delivera
 
 ```js
 // Every renderer exports a function with this signature:
-// buildTrace(series, datasets) → { traces: Plotly.Data[], error: string | null }
-//
-// series   — the series object from appState.series
-// datasets — the full appState.datasets array
-// traces   — array of Plotly trace objects (may be empty on error)
-// error    — human-readable error string if the series cannot render, else null
+// buildTrace(series, datasets) → { traces: Plotly.Data[], error: string | null,
+//                                  warning?: string | null }
+// (warning added Phase 3; parity additionally returns layout/stats/annotSR —
+//  see shared.js for the full, authoritative contract text)
 //
 // Error messages may contain user data (column names, dataset names).
 // Callers MUST apply escHtml() before inserting error into the DOM.
 // Error containers MUST use role="alert".
-//
-// Shared utilities (colVals, buildMarkerStyle, colorMapping) are helpers in shared.js,
-// not part of this interface. They are tested via the renderers that use them.
 ```
+
+> Phase 10 note: subplot figures will strain the single-axis-pair assumption in
+> `result.layout` — any contract amendment follows §7 (Data Viz authors, EL approves).
 
 ---
 
@@ -158,7 +154,7 @@ Use a modal per series — not a flat panel:
 
 | Chart type | Specific fields | Notes |
 |------------|----------------|-------|
-| scatter | size col (optional) | — |
+| scatter | size col (optional) | **Record correction (Phase 8 scoping): size col was never implemented** — no phase record claims it shipped; left here as design intent, candidate for a future phase |
 | line | line width | — |
 | parity | join dataset, join key, show ±5% band, show ±10% band | Requires two loaded datasets |
 | contour | Z col (third numeric column) | Requires pre-gridded/equally-spaced data; validated at creation. Data Scientist to review guidance in Phase 3 |
@@ -171,40 +167,46 @@ Datetime columns are shown in column pickers but disabled with tooltip: "datetim
 
 ## File Structure
 
+> Refreshed at Phase 8 scoping — the block had drifted (missing the Phase 3–7 file splits).
+
 ```
 datalab/
   src/
     index.html
     style.css           — includes .sr-only utility class
     js/
-      state.js
-      data.js           — parseCSV, applyFilters, classifyColumn
+      state.js          — appState schema, VERSION, escHtml
+      data.js           — parseCSV, applyFilters, classifyColumn, datetime detection
       ui.js             — makeDD, dataset panel, series list
-      modal.js          — series editor modal
+      modal.js          — series editor modal + date format prompt
+      modal-fields.js   — per-chart-type modal fields (split Phase 3)
       filters.js        — filter row UI
-      chart.js          — renderPlot dispatcher, downloadPlot, downloadZip
+      grid.js           — multi-plot live grid, active plot (Phase 7)
+      chart.js          — renderPlot dispatcher, trace cache
+      layout.js         — plot theme + base layout (split Phase 6 exit)
+      export.js         — PNG/SVG download, ZIP, style presets
+      sessions.js       — session export/import + state migrations
+      stats.js          — statistical engine + cleaning ops (Phase 5)
+      datatools.js      — Data Tools modal (Phase 5)
+      saves.js          — saved plot snapshots strip
+      wiring.js         — event wiring, dropzone, bootstrap
       renderers/
         shared.js       — renderer interface contract, colVals, buildMarkerStyle, colorMapping
-        parity.js
-        scatter.js
-        line.js
-        contour.js
-        histogram.js
-        boxplot.js
-      saves.js
-      wiring.js
+        parity.js / scatter.js / line.js / contour.js / histogram.js / boxplot.js
   lib/
-    plotly.min.js       — Full bundle (3.46 MB)
+    plotly.min.js       — Full bundle
     papaparse.min.js
     jszip.min.js
   tests/
     smoke.spec.js       — Smoke render test; runs on every PR
     bench.spec.js       — Performance benchmark; runs on release (BENCH=1)
     xss.spec.js         — XSS injection suite; runs on every PR
+    a11y.spec.js        — axe ARIA audit (5 app states)
     parity-stats.spec.js — statistical correctness regression tests
     series-list.spec.js — series list interaction tests
     reload-validation.spec.js — dataset reload + keyboard nav tests
     multi-series.spec.js — Phase 2 exit criteria scenario
+    phase3-exit.spec.js / phase3..phase7.spec.js — phase exit scenario suites
     data/
       README.md         — Dataset specs and sourcing instructions (QA-owned)
       test_*.csv        — Committed synthetic datasets (max 500KB each)
@@ -216,6 +218,21 @@ datalab/
   README.md
   CHANGELOG.md
 ```
+
+---
+
+## Landscape Review (Phase 8 scoping round)
+
+Surveyed: Excel/Sheets; matplotlib/seaborn/ggplot2; Plotly Express/Dash; Tableau/Power BI; GraphPad Prism/OriginLab/SigmaPlot; Veusz/LabPlot/SciDAVis; gnuplot; RAWGraphs/Datawrapper.
+
+**Niche (team consensus):** DataLab is the only zero-install, zero-internet, GUI-driven option where data provably never leaves the machine — web tools upload, desktop tools install, code tools need code. Feature bar: *what does a scientist/engineer with a sensitive CSV expect on day one?*
+
+**Gaps adopted into the plan:** bar charts, error bars, log axes, trendline + R², data table preview (→ Phase 9). Subplots/faceting already planned (→ Phase 10).
+
+**Decision records (do not relitigate without new information):**
+- **`.xlsx` import — rejected for now (EL ruling, Security objection sustained):** SheetJS-class dependency = large new attack surface parsing complex untrusted binaries in a confidentiality-critical tool (§9, §10). README documents the Excel→CSV export path instead. Revisit only on sustained maintainer demand.
+- **Dual Y axis — parked with Data Scientist conditions (§12 misleading-viz authority):** only with distinct units, axes color-matched to their series, never for same-unit pairs. Future list, gated on a DS-approved design.
+- **Computed columns — future, security-spike-first:** highest-utility future item (Data Engineer), but any formula feature must satisfy the new STANDARDS §8 expression-evaluation rule (no string-to-code path). Design spike before any scoping.
 
 ---
 
@@ -403,10 +420,80 @@ Deliverables:
 
 Exit criteria: v1 session files migrate losslessly into a 1-plot grid. Two plots render different series with independent titles/ranges/legends. Plot delete releases memory. axe clean. All prior 73 tests still green.
 
-### Phase 8+ — Future `(not scoped)`
-- Additional distributions (lognormal, Weibull), distribution comparison tests
-- Type casting to datetime; column reorder
+### Phase 8 — Export, Presets & Control Refinements `v2.1.0`
+**Goal:** Bulk export, categorized presets, control polish, NSE correction, and the v2.0.0 code-review carry-overs. Sourced from maintainer review of v2.0.0.
+
+**Design decisions (team, maintainer-driven):**
+- **Slider alignment (UX):** `figW` and `figH` get identical ranges (300–1600, step 50) so equal values sit at equal thumb positions. DOM-only change, no state impact.
+- **Typography maxima (UX + Data Viz):** all five plot-typography sliders max out at 40. Margins already scale with font size (`buildBaseLayout`), so no clipping at max — Data Viz verifies at exit.
+- **Bulk export (EL + Frontend):** "Export all" downloads each visible plot panel as an **individual PNG** at the Export size, named `NN_<plot name>.png`. Sequential `Plotly.downloadImage` calls; the browser asks permission for multiple automatic downloads on first use — accepted trade-off, maintainer chose individual files over a ZIP. Saved-plots ZIP export is unchanged.
+- **Preset categories (UX + Data Engineer):** saving a preset opens an accessible category picker (checkboxes, all on by default): **Style** (background, colormap, markers, edges), **Export size**, **Plot typography**, **Frame & grid** (frame/grid controls, major/minor toggles, legend default). New sectioned schema marker `datalab-style-preset-v2`; loading applies only the sections present in the file. **v1 flat presets must keep loading** (interpreted as all-categories). Category picker dialog follows ARIA_CHECKLIST (focus in, Esc, focus restore).
+- **NSE correction (Data Scientist):** `computeParityStats` computes SS_tot around **mean(modelled)**; the standard Nash–Sutcliffe definition — and the renderer's own doc comment — require **mean(observed)**: NSE = 1 − Σ(mod−obs)² / Σ(obs−mean(obs))². Fix the denominator and recompute the pinned references in `parity-stats.spec.js` (reference example becomes SS_tot = 500, NSE = 1 − 17/500 = 0.966). Displayed-statistic correction, not a schema change. Root cause noted: Phase 1 sign-off pinned the reference to the same wrong formula — reference values must be derived from the definition, not from the code.
+
+Deliverables (dependency order per §18; Security flagged items 2–3 as must-precede file-import work):
+- [x] "Figure size" → "Export size" relabel + autosize hint (UX) — evidence: src/index.html, export.js/layout.js comments; commit hash recorded at exit walk (working tree at scoping time)
+- [ ] Carry-over (v2.0.0 review, Security — §18 flag): session import validates plot/dataset/series ids against `/^[\w-]+$/` — ids reach innerHTML unescaped in grid.js/ui.js; reject or regenerate on import; `xss.spec.js` gains a malicious-session-file case (Security + QA)
+- [ ] Pre-commit hook gap (Security): STANDARDS §9 claims the network-API grep covers `src/index.html`, but the hook only greps `src/js/**` (HTML is checked for `ping=` only) — extend the hook to grep staged HTML for the prohibited-API list, bringing implementation up to the written standard (Security)
+- [ ] NSE denominator fix + reference values re-derived from the definition per §20 (Data Scientist + QA; `## Corrections` CHANGELOG entry per §3 carve-out)
+- [ ] `figW`/`figH` range unification 300–1600 (Frontend + UX) *(parallel-safe)*
+- [ ] Typography slider maxima → 40, all five sliders (Frontend; Data Viz confirms no clipping at 40 via margin scaling) *(parallel-safe)*
+- [ ] Carry-over (v2.0.0 review, Frontend): renaming a plot refreshes `activePlotLabel`, series plot chips, and panel aria-labels *(parallel-safe)*
+- [ ] Carry-over (v2.0.0 review, Data Viz): multiple parity series on one panel use the union of their axis ranges instead of last-wins *(parallel-safe)*
+- [ ] Carry-over (v2.0.0 review, Data Viz + Data Scientist): histogram normal-fit overlay passes explicit `xbins` so curve scaling matches the bins Plotly actually draws (`nbinsx` is only a hint) *(parallel-safe)*
+- [ ] "Export all" bulk PNG export of visible plots (Frontend + Data Viz; QA test asserts one download event per visible plot; README documents the browser's multiple-download permission prompt)
+- [ ] UX flow description for the preset category picker — written before the branch is created, per §12 (UX Designer)
+- [ ] Preset category picker + sectioned `datalab-style-preset-v2` schema with v1 back-compat; loader validates section shapes before applying; format change logged under CHANGELOG `## Schema` (Frontend + UX + Data Engineer; dialog accessibility — Accessibility)
+- [ ] NSE/MAE/RMSE definitions added to the help dialog (UX + Data Scientist) — discoverability gap: maintainer had to ask what NSE means
+- [ ] Maintainer action (carried since v1.0.0, non-blocking): manual screen reader session — NVDA on Windows now satisfies the primary requirement per amended STANDARDS §15
+
+Exit criteria: equal slider values align visually. All typography sliders reach 40 without label clipping. Export-all produces one correctly named PNG per visible plot. A v1 preset still loads; a v2 preset with only Typography checked changes nothing else. NSE matches the textbook definition against newly hand-derived references. Malicious-session XSS test green. Pre-commit hook greps HTML for prohibited APIs. All prior tests green.
+
+### Phase 9 — Chart Essentials `v2.2.0`
+**Goal:** Close the table-stakes gaps every surveyed plotting tool covers: bar charts, error bars, log axes, trendlines, data preview. Sourced from the landscape review.
+
+**Design decisions (team, landscape round):**
+- **Bar renderer (Data Viz + Data Scientist):** categorical X + numeric Y with an explicit aggregation select — `none` (default; errors on duplicate categories telling the user to pick an aggregation), `count`, `sum`, `mean`, `median`. Silent aggregation is the misleading-viz failure mode — the user must choose (DS ruling). New renderer → §6 review of shared.js + renderer together; validation-error tests per the Phase 3 precedent.
+- **Error bars (Data Scientist owns semantics):** scatter, line, bar. Sources: a ± column (symmetric), or computed SD/SEM when a bar series aggregates. **The legend/hover must state what the bar represents (SD vs SEM vs column name)** — unlabeled error bars are a §20 correctness violation, not a style choice.
+- **Log axes (record correction):** every renderer has carried DS-reviewed log-scale guidance since Phase 1–3 — scatter.js says "offer via axis range UI" — and the control never shipped. Per-plot `xLog`/`yLog` checkboxes in the Axis ranges section. Additive optional plotConfig fields with defaults → **no migration, state stays v2** (§3). Interactions: parity allows log-log but equal ranges still enforced; histogram gets log **Y only** (log X requires log-space binning — deferred with the distributions work); non-positive values on a log axis produce a renderer warning (Plotly silently drops them — surfacing that is DS-required).
+- **Trendline (Data Scientist owns formula):** scatter series option — linear least-squares y = ax + b with R², annotation + `.sr-only` mirror per the parity-stats precedent. Reference tests hand-derived per §20. Higher-order fits deferred to the distributions phase.
+- **Data preview (Frontend + Performance):** Data Tools modal gains a paginated table view (50 rows/page) of the current dataset. Every cell escHtml'd (largest new innerHTML surface in the app — Security reviews the one rendering site). No full-table DOM at any row count — pagination is the perf guarantee; informational timing only, no new binding target.
+- **Subplot design spike (docs-only, per amended §16):** the Phase 10 spike runs during Phase 9 — schema decision (v2-additive vs v3), Plotly `matches` axes with scattergl measured against §11 targets, renderer-contract amendment draft, UX flow. Output: Phase 10 deliverables scoped in this document.
+
+Deliverables (dependency order per §18):
+- [ ] Log axes: per-plot xLog/yLog + renderer warnings for non-positive values; parity/histogram interactions as decided above (Frontend + Data Viz + Data Scientist)
+- [ ] Bar renderer with explicit aggregation + validation-error tests (Data Viz + Data Scientist + QA) *(parallel-safe with log axes)*
+- [ ] Error bars on scatter/line/bar with mandatory semantics labeling (Data Viz + Data Scientist)
+- [ ] Trendline: linear fit + R² annotation + sr-only mirror, references hand-derived per §20 (Data Viz + Data Scientist + QA)
+- [ ] Data preview tab in Data Tools, paginated, fully escaped (Frontend + Security + Performance) *(parallel-safe)*
+- [ ] UX flow descriptions for the bar/error-bar/trendline modal fields and the preview tab — before branches, per §12 (UX Designer)
+- [ ] Subplot design spike document → Phase 10 scope (Data Viz + Data Engineer + UX + Performance; EL approves)
+- [ ] README: feature list update + Excel→CSV guidance per the xlsx decision record (UX)
+- [ ] ARIA pass on new modal fields and preview tab (Accessibility); axe states extended if a new state is meaningful
+- [ ] Exploratory test: real datasets through bar/error-bar/log/trendline paths (Data Scientist)
+
+Exit criteria: all four new capabilities render correctly and round-trip through session files (log flags, error-bar config, trendline config are series/plot state). Bar with duplicate categories and no aggregation produces the explicit error. Error bars always carry semantics labels. Log axis with non-positive data warns. Trendline R² matches hand-derived references. Preview never renders more than one page of DOM rows. Subplot spike approved and Phase 10 scoped. All prior tests green.
+
+### Phase 10 — Subplot Figures `(scoped by the Phase 9 spike; version set by schema outcome)`
+**Goal:** Subplots that share axes inside a single figure — one Plotly div, one exported image (publication-style multi-panel figures). Maintainer request at v2.0.0 review.
+
+**Where it fits (EL decision, landscape round):** after Phase 9 — the essentials are higher value per unit risk, and the spike runs docs-only during Phase 9. It builds **on** the Phase 7 grid rather than replacing it: a plot panel can optionally become an r×c subplot figure; the grid keeps handling side-by-side independent figures. The two compose — a grid of figures, some of which contain subplots.
+
+**Open design questions — resolved by the Phase 9 design spike before deliverables are scoped here:**
+- **Schema (Data Engineer + EL):** plots gain optional `grid: { rows, cols, shareX, shareY }`; series gain optional `cell: { row, col }`. Additive-with-defaults may keep state v2 (STANDARDS §3), but per-cell axis labels/ranges would force per-cell plotConfig → state v3 + migration. Decision gates the version number (v2.x vs v3.0.0).
+- **Rendering (Data Viz):** Plotly grid layout in a single div (`xaxis2`/`yaxis2`, `matches: 'x'` for shared axes). Spike must cover scattergl traces in subplots, per-cell error reporting, and how parity's equal-axis constraint interacts with shared axes.
+- **UX (UX Designer):** how a panel toggles between single plot and subplot figure; where the cell picker lives in the series modal; per-cell vs per-figure titles; what "active plot" means when the active panel has cells. UX flow description written before implementation (house rule).
+- **Export:** a figure exports as one image at Export size; bulk export treats a subplot figure as one file.
+- **Renderer contract (Data Viz + EL):** `result.layout` assumes a single axis pair; subplot cells break that assumption. Any contract amendment follows §7 — Data Viz authors, EL approves, before renderer work begins.
+- **Performance (Performance Engineer joins the spike):** shared-axis figures multiply traces per div — spike must measure against the §11 binding targets (warm < 2s, cold < 5s) before deliverables are scoped, not after.
+
+### Phase 11+ — Future `(not scoped)`
+- Additional distributions (lognormal, Weibull), distribution comparison tests; KDE/violin plots; higher-order trendline fits
+- Computed columns — **security-spike-first**, must satisfy STANDARDS §8 expression-evaluation rule (no string-to-code path); Data Engineer champions, Security gates
+- Dual Y axis — gated on Data Scientist conditions (see Landscape Review decision record)
+- Type casting to datetime; column reorder; scatter size-by column (Phase 1 design intent, never built)
 - Interpolated (non-gridded) contours
+- Free-text plot annotations; general-purpose heatmap chart type
+- Basic statistical tests (t-test, ANOVA) — pairs with the distributions work; Data Scientist owns scope
 
 ---
 

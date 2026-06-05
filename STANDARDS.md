@@ -20,7 +20,7 @@
 - If `master` has a pre-commit hook failure from an upstream commit, branch off the last clean `master` commit as a rebase target — this is not a policy exception.
 - When two feature branches are ready to merge simultaneously, first-merged wins; second branch must rebase before merging.
 - Stale branches are reviewed and cleaned at each phase exit.
-- A reviewer must review the branch before it merges. If the reviewer and author disagree on a UX or design decision, see §11 for conflict resolution.
+- A reviewer must review the branch before it merges. If the reviewer and author disagree on a UX or design decision, see §12 for conflict resolution.
 
 ## 3. Versioning (Semver)
 
@@ -31,7 +31,8 @@
 - Version has exactly one source of truth: `VERSION` constant in `state.js`. Nowhere else.
 - All serialized session state carries a `version` field starting at `1` from day one.
 - **Schema change definition:** A migration stub is required when a required field is added, removed, renamed, or changes type. Adding a new optional field with a backward-compatible default does not require a migration. Adding a new filter operator type does not require a migration (parsed values are stored, not formats). Changing the behavior of an existing operator is a MAJOR version bump.
-- Schema changes are logged in `CHANGELOG.md` under a `## Schema` section per version. Owned by the Data Engineer, updated as part of the release checklist.
+- **Statistical correctness carve-out** (added Phase 8 scoping, NSE finding): a fix that changes displayed statistical output to match the *documented definition* of the statistic is a correctness fix — PATCH (or rides the phase's MINOR), **not** MAJOR, even though re-rendered sessions show different numbers. The session data itself is untouched; only a wrong computation is corrected. Requires: Data Scientist sign-off, a `## Corrections` entry in `CHANGELOG.md` stating old vs new behavior, and updated reference tests. Silently *redefining* a statistic (changing which definition is documented) remains MAJOR.
+- Schema changes are logged in `CHANGELOG.md` under a `## Schema` section per version. Owned by the Data Engineer, updated as part of the release checklist. This covers **all file formats the app reads or writes** — session state, style presets, exported CSV conventions — not only session state.
 
 ## 4. Releases
 
@@ -85,6 +86,7 @@
 ## 8. Security Rules
 
 - `eval()` and `new Function()` are permanently forbidden. No exceptions.
+- **Expression evaluation rule** (added at landscape review, ahead of any computed-column feature): any future feature that evaluates user-written expressions (formula columns, custom filters, derived axes) must use a hand-written tokenizer + AST evaluator over an allowlisted operator/function set. No string-to-code path of any kind — no `eval`, no `Function`, no `setTimeout(string)`, no dynamically built `import()`. The parser design requires Security Engineer authorship review *before* implementation begins, modeled on the design-spike process.
 - Every `innerHTML` assignment must have an inline comment listing which values are escaped and confirming `escHtml()` coverage.
 - `escHtml()` is required on all values interpolated into `innerHTML`, `outerHTML`, `insertAdjacentHTML`, or any DOM injection context — including: series names, filter values, column names, dataset names, titles, labels, category strings, values interpolated into Plotly `hovertemplate` format strings, and renderer error messages before DOM insertion.
 - Column name escaping contract (see also `parseCSV()`): raw trimmed column names are used for display in dropdown menus. `escHtml()`-escaped versions are used only when interpolated into `innerHTML` contexts. This contract is documented in a comment in `parseCSV()` — that comment is a **Phase 0 deliverable**.
@@ -182,7 +184,7 @@ DataLab is used by private organisations loading sensitive data. The tool must g
 
 - Test files live in `tests/` at repo root, named `*.spec.js`.
 - Smoke render test: `tests/smoke.spec.js`. Performance benchmarks: `tests/bench.spec.js`. All other tests: `tests/*.spec.js`.
-- Test naming convention: `describe('module/feature')` → `it('does X when Y')`. Names are timeless — no version numbers, no phase references.
+- Test naming convention: `describe('module/feature')` → `it('does X when Y')`. Names are timeless — no version numbers, no phase references. **Clarification (Phase 8 scoping):** this governs `describe`/`it` strings. Spec *files* named for the phase that introduced them (`phase3.spec.js` … `phase7.spec.js`) are accepted as historical grouping — five phases shipped with the convention and renaming would churn git history for no behavioral gain. New spec files should prefer feature names (`export.spec.js`, not `phase8.spec.js`).
 - **Test data:** real-world and synthetic CSVs used for testing live in `tests/data/`. Committed synthetic datasets max 500KB each. Naming convention: `test_{descriptor}_{rows}rows.csv` (e.g., `test_scatter_1000rows.csv`). `tests/data/README.md` is owned by the QA Engineer and documents what datasets are needed, their specs, and where to obtain real-world datasets (which are not committed).
 - **Flaky test policy:** If a test fails intermittently due to a race condition or timing assumption in the code, it is flaky — fix it. If pass/fail depends on factors outside the codebase (system load, wall-clock time, network state), it is inherently non-deterministic — delete it and replace with a deterministic equivalent.
 
@@ -190,7 +192,7 @@ DataLab is used by private organisations loading sensitive data. The tool must g
 
 - **Per-phase basic pass:** any new dynamic panel or modal introduced in a phase is reviewed against `ARIA_CHECKLIST.md` before that phase closes.
 - **Phase 4 full audit:** complete ARIA audit of all panels and interactions, plus screen reader behavior testing.
-- Screen reader testing: VoiceOver on macOS 13+ (mandatory for Phase 4). NVDA on Windows (secondary, best-effort).
+- Screen reader testing: one full manual session with a real screen reader is the requirement. VoiceOver on macOS 13+ or NVDA on Windows — whichever matches the maintainer's hardware — counts as the primary session (amended Phase 8 scoping: the original VoiceOver-mandatory wording assumed macOS hardware the maintainer does not have, which is why the action item has been open since v1.0.0). The other remains best-effort.
 - `ARIA_CHECKLIST.md` is owned by the Accessibility Specialist. Changes require sign-off from any two other roles.
 - **Visually-hidden text:** use the `.sr-only` CSS class, defined in `style.css`, for all accessibility-only text. Standard implementation:
   ```css
@@ -217,7 +219,7 @@ DataLab is used by private organisations loading sensitive data. The tool must g
 - All exit criteria in the plan must be explicitly checked off before the phase closes.
 - **Checkbox verification:** a deliverable is checked off only against evidence — a test that exercises it, a commit that contains it, or the behavior demonstrated. Bulk-checking a phase's checkbox block is forbidden; the Engineering Lead walks the list item by item at exit. (Added after two Phase 1 sub-items — session tabs and plot typography controls — were swept into a checked line without being built and survived four phase exits unnoticed.)
 - A deliverable line that bundles several features (e.g. "save/restore; tabs; export") is split into one checkbox per feature before being checked.
-- No Phase N+1 work begins until Phase N is tagged and closed.
+- No Phase N+1 work begins until Phase N is tagged and closed. **Exception (added at landscape review): docs-only design spikes** for a future phase — producing planning text, schema drafts, and measurements, touching nothing under `src/` — may run during the current phase at EL discretion. The spike's output lands in PLANNING.md; its approval is a deliverable of the phase it runs in.
 - Phase exit sequence: refactor review → security checklist → accessibility pass → Data Scientist sign-off → release checklist → tag.
 - QA and Performance Engineer jointly confirm performance targets are met before tagging. Disagreements go to Engineering Lead.
 - Data Scientist signs off on statistical correctness and exploratory test findings before tagging.
@@ -302,12 +304,16 @@ The pre-commit hook greps `src/js/**` for:
   - Metric calculations: NSE, MAE, RMSE (Phase 1+); correlation, distribution fitting, summary statistics (Phase 5+)
   - Binning strategy: Freedman-Diaconis as default bin count rule for histograms (computed on demand at render time from column values — not cached in state)
   - Whisker and outlier logic for boxplots
+  - Error bar semantics (Phase 9+): every error bar states what it represents — SD, SEM, CI, or source column. Unlabeled error bars are a correctness violation, not a style choice
+  - Regression/trendline fitting (Phase 9+): formula, goodness-of-fit reporting (R²), and reference tests hand-derived per the reference-value rule below
+  - Aggregation defaults (Phase 9+): silent aggregation is forbidden — when a chart aggregates rows, the aggregation is user-chosen and displayed
   - Colormap perceptual uniformity and accuracy
   - Axis scale appropriateness (log vs. linear) and axis range defaults
   - Axis range manipulation — auto-range is acceptable for most chart types; parity plots require equal axis ranges (same min/max for X and Y, explicitly set in the renderer, not left to Plotly auto-range)
   - Filter operator behavior on real data
 - **Axis scale guidance per chart type:** documented in a comment at the top of each renderer. Data Viz Engineer writes it; Data Scientist reviews before the renderer merges.
 - **Statistical methodology:** key calculations (NSE, MAE, RMSE, and all Phase 5+ metrics) are documented in comments at their implementation site. Data Scientist reviews these comments before the PR merges.
+- **Reference values are derived from the definition, never from the code** (added Phase 8 scoping, NSE finding): hand-computed reference values in correctness tests must be worked from the documented formula — by hand or with an independent tool — and must not be produced by running the implementation under test. The Phase 1 NSE reference was pinned to the implementation's own (wrong) output, so code and test agreed while both deviated from the standard definition for six releases. The Data Scientist verifies the derivation, not just the match.
 - **Exploratory testing:** the Data Scientist loads real-world CSVs and exercises the full workflow each phase — not scripted, not automated. Goal: find issues a Playwright test cannot catch (misleading defaults, confusing workflows, statistically incorrect outputs).
 - **Findings format:** each finding is documented as:
   - `dataset`: what CSV was loaded
