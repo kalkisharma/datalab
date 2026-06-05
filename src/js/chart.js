@@ -94,9 +94,27 @@ function renderOnePlot(plot) {
 
     traces.push(...result.traces);
 
-    if (result.layout) Object.assign(layout, result.layout);
+    if (result.layout) {
+      // Merge axis overrides INTO the styled axis objects — a wholesale
+      // Object.assign replaced layout.xaxis/yaxis from buildBaseLayout,
+      // silently dropping titles, fonts, and frame styling on parity plots
+      // (Phase 8 fix)
+      for (const [k, v] of Object.entries(result.layout)) {
+        if ((k === 'xaxis' || k === 'yaxis') && layout[k]) Object.assign(layout[k], v);
+        else layout[k] = v;
+      }
+    }
     if (result.stats && result.annotSR) parityResults.push({ name: s.name, ...result });
     if (result.fitAnnot) srParts.push(result.fitAnnot.sr);
+  }
+
+  // Multiple parity series: each computed its own equal-axis range and the
+  // last one won, clipping the others — use the union (Phase 8 fix)
+  if (parityResults.length > 1) {
+    const mn = Math.min(...parityResults.map(p => p.axMin));
+    const mx = Math.max(...parityResults.map(p => p.axMax));
+    layout.xaxis.range = [mn, mx];
+    layout.yaxis.range = [mn, mx];
   }
 
   showPanelErrors(plot.id, errors, warnings);
