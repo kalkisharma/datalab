@@ -66,7 +66,7 @@ function buildModalBody(existing) {
     `<option value="${escHtml(ds.id)}" ${existing?.datasetId === ds.id ? 'selected' : ''}>${escHtml(ds.name)}</option>`
   ).join('');
 
-  const chartTypes = ['scatter','line','bar','parity','contour','histogram','boxplot','violin'];
+  const chartTypes = ['scatter','line','bar','parity','contour','histogram','boxplot','violin','heatmap'];
   const ctBtns = chartTypes.map(t =>
     `<button class="ct-btn ${existing?.chartType === t ? 'active' : ''}" data-ct="${t}">${t}</button>`
   ).join('');
@@ -161,6 +161,10 @@ function saveModalSeries() {
     if (document.getElementById('mBarErr')?.value && agg !== 'mean') {
       err.textContent = 'SD/SEM error bars require the Mean aggregation.'; return false;
     }
+  } else if (chartType === 'heatmap') {
+    const agg = document.getElementById('mBarAgg')?.value || 'none';
+    if (!xCol || !yCol) { err.textContent = 'X and Y category columns are required.'; return false; }
+    if (agg !== 'count' && !zCol) { err.textContent = 'Value column is required (or choose the Count aggregation).'; return false; }
   } else {
     if (!xCol) { err.textContent = 'X column is required.'; return false; }
     if (!yCol) { err.textContent = 'Y column is required.'; return false; }
@@ -222,6 +226,8 @@ function saveModalSeries() {
     agg:       document.getElementById('mBarAgg')?.value || null,           // bar only
     errMode:   document.getElementById('mBarErr')?.value || null,           // bar only (sd|sem)
     errCol:    document.getElementById('mErrCol')?.value || null,           // scatter/line ± column
+    sizeCol:   document.getElementById('mSizeCol')?.value || null,          // scatter bubble size (Phase 14)
+    rightAxis: document.getElementById('mRightAxis')?.checked ?? false,     // scatter/line/bar (Phase 14)
     trendline: document.getElementById('mTrend')?.checked ?? false,         // scatter only
     trendDegree: parseInt(document.getElementById('mTrendDeg')?.value) || 1, // scatter only (Phase 13)
     trendGroups: document.getElementById('mTrendGroups')?.checked ?? false, // scatter only (Phase 11)

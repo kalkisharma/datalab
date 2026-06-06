@@ -41,8 +41,34 @@ function buildScatterTrace(series, datasets) {
   const marker = buildMarkerStyle(series.style, series.colorCol ? markerColor : undefined);
   if (!series.colorCol) marker.color = series.style?.color ?? (ds.color ?? '#5b8dee');
 
+  // Bubble size (Phase 14): marker AREA linear in the value — diameter ∝ √v
+  // (radius-proportional mapping exaggerates quadratically, DS ruling).
+  // 4 px → 28 px diameter; non-finite values get the minimum.
+  let warning = null;
+  let sizeNote = '';
+  let sizeRaw = null;
+  if (series.sizeCol) {
+    if (isDatetime) {
+      warning = 'Size-by is not supported with a datetime X axis yet.';
+    } else {
+      const sV = colVals(rows, series.sizeCol);
+      let mn = Infinity, mx = -Infinity;
+      for (const v of sV) { if (Number.isFinite(v)) { if (v < mn) mn = v; if (v > mx) mx = v; } }
+      const DMIN2 = 16, DMAX2 = 784; // 4² and 28² — areas interpolate linearly
+      const sizes = sV.map(v => {
+        if (!Number.isFinite(v) || mx === mn) return mx === mn && Number.isFinite(v) ? 16 : 4;
+        const f = (v - mn) / (mx - mn);
+        return Math.sqrt(DMIN2 + f * (DMAX2 - DMIN2));
+      });
+      marker.size = sizes;
+      sizeRaw = sV;
+      sizeNote = ` (size: ${series.sizeCol})`;
+    }
+  }
+
   // Error bars: name carries "± column" — semantics always visible (§20)
-  const name = (series.name || 'Scatter') + (series.errCol ? ` (± ${series.errCol})` : '');
+  const name = (series.name || 'Scatter')
+    + (series.errCol ? ` (± ${series.errCol})` : '') + sizeNote;
 
   const traces = [{
     // WebGL above 10k points — SVG scatter at 50k×10 series measured 9.3s
@@ -54,8 +80,10 @@ function buildScatterTrace(series, datasets) {
     y: yV,
     name,
     marker,
-    hovertemplate: `${series.xCol}: %{x}<br>${series.yCol}: %{y}<extra></extra>`,
+    hovertemplate: `${series.xCol}: %{x}<br>${series.yCol}: %{y}`
+      + (sizeRaw ? `<br>${series.sizeCol}: %{customdata}` : '') + '<extra></extra>',
   }];
+  if (sizeRaw) traces[0].customdata = sizeRaw; // hover shows the raw size value
   if (eV) traces[0].error_y = errorBarsFromCol(eV);
 
   // Linear trendline (Phase 9): least squares on the finite pairs; the
@@ -64,7 +92,6 @@ function buildScatterTrace(series, datasets) {
   // color-by group, palette-colored, capped at 10; anything else falls
   // back to the single overall fit with a warning.
   let fitAnnot = null;
-  let warning  = null;
   const f = v => Number(v).toPrecision(4);
   const fitLine = (fx, fy, name, color) => {
     const fit = linearFit(fx, fy);

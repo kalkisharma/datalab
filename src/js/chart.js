@@ -10,7 +10,15 @@ const RENDERERS = {
   histogram: buildHistogramTrace,
   boxplot:   buildBoxplotTrace,
   violin:    buildViolinTrace,
+  heatmap:   buildHeatmapTrace,
 };
+
+// Right Y axis is meaningful only for value-over-x types (Phase 14);
+// parity (equal axes), histogram/boxplot/violin (distribution), contour/
+// heatmap (matrix) conflict geometrically
+function series14RightOk(s) {
+  return s.chartType === 'scatter' || s.chartType === 'line' || s.chartType === 'bar';
+}
 
 // ── Trace cache (Phase 2, Performance) ────────────────────────────────────
 //
@@ -80,6 +88,9 @@ function renderOnePlot(plot) {
   let   layout   = buildBaseLayout(plot);
   const parityResults = []; // every parity series annotated, not just the last
   const srParts = [];       // screen-reader mirror lines
+  // Dual-Y bookkeeping (Phase 14)
+  const leftSeries = [], rightSeries = [];
+  let leftColor = null, rightColor = null, rightGridWarned = false;
 
   // ── Subplot grid (Phase 10) ─────────────────────────────────────────────
   // One Plotly div, one figure: each cell is an axis pair (xaxis/xaxis2/…).
@@ -124,12 +135,27 @@ function renderOnePlot(plot) {
     if (result.error) { errors.push({ name: label, error: result.error }); continue; }
     if (result.warning) warnings.push({ name: label, warning: result.warning });
 
+    // Right Y axis (Phase 14): scatter/line/bar only, never inside a grid
+    // (Phase 13 review decision — falls back left with a warning)
+    const wantsRight = series14RightOk(s) && s.rightAxis;
+    if (s.rightAxis && grid && !rightGridWarned) {
+      rightGridWarned = true;
+      warnings.push({ name: 'Right axis', warning:
+        'Dual Y is unavailable in subplot grids — rendered on the left.' });
+    }
     for (const t of result.traces) {
       // Cached traces persist across renders — always set or clear the axis
-      // refs so a grid change can't leave stale x2/y2 assignments behind
+      // refs so a grid or right-axis change can't leave stale assignments
       if (grid) { t.xaxis = 'x' + sfx; t.yaxis = 'y' + sfx; }
       else { delete t.xaxis; delete t.yaxis; }
+      if (!grid && wantsRight) t.yaxis = 'y2';
       traces.push(t);
+    }
+    if (!grid) {
+      const sColor = s.style?.color
+        ?? appState.datasets.find(d => d.id === s.datasetId)?.color ?? '#5b8dee';
+      if (wantsRight) { rightSeries.push(s); if (!rightColor) rightColor = sColor; }
+      else { leftSeries.push(s); if (!leftColor) leftColor = sColor; }
     }
 
     if (result.layout) {
@@ -147,6 +173,29 @@ function renderOnePlot(plot) {
     }
     if (result.stats && result.annotSR) parityResults.push({ name: label, sfx, ...result });
     if (result.fitAnnot) srParts.push(result.fitAnnot.sr);
+  }
+
+  // Right Y axis layout (Phase 14): no gridlines (the left grid stays
+  // authoritative); both titles tint to their first series' colors — the
+  // DS coupling condition made structural. Manual ranges and Log Y stay
+  // left-only by design.
+  if (rightSeries.length) {
+    const y2 = JSON.parse(JSON.stringify(layout.yaxis));
+    y2.overlaying = 'y';
+    y2.side = 'right';
+    y2.showgrid = false;
+    delete y2.range;
+    delete y2.type;
+    y2.title = { text: rightSeries[0].yCol || '',
+                 font: { ...y2.title.font, color: rightColor } };
+    layout.yaxis2 = y2;
+    layout.yaxis.title.font.color = leftColor ?? layout.yaxis.title.font.color;
+    const leftCols = new Set(leftSeries.map(s2 => s2.yCol));
+    const dupCol = rightSeries.find(s2 => leftCols.has(s2.yCol));
+    if (dupCol) {
+      warnings.push({ name: 'Right axis', warning:
+        `"${dupCol.yCol}" is on BOTH axes — dual axes for the same quantity mislead; consider one axis.` });
+    }
   }
 
   // Per-cell auto axis labels: first series in the cell, unless the plot's
@@ -270,6 +319,26 @@ function renderOnePlot(plot) {
     ));
   }
 
+  // Free-text notes (Phase 14): appended AFTER the parity annotations so
+  // the relayout hook can map dragged indices back through the offset
+  const notes = plot.plotConfig.notes ?? [];
+  if (notes.length) {
+    const thN = plotTheme();
+    layout.annotations = [
+      ...(layout.annotations ?? []),
+      ...notes.map(n => ({
+        x: n.x, y: n.y, xref: 'paper', yref: 'paper',
+        // escHtml: note text is user data inside Plotly pseudo-HTML
+        text: escHtml(n.text),
+        showarrow: false,
+        bgcolor: thN.annotBg, bordercolor: thN.annotBorder, borderwidth: 1, borderpad: 6,
+        font: { size: parseFloat(document.getElementById('fsAnnot')?.value) || 11, color: thN.title },
+      })),
+    ];
+    notes.forEach(n => srParts.push(`note: ${n.text}`));
+  }
+  pd._noteOffset = (layout.annotations?.length ?? 0) - notes.length;
+
   const srEl = document.getElementById('plotSR-' + plot.id);
   if (srEl) srEl.textContent = srParts.join('; ');
 
@@ -289,6 +358,14 @@ function renderOnePlot(plot) {
           x: e['legend.x'] ?? plot.plotConfig.legendPos?.x ?? 0.01,
           y: e['legend.y'] ?? plot.plotConfig.legendPos?.y ?? 0.99,
         };
+      }
+      // Dragged notes persist (Phase 14): indices past _noteOffset are notes
+      for (const k of Object.keys(e)) {
+        const m = /^annotations\[(\d+)\]\.(x|y)$/.exec(k);
+        if (!m) continue;
+        const idx = parseInt(m[1]) - (pd._noteOffset ?? 0);
+        const ns = plot.plotConfig.notes ?? [];
+        if (idx >= 0 && idx < ns.length) ns[idx][m[2]] = e[k];
       }
     });
     pd._legendHooked = true;

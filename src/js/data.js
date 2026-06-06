@@ -172,6 +172,7 @@ function validateSeriesColumns(s, datasets) {
     check(s.colorCol, 'color column', ds.headers);
     check(s.zCol, 'Z column', ds.headers);
     check(s.errCol, 'error column', ds.headers);
+    check(s.sizeCol, 'size column', ds.headers);
   }
   (s.filters || []).forEach(f => {
     if (f.enabled !== false) check(f.col, 'filter column', ds.headers);

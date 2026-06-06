@@ -221,3 +221,9 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
 .dt-page-row{display:flex;align-items:center;gap:10px;margin-top:8px;}
 .dt-page-info{font-family:var(--mono);font-size:11px;color:var(--text3);}
 .series-badge.violin{background:rgba(204,121,167,0.18);color:#cc79a7;}
+.series-badge.heatmap{background:rgba(240,228,66,0.18);color:#b8a900;}
+/* Notes (Phase 14) */
+.note-item{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12px;color:var(--text2);}
+.note-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.note-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0 4px;line-height:1;}
+.note-del:hover{color:var(--danger);}

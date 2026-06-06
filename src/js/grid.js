@@ -115,6 +115,28 @@ function syncActivePlotInputs() {
   updateLockBtn('titleLock',  cfg.titleLocked);
   updateLockBtn('xLabelLock', cfg.xLabelLocked);
   updateLockBtn('yLabelLock', cfg.yLabelLocked);
+  renderNoteList();
+}
+
+// Notes list for the ACTIVE plot (Phase 14)
+function renderNoteList() {
+  const list = document.getElementById('noteList');
+  if (!list) return;
+  const notes = activePlot().plotConfig.notes ?? [];
+  // escHtml applied to note text — user-entered string
+  list.innerHTML = notes.map(n => `
+    <div class="note-item" role="listitem">
+      <span class="note-text" title="${escHtml(n.text)}">${escHtml(n.text)}</span>
+      <button class="note-del" data-nid="${n.id}" aria-label="Delete note ${escHtml(n.text)}" title="Delete">×</button>
+    </div>`).join('');
+  list.querySelectorAll('.note-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const cfg = activePlot().plotConfig;
+      cfg.notes = (cfg.notes ?? []).filter(n => n.id !== btn.dataset.nid);
+      renderNoteList();
+      if (appState.plotRendered) renderPlot();
+    });
+  });
 }
 
 // ── Add / delete ──────────────────────────────────────────────────────────

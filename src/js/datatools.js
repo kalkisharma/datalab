@@ -83,6 +83,11 @@ function renderDataToolsBody(ds) {
     <div class="check-row" style="gap:8px">
       <button class="btn btn-sm" id="dtDropBtn">Drop column</button>
       <button class="btn btn-sm" id="dtCastBtn">Cast to numeric</button>
+      <button class="btn btn-sm" id="dtCastDtBtn">Cast to datetime</button>
+    </div>
+    <div class="check-row" style="gap:8px;margin-top:6px">
+      <button class="btn btn-sm" id="dtMoveL" aria-label="Move column left">◀ Move</button>
+      <button class="btn btn-sm" id="dtMoveR" aria-label="Move column right">Move ▶</button>
     </div>
     <div class="modal-field" style="margin-top:14px">
       <label class="modal-label" for="dtMissMode">Missing values</label>
@@ -138,6 +143,44 @@ function renderDataToolsBody(ds) {
     const failed = castNumeric(ds, c);
     afterCleaningOp(ds, `Cast "${c}" to numeric — ${failed} value(s) could not be parsed and are now missing.`);
   });
+
+  // Cast to datetime (Phase 14): detect the slash format, reuse the Phase 3
+  // ambiguity prompt when needed, rewrite values as ISO strings
+  const applyDtCast = c => {
+    const fmt = ds.dateFormats?.[c]
+      ?? (detectDateFormat(ds.rows.map(r => r[c])) || 'ISO');
+    let failed = 0;
+    for (const r of ds.rows) {
+      const orig = r[c];
+      if (orig === null || orig === undefined || orig === '') { r[c] = null; continue; }
+      const iso = parseDateValue(orig, fmt === 'ambiguous' ? 'MDY' : fmt);
+      if (iso === null) failed++;
+      r[c] = iso;
+    }
+    (ds.dateFormats = ds.dateFormats || {})[c] = 'ISO'; // values are ISO now
+    afterCleaningOp(ds, `Cast "${c}" to datetime (ISO) — ${failed} value(s) could not be parsed and are now missing.`);
+  };
+  document.getElementById('dtCastDtBtn').addEventListener('click', () => {
+    const c = col();
+    if (detectDateFormat(ds.rows.map(r => r[c])) === 'ambiguous' && !ds.dateFormats?.[c]) {
+      showDateFormatPrompt(ds, c, () => applyDtCast(c)); // user picks MDY/DMY
+    } else {
+      applyDtCast(c);
+    }
+  });
+
+  // Column reorder (Phase 14): header order drives pickers, stats, preview,
+  // and CSV export; the moved column stays selected
+  const move = dir => {
+    const c = col();
+    const i = ds.headers.indexOf(c), j = i + dir;
+    if (i < 0 || j < 0 || j >= ds.headers.length) return;
+    [ds.headers[i], ds.headers[j]] = [ds.headers[j], ds.headers[i]];
+    afterCleaningOp(ds, `Moved "${c}" ${dir < 0 ? 'left' : 'right'}.`);
+    document.getElementById('dtCol').value = c; // body re-rendered — restore selection
+  };
+  document.getElementById('dtMoveL').addEventListener('click', () => move(-1));
+  document.getElementById('dtMoveR').addEventListener('click', () => move(1));
 
   document.getElementById('dtMissBtn').addEventListener('click', () => {
     const c = col(), mode = document.getElementById('dtMissMode').value;

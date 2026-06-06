@@ -56,6 +56,8 @@ function makeDefaultPlotConfig() {
     xMin: '', xMax: '', yMin: '', yMax: '', // manual axis ranges ('' = auto)
     // Log axis toggles (Phase 9 — additive with defaults, no migration §3)
     xLog: false, yLog: false,
+    // Free-text notes (Phase 14): [{ id, text, x, y }] in paper coords
+    notes: [],
   };
 }
 

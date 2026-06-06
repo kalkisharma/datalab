@@ -115,6 +115,15 @@ test('axe: series modal with histogram fit picker has no violations', async ({ p
   expect(await audit(page, 'modal-histogram')).toHaveLength(0);
 });
 
+test('axe: series modal with heatmap fields has no violations', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'a,b,v\nx,y,1\nz,w,2', '_a11y_hm.csv');
+  await page.click('#addSeriesBtn');
+  await page.click('.ct-btn[data-ct="heatmap"]'); // 9th type fields (Phase 14)
+  await page.waitForTimeout(200);
+  expect(await audit(page, 'modal-heatmap')).toHaveLength(0);
+});
+
 test('axe: preset category picker open has no violations', async ({ page }) => {
   await page.goto(FILE_URL);
   await page.evaluate(() => {

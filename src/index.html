@@ -84,6 +84,14 @@
           <label><input type="checkbox" id="minorGrid" /> Minor grid</label>
           <label><input type="checkbox" id="showLegend" checked /> Legend</label>
         </div>
+        <!-- Notes (Phase 14) — free-text annotations on the ACTIVE plot -->
+        <label class="ctrl-label" style="margin-top:10px;">Notes
+          <div class="input-lock-row" style="margin-top:4px;">
+            <input type="text" class="ctrl-input" id="noteText" placeholder="Annotation text…" />
+            <button class="btn btn-sm" id="noteAdd">+ Note</button>
+          </div>
+        </label>
+        <div id="noteList" role="list" aria-label="Plot notes"></div>
         <!-- Subplot grid (Phase 10) — per plot; 1×1 = no grid -->
         <label class="ctrl-label" style="margin-top:10px;">Subplot grid
           <div class="check-row" style="align-items:center;gap:6px;margin-top:4px;">

@@ -284,6 +284,18 @@ function init() {
     if (appState.plotRendered) renderPlot();
   });
 
+  // Notes (Phase 14) — added to the ACTIVE plot at center; dragging
+  // persists via the relayout hook in chart.js
+  g('noteAdd').addEventListener('click', () => {
+    const text = g('noteText').value.trim();
+    if (!text) return;
+    const cfg = activePlot().plotConfig;
+    (cfg.notes = cfg.notes ?? []).push({ id: uid(), text, x: 0.5, y: 0.5 });
+    g('noteText').value = '';
+    renderNoteList();
+    if (appState.plotRendered) renderPlot();
+  });
+
   // Subplot grid (Phase 10) — 1×1 stores null so non-grid plots stay
   // byte-identical to v2.2 sessions
   const syncGridControls = () => {
