@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.7.0 — Chart & Workspace Completions
+
+### Features
+- **Heatmap** (9th chart type) — category × category × numeric value
+  with an explicit aggregation choice; repeated combinations error under
+  None; the colorbar names the aggregation; missing combinations render
+  as gaps.
+- **Bubble sizes** — scatter "Size by" column; marker **area** is
+  proportional to the value (4–28 px), hover shows the raw value, the
+  legend names the size column.
+- **Right Y axis** — per-series toggle for scatter/line/bar; both axis
+  titles tint to their series' colors; warns when the same column lands
+  on both axes; unavailable inside subplot grids.
+- **Notes** — free-text annotations per plot: add/delete in Plot
+  settings, drag to position (persists, saved in sessions).
+- **Data Tools:** cast to datetime (ISO output, format-ambiguity prompt
+  reused) and column reorder (header order drives pickers, preview, and
+  CSV export).
+
+## Schema
+### v2.7.0 (state version unchanged at 2 — all additive)
+- `series.sizeCol`, `series.rightAxis`; `plotConfig.notes`
+  (`[{ id, text, x, y }]`). v2.0–v2.6 session files load unchanged.
+
 ## v2.6.0 — Statistical Comparison
 
 ### Features

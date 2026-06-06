@@ -41,6 +41,9 @@ not the URL, is authoritative** — a CDN can change; the bytes cannot.
     regularized incomplete beta) are hand-written like the Phase 12 parser,
     same §9 reasoning; zero new dependencies; pins stand.
 
+  - v2.7.0 exit: no changes — heatmap and dual-Y use Plotly 2.32.0 natives
+    (heatmap trace, overlaying axes); zero new dependencies; pins stand.
+
 ## Updating a library
 
 1. Replace the file in `lib/` from its official source URL.

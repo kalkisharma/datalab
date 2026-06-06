@@ -5,7 +5,7 @@
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; worker-src blob:; object-src 'none'; base-uri 'none'; form-action 'none';" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DataLab v2.6.0</title>
+  <title>DataLab v2.7.0</title>
   <style>
 /* style.css — DataLab design system (adapted from parity-plotting) */
 
@@ -242,7 +242,7 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
 <body>
 
 <header>
-  <span class="logo">DataLab <span>v2.6.0</span></span>
+  <span class="logo">DataLab <span>v2.7.0</span></span>
   <div class="divider"></div>
   <button class="btn btn-sm" id="addPlotBtn" title="Add a plot panel to the grid">+ Plot</button>
   <button class="btn btn-sm" id="sessionSaveBtn" title="Save full session to a JSON file">💾 Session</button>
@@ -653,7 +653,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
 // Single source of truth for the app version (STANDARDS.md §3).
 // build.js parses the declaration below — do not rename or reformat it.
-const VERSION = '2.6.0';
+const VERSION = '2.7.0';
 
 // ── appState ──────────────────────────────────────────────────────────────
 //
@@ -2141,12 +2141,8 @@ const RENDERERS = {
   heatmap:   buildHeatmapTrace,
 };
 
-// Right Y axis is meaningful only for value-over-x types (Phase 14);
-// parity (equal axes), histogram/boxplot/violin (distribution), contour/
-// heatmap (matrix) conflict geometrically
-function series14RightOk(s) {
-  return s.chartType === 'scatter' || s.chartType === 'line' || s.chartType === 'bar';
-}
+// (series14RightOk / applyRightAxis / appendNotes live in decorations.js —
+// Phase 14 exit refactor review)
 
 // ── Trace cache (Phase 2, Performance) ────────────────────────────────────
 //
@@ -2303,28 +2299,7 @@ function renderOnePlot(plot) {
     if (result.fitAnnot) srParts.push(result.fitAnnot.sr);
   }
 
-  // Right Y axis layout (Phase 14): no gridlines (the left grid stays
-  // authoritative); both titles tint to their first series' colors — the
-  // DS coupling condition made structural. Manual ranges and Log Y stay
-  // left-only by design.
-  if (rightSeries.length) {
-    const y2 = JSON.parse(JSON.stringify(layout.yaxis));
-    y2.overlaying = 'y';
-    y2.side = 'right';
-    y2.showgrid = false;
-    delete y2.range;
-    delete y2.type;
-    y2.title = { text: rightSeries[0].yCol || '',
-                 font: { ...y2.title.font, color: rightColor } };
-    layout.yaxis2 = y2;
-    layout.yaxis.title.font.color = leftColor ?? layout.yaxis.title.font.color;
-    const leftCols = new Set(leftSeries.map(s2 => s2.yCol));
-    const dupCol = rightSeries.find(s2 => leftCols.has(s2.yCol));
-    if (dupCol) {
-      warnings.push({ name: 'Right axis', warning:
-        `"${dupCol.yCol}" is on BOTH axes — dual axes for the same quantity mislead; consider one axis.` });
-    }
-  }
+  applyRightAxis(layout, leftSeries, rightSeries, leftColor, rightColor, warnings);
 
   // Per-cell auto axis labels: first series in the cell, unless the plot's
   // labels are locked (locked labels apply to every cell — spike decision)
@@ -2375,46 +2350,7 @@ function renderOnePlot(plot) {
     }
   }
 
-  // Log-axis interactions (Phase 9, Data Scientist rulings)
-  const cfg = plot.plotConfig;
-  if (cfg.xLog || cfg.yLog) {
-    // (Phase 13: the histogram Log-X suppression is gone — histograms now
-    // bin in log space via ctx.xLog; the renderer warns about non-positive
-    // values itself.)
-    // Plotly silently drops non-positive values on a log axis — surface it
-    let nx = 0, ny = 0;
-    for (const t of traces) {
-      if (cfg.xLog && Array.isArray(t.x)) nx += t.x.filter(v => typeof v === 'number' && v <= 0).length;
-      if (cfg.yLog && Array.isArray(t.y)) ny += t.y.filter(v => typeof v === 'number' && v <= 0).length;
-    }
-    if (nx) warnings.push({ name: 'Log X', warning: `${nx} non-positive value(s) cannot be shown on a log X axis.` });
-    if (ny) warnings.push({ name: 'Log Y', warning: `${ny} non-positive value(s) cannot be shown on a log Y axis.` });
-
-    // Parity ranges are linear data units; Plotly log ranges are log10.
-    // Equal axes stay equal in log-log; anything else renders linear.
-    // Range re-derived from the UNPADDED data extremes and padded in log
-    // space — the linear 5% pad goes negative even for positive data.
-    // Grouped per cell axis pair (Phase 10).
-    let parityLogWarned = false;
-    for (const [sfx, list] of Object.entries(parityByCell)) {
-      const dmn = Math.min(...list.map(p => p.dataMin));
-      const dmx = Math.max(...list.map(p => p.dataMax));
-      if (cfg.xLog && cfg.yLog && dmn > 0) {
-        const lo = Math.log10(dmn), hi = Math.log10(dmx);
-        const pad = (hi - lo) * 0.05 || 0.05;
-        layout['xaxis' + sfx].range = [lo - pad, hi + pad];
-        layout['yaxis' + sfx].range = [lo - pad, hi + pad];
-      } else {
-        layout['xaxis' + sfx].type = 'linear';
-        layout['yaxis' + sfx].type = 'linear';
-        if (!parityLogWarned) {
-          parityLogWarned = true;
-          warnings.push({ name: 'Parity', warning:
-            'A parity plot needs BOTH Log X and Log Y and all-positive data — rendered linear.' });
-        }
-      }
-    }
-  }
+  applyLogInteractions(layout, plot, traces, warnings, parityByCell);
 
   showPanelErrors(plot.id, errors, warnings);
 
@@ -2447,25 +2383,7 @@ function renderOnePlot(plot) {
     ));
   }
 
-  // Free-text notes (Phase 14): appended AFTER the parity annotations so
-  // the relayout hook can map dragged indices back through the offset
-  const notes = plot.plotConfig.notes ?? [];
-  if (notes.length) {
-    const thN = plotTheme();
-    layout.annotations = [
-      ...(layout.annotations ?? []),
-      ...notes.map(n => ({
-        x: n.x, y: n.y, xref: 'paper', yref: 'paper',
-        // escHtml: note text is user data inside Plotly pseudo-HTML
-        text: escHtml(n.text),
-        showarrow: false,
-        bgcolor: thN.annotBg, bordercolor: thN.annotBorder, borderwidth: 1, borderpad: 6,
-        font: { size: parseFloat(document.getElementById('fsAnnot')?.value) || 11, color: thN.title },
-      })),
-    ];
-    notes.forEach(n => srParts.push(`note: ${n.text}`));
-  }
-  pd._noteOffset = (layout.annotations?.length ?? 0) - notes.length;
+  appendNotes(layout, plot, pd, srParts);
 
   const srEl = document.getElementById('plotSR-' + plot.id);
   if (srEl) srEl.textContent = srParts.join('; ');
@@ -2530,6 +2448,102 @@ function showPanelErrors(pid, errors, warnings = []) {
       `<div class="render-warning" role="alert"><strong>${escHtml(w.name)}:</strong> ${escHtml(w.warning)}</div>`
     ).join('');
   box.style.display = '';
+}
+
+
+// decorations.js — plot-level decorations applied by renderOnePlot:
+// right Y axis (dual-Y) and free-text notes (split from chart.js at the
+// Phase 14 exit refactor review — function extraction, suite-verified)
+
+// Right Y axis is meaningful only for value-over-x types (Phase 14);
+// parity (equal axes), histogram/boxplot/violin (distribution), contour/
+// heatmap (matrix) conflict geometrically
+function series14RightOk(s) {
+  return s.chartType === 'scatter' || s.chartType === 'line' || s.chartType === 'bar';
+}
+
+// Right Y axis layout (Phase 14): no gridlines (the left grid stays
+// authoritative); both titles tint to their first series' colors — the
+// DS coupling condition made structural. Manual ranges and Log Y stay
+// left-only by design. Mutates layout in place.
+function applyRightAxis(layout, leftSeries, rightSeries, leftColor, rightColor, warnings) {
+  if (!rightSeries.length) return;
+  const y2 = JSON.parse(JSON.stringify(layout.yaxis));
+  y2.overlaying = 'y';
+  y2.side = 'right';
+  y2.showgrid = false;
+  delete y2.range;
+  delete y2.type;
+  y2.title = { text: rightSeries[0].yCol || '',
+               font: { ...y2.title.font, color: rightColor } };
+  layout.yaxis2 = y2;
+  layout.yaxis.title.font.color = leftColor ?? layout.yaxis.title.font.color;
+  const leftCols = new Set(leftSeries.map(s2 => s2.yCol));
+  const dupCol = rightSeries.find(s2 => leftCols.has(s2.yCol));
+  if (dupCol) {
+    warnings.push({ name: 'Right axis', warning:
+      `"${dupCol.yCol}" is on BOTH axes — dual axes for the same quantity mislead; consider one axis.` });
+  }
+}
+
+// Free-text notes (Phase 14): appended AFTER the parity annotations so
+// the relayout hook can map dragged indices back through the offset
+// stored on the plot div.
+function appendNotes(layout, plot, pd, srParts) {
+  const notes = plot.plotConfig.notes ?? [];
+  if (notes.length) {
+    const thN = plotTheme();
+    layout.annotations = [
+      ...(layout.annotations ?? []),
+      ...notes.map(n => ({
+        x: n.x, y: n.y, xref: 'paper', yref: 'paper',
+        // escHtml: note text is user data inside Plotly pseudo-HTML
+        text: escHtml(n.text),
+        showarrow: false,
+        bgcolor: thN.annotBg, bordercolor: thN.annotBorder, borderwidth: 1, borderpad: 6,
+        font: { size: parseFloat(document.getElementById('fsAnnot')?.value) || 11, color: thN.title },
+      })),
+    ];
+    notes.forEach(n => srParts.push(`note: ${n.text}`));
+  }
+  pd._noteOffset = (layout.annotations?.length ?? 0) - notes.length;
+}
+
+// Log-axis interactions (Phase 9 rulings, per-cell since Phase 10, moved
+// here at the Phase 14 exit refactor review — verbatim from chart.js):
+// non-positive counts surfaced (Plotly drops them silently); parity ranges
+// re-derived from UNPADDED data extremes and padded in log space, since
+// the linear 5% pad goes negative even for positive data.
+function applyLogInteractions(layout, plot, traces, warnings, parityByCell) {
+  const cfg = plot.plotConfig;
+  if (!cfg.xLog && !cfg.yLog) return;
+  let nx = 0, ny = 0;
+  for (const t of traces) {
+    if (cfg.xLog && Array.isArray(t.x)) nx += t.x.filter(v => typeof v === 'number' && v <= 0).length;
+    if (cfg.yLog && Array.isArray(t.y)) ny += t.y.filter(v => typeof v === 'number' && v <= 0).length;
+  }
+  if (nx) warnings.push({ name: 'Log X', warning: `${nx} non-positive value(s) cannot be shown on a log X axis.` });
+  if (ny) warnings.push({ name: 'Log Y', warning: `${ny} non-positive value(s) cannot be shown on a log Y axis.` });
+
+  let parityLogWarned = false;
+  for (const [sfx, list] of Object.entries(parityByCell)) {
+    const dmn = Math.min(...list.map(p => p.dataMin));
+    const dmx = Math.max(...list.map(p => p.dataMax));
+    if (cfg.xLog && cfg.yLog && dmn > 0) {
+      const lo = Math.log10(dmn), hi = Math.log10(dmx);
+      const pad = (hi - lo) * 0.05 || 0.05;
+      layout['xaxis' + sfx].range = [lo - pad, hi + pad];
+      layout['yaxis' + sfx].range = [lo - pad, hi + pad];
+    } else {
+      layout['xaxis' + sfx].type = 'linear';
+      layout['yaxis' + sfx].type = 'linear';
+      if (!parityLogWarned) {
+        parityLogWarned = true;
+        warnings.push({ name: 'Parity', warning:
+          'A parity plot needs BOTH Log X and Log Y and all-positive data — rendered linear.' });
+      }
+    }
+  }
 }
 
 
@@ -3899,14 +3913,14 @@ function runCompare(ds) {
 
 let _dtDatasetId = null;
 let _dtTrigger   = null;
-let _dtPage      = 0; // preview page (Phase 9)
+
 
 function openDataTools(dsId) {
   const ds = appState.datasets.find(d => d.id === dsId);
   if (!ds) return;
   _dtDatasetId = dsId;
   _dtTrigger   = document.activeElement;
-  _dtPage      = 0;
+  resetDTPreviewPage();
 
   document.getElementById('dtTitle').textContent = `Data Tools — ${ds.name}`;
   document.getElementById('dtMsg').textContent = '';
@@ -4124,40 +4138,6 @@ function renderDataToolsBody(ds) {
   renderDTPreview(ds); // preview reflects the dataset as it currently stands
 }
 
-// ── Data preview (Phase 9) ────────────────────────────────────────────────
-// Paginated table of the dataset as it currently stands. Pagination IS the
-// performance guarantee: never more than one page of DOM rows, any dataset
-// size. Headers list = visible columns, so dropped columns stay out.
-
-const DT_PAGE_SIZE = 50;
-
-function renderDTPreview(ds) {
-  const box = document.getElementById('dtPreview');
-  if (!box) return;
-  const total = ds.rows.length;
-  const pages = Math.max(1, Math.ceil(total / DT_PAGE_SIZE));
-  _dtPage = Math.max(0, Math.min(_dtPage, pages - 1)); // clamp after row drops
-  const start = _dtPage * DT_PAGE_SIZE;
-  const slice = ds.rows.slice(start, start + DT_PAGE_SIZE);
-  // innerHTML: every header and cell escaped via escHtml — raw user CSV
-  // content, the largest injection surface in the app (Security-reviewed)
-  box.innerHTML = `
-    <div class="dt-preview-scroll">
-      <table class="stats-table dt-preview">
-        <thead><tr>${ds.headers.map(h => `<th scope="col">${escHtml(h)}</th>`).join('')}</tr></thead>
-        <tbody>${slice.map(r =>
-          `<tr>${ds.headers.map(h => `<td>${escHtml(r[h] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody>
-      </table>
-    </div>
-    <div class="dt-page-row">
-      <button class="btn btn-sm" id="dtPrevPage" ${_dtPage === 0 ? 'disabled' : ''} aria-label="Previous preview page">‹ Prev</button>
-      <span class="dt-page-info" aria-live="polite">rows ${total ? start + 1 : 0}–${Math.min(start + DT_PAGE_SIZE, total)} of ${total}</span>
-      <button class="btn btn-sm" id="dtNextPage" ${_dtPage >= pages - 1 ? 'disabled' : ''} aria-label="Next preview page">Next ›</button>
-    </div>`;
-  document.getElementById('dtPrevPage').addEventListener('click', () => { _dtPage--; renderDTPreview(ds); });
-  document.getElementById('dtNextPage').addEventListener('click', () => { _dtPage++; renderDTPreview(ds); });
-}
-
 // Every op invalidates caches, re-validates series, refreshes UI in place
 function afterCleaningOp(ds, message) {
   bumpDatasetRev(ds.id);
@@ -4229,6 +4209,49 @@ function exportCleanedCSV() {
   const name = safeFilename(ds.name, 'dataset'); // shared sanitizer in export.js
   a.href = url; a.download = `${name}_cleaned.csv`; a.click();
   URL.revokeObjectURL(url); // safe to revoke immediately — download is async
+}
+
+
+// dt-preview.js — paginated data preview for the Data Tools modal
+// (split from datatools.js at the Phase 14 exit refactor review — verbatim
+// move; pagination is the perf guarantee: ≤ one page of DOM rows)
+
+let _dtPage = 0;
+
+function resetDTPreviewPage() { _dtPage = 0; }
+
+// ── Data preview (Phase 9) ────────────────────────────────────────────────
+// Paginated table of the dataset as it currently stands. Pagination IS the
+// performance guarantee: never more than one page of DOM rows, any dataset
+// size. Headers list = visible columns, so dropped columns stay out.
+
+const DT_PAGE_SIZE = 50;
+
+function renderDTPreview(ds) {
+  const box = document.getElementById('dtPreview');
+  if (!box) return;
+  const total = ds.rows.length;
+  const pages = Math.max(1, Math.ceil(total / DT_PAGE_SIZE));
+  _dtPage = Math.max(0, Math.min(_dtPage, pages - 1)); // clamp after row drops
+  const start = _dtPage * DT_PAGE_SIZE;
+  const slice = ds.rows.slice(start, start + DT_PAGE_SIZE);
+  // innerHTML: every header and cell escaped via escHtml — raw user CSV
+  // content, the largest injection surface in the app (Security-reviewed)
+  box.innerHTML = `
+    <div class="dt-preview-scroll">
+      <table class="stats-table dt-preview">
+        <thead><tr>${ds.headers.map(h => `<th scope="col">${escHtml(h)}</th>`).join('')}</tr></thead>
+        <tbody>${slice.map(r =>
+          `<tr>${ds.headers.map(h => `<td>${escHtml(r[h] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table>
+    </div>
+    <div class="dt-page-row">
+      <button class="btn btn-sm" id="dtPrevPage" ${_dtPage === 0 ? 'disabled' : ''} aria-label="Previous preview page">‹ Prev</button>
+      <span class="dt-page-info" aria-live="polite">rows ${total ? start + 1 : 0}–${Math.min(start + DT_PAGE_SIZE, total)} of ${total}</span>
+      <button class="btn btn-sm" id="dtNextPage" ${_dtPage >= pages - 1 ? 'disabled' : ''} aria-label="Next preview page">Next ›</button>
+    </div>`;
+  document.getElementById('dtPrevPage').addEventListener('click', () => { _dtPage--; renderDTPreview(ds); });
+  document.getElementById('dtNextPage').addEventListener('click', () => { _dtPage++; renderDTPreview(ds); });
 }
 
 

@@ -23,10 +23,12 @@ Maintainer: Kalki Sharma <kalkijsharma@gmail.com>
 
 ## Features
 
-- **Chart types:** scatter, line, bar (explicit aggregation — count, sum,
-  mean, median), parity (model-vs-observed with NSE/MAE/RMSE stats and
-  error bands), contour (pre-gridded data), histogram (Freedman-Diaconis
-  auto-binning), box plot (Tukey whiskers), violin
+- **Chart types:** scatter (with bubble sizes — marker area proportional
+  to a column), line, bar (explicit aggregation — count, sum, mean,
+  median), parity (model-vs-observed with NSE/MAE/RMSE stats and error
+  bands), contour (pre-gridded data), histogram (Freedman-Diaconis
+  auto-binning), box plot (Tukey whiskers), violin, heatmap (category ×
+  category with explicit aggregation)
 - **Analysis on the plot:** distribution fits on histograms (normal,
   lognormal, Weibull MLE) with KDE overlay; trendlines with R² (linear,
   quadratic, cubic) — overall or one linear fit per color group; error
@@ -34,6 +36,9 @@ Maintainer: Kalki Sharma <kalkijsharma@gmail.com>
   represent); per-plot log axes with true log-space histogram binning
 - **Subplot figures:** any plot becomes an r × c grid of subplots with
   optional shared axes — one canvas, one exported image
+- **Plot annotations and dual axes:** free-text notes (draggable,
+  persisted), and a per-series right Y axis with color-coupled axis
+  titles for distinct quantities
 - **Filters:** per-series predicates with AND/OR logic, comparisons, numeric
   ranges, and categorical sets
 - **Datetime axes:** ISO 8601, MM/DD/YYYY, DD/MM/YYYY — ambiguous formats
@@ -42,9 +47,9 @@ Maintainer: Kalki Sharma <kalkijsharma@gmail.com>
   color-blind-safe default palette (Okabe-Ito)
 - **Data tools (Σ per dataset):** summary statistics, paginated data
   preview, cleaning operations (rename, drop, cast, missing values),
-  computed columns, group comparison (Welch t-test / one-way ANOVA —
-  always reported with effect sizes), Pearson correlation heatmap,
-  cleaned-CSV export
+  cast to datetime, column reorder, computed columns, group comparison
+  (Welch t-test / one-way ANOVA — always reported with effect sizes),
+  Pearson correlation heatmap, cleaned-CSV export
 - **Export:** PNG, SVG, **Export all** (one numbered PNG per visible plot —
   your browser may ask once to allow multiple downloads), ZIP of saved
   plots, full-session JSON (reload your entire workspace later), style

@@ -142,6 +142,9 @@ Use a modal per series — not a flat panel:
 | histogram | bin count (FD default, render-time); fit picker (normal/lognormal/Weibull, Phase 11; Phase 5 fitNormal honored via fallback); KDE overlay | Client-side binning |
 | boxplot | X col (optional, categorical); Y col (numeric) | Max 50 categorical X values; render-time warning if exceeded |
 | violin (Phase 11) | as boxplot | Plotly-native trace, Tukey box inside |
+| heatmap (Phase 14) | X category, Y category, aggregation, value column | explicit aggregation per the bar precedent; colorbar names it |
+
+Scatter/line/bar additionally get a Right Y axis toggle (Phase 14; not in subplot grids); scatter gets Size-by (area-proportional, Phase 14).
 
 All chart types additionally get a Cell picker when the target plot has a subplot grid (Phase 10).
 
@@ -174,6 +177,8 @@ datalab/
       distributions.js  — distribution fits + KDE (split from stats.js, Phase 11)
       expr.js           — safe expression engine for computed columns (Phase 12, §8)
       compare.js        — Compare groups: Welch t / ANOVA UI (Phase 13)
+      decorations.js    — dual-Y, notes, log interactions (split from chart.js, Phase 14)
+      dt-preview.js     — paginated Data Tools preview (split from datatools.js, Phase 14)
       datatools.js      — Data Tools modal (Phase 5; preview Phase 9; computed columns Phase 12)
       saves.js          — saved plot snapshots strip
       wiring.js         — event wiring, dropzone, bootstrap
@@ -597,13 +602,16 @@ Exit criteria: t/F/p match published-table references; p never renders without e
 - **Column reorder:** "◀ Move / Move ▶" beside the cleaning column picker; header order drives pickers, stats, preview, and CSV export; the moved column stays selected.
 
 Deliverables *(UX flow descriptions recorded above per §12)*:
-- [ ] `renderers/heatmap.js` with explicit aggregation + validation errors; §6 review with shared.js (Data Viz + Data Scientist + QA)
-- [ ] Scatter size-by column, area-proportional, hover documents the range (Data Viz + Data Scientist)
-- [ ] Dual-Y: series right-axis toggle, tinted axis titles, same-column warning, excluded chart types validated in the modal (Data Viz + Frontend + Data Scientist)
-- [ ] Annotations: add/edit/delete + drag persistence, escHtml at build, session round-trip (Frontend + UX + Security)
-- [ ] Datetime casting + column reorder in Data Tools (Data Engineer)
-- [ ] Tests per feature incl. annotation XSS case and heatmap duplicate-combo error; axe states for new modal fields (QA + Accessibility + Security)
-- [ ] README + exploratory test at exit (UX; Data Scientist)
+- [x] `renderers/heatmap.js` (9th type) — evidence: commit 89f76c1; duplicate-combo error, named colorbar, gaps, >50 warning; §6 review with shared.js (interface conformance, no deviation)
+- [x] Scatter size-by, area-proportional — evidence: commit 89f76c1; exact mapping test (0→4 px, max→28, mid→20), raw value in hover via customdata, size column in the legend name
+- [x] Dual-Y with structural DS conditions — evidence: commit 89f76c1; tint-equals-series-color assertions, same-column warning, grid exclusion warning, scatter/line/bar only
+- [x] Notes with drag persistence + escHtml — evidence: commit 89f76c1; dedicated XSS payload test, session round-trip, index-offset relayout mapping past parity annotations
+- [x] Datetime casting + column reorder — evidence: commit 89f76c1; DD/MM-proving data → ISO, unparseable count, header order drives pickers/preview/CSV
+- [x] Tests + axe — evidence: completions.spec.js (5) + heatmap-modal axe state (9 states); suite at 132
+- [x] README — evidence: release commit
+- [x] Exploratory (Data Scientist) — evidence: session at exit: site×month mean-flow heatmap with named colorbar; stage/flow dual-axis with a dragged note; catchment-sized bubbles spanning exactly 4–28 px. No findings.
+
+**Exited at v2.7.0** — exit refactor review: three files crossed §6 (the phase's breadth showed) — chart.js 369 → decorations.js extraction (283), datatools.js 306 → dt-preview.js split, modal-fields.js 309 reviewed-tolerated (cohesive builder, splits with the next modal change). 132 tests, 9 axe states, benchmarks green.
 
 Exit criteria: heatmap errors on duplicate combos under `none`; bubble areas scale linearly with the value column; dual-Y axis titles visibly tinted with the warning firing only on same-column; annotations round-trip sessions and reject markup; reordered columns drive pickers/preview/export; all prior tests green.
 
