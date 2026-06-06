@@ -105,9 +105,10 @@ Defined in full in the comment block at the top of `shared.js` (Phase 0 delivera
 
 ```js
 // Every renderer exports a function with this signature:
-// buildTrace(series, datasets) → { traces: Plotly.Data[], error: string | null,
-//                                  warning?: string | null }
-// (warning added Phase 3; parity additionally returns layout/stats/annotSR —
+// buildTrace(series, datasets, ctx?) → { traces: Plotly.Data[], error: string | null,
+//                                        warning?: string | null }
+// (warning added Phase 3; ctx added Phase 13 per §7 — plot context, currently
+//  { xLog }, cache-keyed; parity additionally returns layout/stats/annotSR —
 //  see shared.js for the full, authoritative contract text)
 //
 // Error messages may contain user data (column names, dataset names).
@@ -133,7 +134,7 @@ Use a modal per series — not a flat panel:
 
 | Chart type | Specific fields | Notes |
 |------------|----------------|-------|
-| scatter | error ± column, linear trendline (Phase 9); size col never implemented (Phase 8 record correction — future candidate) | per-group trendlines opt-in planned Phase 11 |
+| scatter | error ± column (Phase 9); trendline with degree picker — linear/quadratic/cubic (Phases 9 + 13); per-group linear fits opt-in (Phase 11); size col planned Phase 14 | — |
 | line | line width; error ± column (Phase 9) | — |
 | bar (Phase 9) | category X, aggregation (none/count/sum/mean/median), SD/SEM error bars (mean only) | silent aggregation forbidden (§20) |
 | parity | join dataset, join key, show ±5% band, show ±10% band | Requires two loaded datasets; Y options come from the JOIN dataset (Phase 9 fix) |
@@ -172,6 +173,7 @@ datalab/
       stats.js          — statistical engine + cleaning ops (Phase 5)
       distributions.js  — distribution fits + KDE (split from stats.js, Phase 11)
       expr.js           — safe expression engine for computed columns (Phase 12, §8)
+      compare.js        — Compare groups: Welch t / ANOVA UI (Phase 13)
       datatools.js      — Data Tools modal (Phase 5; preview Phase 9; computed columns Phase 12)
       saves.js          — saved plot snapshots strip
       wiring.js         — event wiring, dropzone, bootstrap
@@ -571,6 +573,8 @@ Deliverables *(UX flow descriptions recorded above per §12)*:
 - [x] ARIA — evidence: Compare groups lives inside the scanned data-tools axe state; `aria-live` results region; 8 states green
 - [x] README — evidence: release commit
 - [x] Exploratory (Data Scientist) — evidence: session at exit: 3-treatment ANOVA F(2,87)=83.4 with η²=0.66; 3-decade column log-binned at 0.59 dex with a lognormal fit recovering the generative parameters; quadratic trendline recovered generative coefficients (0.01000x² vs true 0.01x²). No findings. Note: distributions.js sits just under the §6 trigger — the next addition there splits hypothesis tests out.
+
+**Exited at v2.6.0.** Release-checklist note (Phase 14 review): the two §4 upkeep lines went one-for-two on their first outing — the DEPENDENCIES entry was caught (late, fixed pre-tag, 03b1e55); the file-tree line was missed (compare.js absent until this review). The mechanism stays — one save justifies it — but walkers: read the checklist, don't recite it.
 
 Exit criteria: t/F/p match published-table references; p never renders without effect size and n's; log-X histograms bin in log space with the old warning gone; cubic fit matches a hand-derived reference; all prior tests green.
 
