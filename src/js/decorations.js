@@ -1,0 +1,94 @@
+// decorations.js — plot-level decorations applied by renderOnePlot:
+// right Y axis (dual-Y) and free-text notes (split from chart.js at the
+// Phase 14 exit refactor review — function extraction, suite-verified)
+
+// Right Y axis is meaningful only for value-over-x types (Phase 14);
+// parity (equal axes), histogram/boxplot/violin (distribution), contour/
+// heatmap (matrix) conflict geometrically
+function series14RightOk(s) {
+  return s.chartType === 'scatter' || s.chartType === 'line' || s.chartType === 'bar';
+}
+
+// Right Y axis layout (Phase 14): no gridlines (the left grid stays
+// authoritative); both titles tint to their first series' colors — the
+// DS coupling condition made structural. Manual ranges and Log Y stay
+// left-only by design. Mutates layout in place.
+function applyRightAxis(layout, leftSeries, rightSeries, leftColor, rightColor, warnings) {
+  if (!rightSeries.length) return;
+  const y2 = JSON.parse(JSON.stringify(layout.yaxis));
+  y2.overlaying = 'y';
+  y2.side = 'right';
+  y2.showgrid = false;
+  delete y2.range;
+  delete y2.type;
+  y2.title = { text: rightSeries[0].yCol || '',
+               font: { ...y2.title.font, color: rightColor } };
+  layout.yaxis2 = y2;
+  layout.yaxis.title.font.color = leftColor ?? layout.yaxis.title.font.color;
+  const leftCols = new Set(leftSeries.map(s2 => s2.yCol));
+  const dupCol = rightSeries.find(s2 => leftCols.has(s2.yCol));
+  if (dupCol) {
+    warnings.push({ name: 'Right axis', warning:
+      `"${dupCol.yCol}" is on BOTH axes — dual axes for the same quantity mislead; consider one axis.` });
+  }
+}
+
+// Free-text notes (Phase 14): appended AFTER the parity annotations so
+// the relayout hook can map dragged indices back through the offset
+// stored on the plot div.
+function appendNotes(layout, plot, pd, srParts) {
+  const notes = plot.plotConfig.notes ?? [];
+  if (notes.length) {
+    const thN = plotTheme();
+    layout.annotations = [
+      ...(layout.annotations ?? []),
+      ...notes.map(n => ({
+        x: n.x, y: n.y, xref: 'paper', yref: 'paper',
+        // escHtml: note text is user data inside Plotly pseudo-HTML
+        text: escHtml(n.text),
+        showarrow: false,
+        bgcolor: thN.annotBg, bordercolor: thN.annotBorder, borderwidth: 1, borderpad: 6,
+        font: { size: parseFloat(document.getElementById('fsAnnot')?.value) || 11, color: thN.title },
+      })),
+    ];
+    notes.forEach(n => srParts.push(`note: ${n.text}`));
+  }
+  pd._noteOffset = (layout.annotations?.length ?? 0) - notes.length;
+}
+
+// Log-axis interactions (Phase 9 rulings, per-cell since Phase 10, moved
+// here at the Phase 14 exit refactor review — verbatim from chart.js):
+// non-positive counts surfaced (Plotly drops them silently); parity ranges
+// re-derived from UNPADDED data extremes and padded in log space, since
+// the linear 5% pad goes negative even for positive data.
+function applyLogInteractions(layout, plot, traces, warnings, parityByCell) {
+  const cfg = plot.plotConfig;
+  if (!cfg.xLog && !cfg.yLog) return;
+  let nx = 0, ny = 0;
+  for (const t of traces) {
+    if (cfg.xLog && Array.isArray(t.x)) nx += t.x.filter(v => typeof v === 'number' && v <= 0).length;
+    if (cfg.yLog && Array.isArray(t.y)) ny += t.y.filter(v => typeof v === 'number' && v <= 0).length;
+  }
+  if (nx) warnings.push({ name: 'Log X', warning: `${nx} non-positive value(s) cannot be shown on a log X axis.` });
+  if (ny) warnings.push({ name: 'Log Y', warning: `${ny} non-positive value(s) cannot be shown on a log Y axis.` });
+
+  let parityLogWarned = false;
+  for (const [sfx, list] of Object.entries(parityByCell)) {
+    const dmn = Math.min(...list.map(p => p.dataMin));
+    const dmx = Math.max(...list.map(p => p.dataMax));
+    if (cfg.xLog && cfg.yLog && dmn > 0) {
+      const lo = Math.log10(dmn), hi = Math.log10(dmx);
+      const pad = (hi - lo) * 0.05 || 0.05;
+      layout['xaxis' + sfx].range = [lo - pad, hi + pad];
+      layout['yaxis' + sfx].range = [lo - pad, hi + pad];
+    } else {
+      layout['xaxis' + sfx].type = 'linear';
+      layout['yaxis' + sfx].type = 'linear';
+      if (!parityLogWarned) {
+        parityLogWarned = true;
+        warnings.push({ name: 'Parity', warning:
+          'A parity plot needs BOTH Log X and Log Y and all-positive data — rendered linear.' });
+      }
+    }
+  }
+}
