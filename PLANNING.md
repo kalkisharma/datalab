@@ -588,7 +588,15 @@ Exit criteria: t/F/p match published-table references; p never renders without e
 - **Free-text annotations (UX + Security):** per-plot `plotConfig.annotations[]` (additive) — text, position, draggable via the existing parity-annotation edit path. Annotation text is user data inside Plotly pseudo-HTML → escHtml at the build site, same contract as series names.
 - **Datetime casting + column reorder (Data Engineer):** Data Tools cleaning section gains "Cast to datetime" (reuses the Phase 3 format detection + prompt; values stored as ISO strings) and column reorder (up/down per column; header order drives pickers, preview, and CSV export).
 
-Deliverables *(UX flow descriptions per §12 before implementation)*:
+**UX flow descriptions (recorded per §12, before implementation):**
+- **Heatmap fields:** X (category) → Y (category) → Aggregation (None default · count · sum · mean · median) → Value column (numeric; disabled for count). `none` + duplicate (X,Y) combos → render error naming the fix; >50 uniques on either axis → readability warning; the colorbar title states the aggregation (e.g. `mean(value)`). Missing combos render as gaps.
+- **Bubble size:** scatter gains "Size by (optional, numeric)". Marker **area** is linear in the value (min diameter 4 px → max 28 px); non-finite values get the minimum size; the hover shows the raw size value and the series name notes the size column.
+- **Right Y axis:** scatter/line/bar get a "Right Y axis" checkbox. The right axis appears when any series uses it — no gridlines (the left grid stays authoritative), both axis titles tint to their first series' colors. Same column on both axes → warning. In a subplot grid the toggle is ignored with a warning (Phase 13 review decision). Manual Y ranges and Log Y apply to the left axis only.
+- **Notes (annotations):** Plot settings gains a Notes block for the ACTIVE plot — text input + Add, and a list with per-note delete. A new note lands at plot center; drag it anywhere (position persists, same machinery as the parity-stats annotation). Note text is escaped at the Plotly build site (pseudo-HTML contract).
+- **Datetime casting:** Cleaning gains "Cast to datetime" beside "Cast to numeric" — detects the format, reuses the Phase 3 ambiguity prompt when needed, rewrites values as ISO strings, reports the unparseable count.
+- **Column reorder:** "◀ Move / Move ▶" beside the cleaning column picker; header order drives pickers, stats, preview, and CSV export; the moved column stays selected.
+
+Deliverables *(UX flow descriptions recorded above per §12)*:
 - [ ] `renderers/heatmap.js` with explicit aggregation + validation errors; §6 review with shared.js (Data Viz + Data Scientist + QA)
 - [ ] Scatter size-by column, area-proportional, hover documents the range (Data Viz + Data Scientist)
 - [ ] Dual-Y: series right-axis toggle, tinted axis titles, same-column warning, excluded chart types validated in the modal (Data Viz + Frontend + Data Scientist)
