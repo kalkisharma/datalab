@@ -435,7 +435,7 @@ Deliverables (dependency order per §18; Security flagged items 2–3 as must-pr
 - [x] UX flow description for the preset category picker — evidence: recorded above, per §12
 - [x] Preset category picker + sectioned `datalab-style-preset-v2` with v1 back-compat, allowlist loader, CHANGELOG `## Schema` — evidence: commit bc0c26b; preset.spec.js (section isolation, malformed-shape, save filtering, zero-category disable, Esc focus restore); phase6 v1 round-trip drives the real loader
 - [x] NSE/MAE/RMSE definitions in the help dialog — evidence: commit bc0c26b
-- [ ] Maintainer action (carried since v1.0.0, non-blocking): manual screen reader session — NVDA on Windows now satisfies the primary requirement per amended STANDARDS §15
+- [ ] Maintainer action (carried since v1.0.0, non-blocking): manual screen reader session — NVDA on Windows now satisfies the primary requirement per amended STANDARDS §15. **Formally deferred at the post-v2.7.0 review (maintainer decision)** — moved to the Phase 15+ pool as a named deliverable of whichever milestone is scoped next; see the deferral record there.
 
 Exit criteria: equal slider values align visually. All typography sliders reach 40 without label clipping. Export-all produces one correctly named PNG per visible plot. A v1 preset still loads; a v2 preset with only Typography checked changes nothing else. NSE matches the textbook definition against newly hand-derived references. Malicious-session XSS test green. Pre-commit hook greps HTML for prohibited APIs. All prior tests green.
 
@@ -616,6 +616,7 @@ Deliverables *(UX flow descriptions recorded above per §12)*:
 Exit criteria: heatmap errors on duplicate combos under `none`; bubble areas scale linearly with the value column; dual-Y axis titles visibly tinted with the warning firing only on same-column; annotations round-trip sessions and reject markup; reordered columns drive pickers/preview/export; all prior tests green.
 
 ### Phase 15+ — Future `(not scoped)`
+- **Manual NVDA screen-reader session** — deferred by maintainer decision (post-v2.7.0). Deferral record: carried since v1.0.0; formally parked here rather than silently re-carried. Accessibility Specialist's position on record: the session's scope grows with every shipped phase, so the deferral compounds. Mitigations while parked: 9 axe states on every PR, mandatory `.sr-only` mirrors for new annotations, focus-management tests. **Trip-wire: any externally-reported accessibility issue makes this immediately blocking for the then-current phase.** Becomes a named deliverable of the next scoped milestone.
 - Interpolated (non-gridded) contours — gridding algorithm design needed
 - Distribution comparison extensions (paired tests, non-parametric Mann-Whitney/Kruskal-Wallis) — Data Scientist owns scope
 - Plotly 3.x migration — its own phase (breaking-API review, full re-baseline; see DEPENDENCIES.md currency note)
