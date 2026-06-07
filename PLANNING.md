@@ -163,7 +163,7 @@ datalab/
     style.css           — includes .sr-only utility class
     js/
       state.js          — appState schema, VERSION, escHtml
-      data.js           — parseCSV, applyFilters, classifyColumn, datetime detection
+      data.js           — parseCSV + ingestion (dropzone/handleFile, Phase 15), applyFilters, classifyColumn, datetime detection
       ui.js             — makeDD, dataset panel, series list
       modal.js          — series editor modal + date format prompt
       modal-fields.js   — per-chart-type modal fields (split Phase 3)
@@ -175,8 +175,10 @@ datalab/
       sessions.js       — session export/import + state migrations
       stats.js          — statistical engine + cleaning ops (Phase 5)
       distributions.js  — distribution fits + KDE (split from stats.js, Phase 11)
+      specfun.js        — special functions backing the p-values (split Phase 15)
+      hypothesis.js     — Welch t, ANOVA, MWU, Kruskal–Wallis, paired t, Wilcoxon (split Phase 15)
       expr.js           — safe expression engine for computed columns (Phase 12, §8)
-      compare.js        — Compare groups: Welch t / ANOVA UI (Phase 13)
+      compare.js        — Compare groups: parametric/rank/paired UI (Phase 13, extended Phase 15)
       decorations.js    — dual-Y, notes, log interactions (split from chart.js, Phase 14)
       dt-preview.js     — paginated Data Tools preview (split from datatools.js, Phase 14)
       datatools.js      — Data Tools modal (Phase 5; preview Phase 9; computed columns Phase 12)
@@ -644,16 +646,22 @@ Exit criteria: heatmap errors on duplicate combos under `none`; bubble areas sca
 - **Sequencing (EL ruling, Accessibility motion):** the NVDA session runs FIRST in the phase, not at exit — blocking findings discovered at tag time would defeat the deliverable.
 
 Deliverables (dependency order per §18):
-- [ ] Manual NVDA session per the protocol above (maintainer + Accessibility); findings in §20 format — the v1.0.0 carry retires here or is formally re-deferred at exit
-- [ ] Chore: §4 line-count sweep walked; wiring.js reviewed/split, modal.js reviewed with it (record correction, Phase 14 exit)
-- [ ] Refactor: `hypothesis.js` split out of distributions.js — move-only, full suite green before any new numerics (Data Scientist + EL)
-- [ ] `mannWhitneyU` / `kruskalWallis` with tie-corrected normal-approximation p; published-table references per §20 (Data Scientist)
-- [ ] `pairedT` / `wilcoxonSignedRank` with zero/tie handling documented at the implementation site (Data Scientist)
-- [ ] Compare groups UI: Method select + Paired-columns mode per the recorded flows (Frontend + UX)
-- [ ] Tests: hand-derived/published references for all four tests, tie/zero edge cases, dropped-pair counting; axe state for the extended compare section (QA + Accessibility)
+- [ ] Manual NVDA session per the protocol above (maintainer + Accessibility); findings in §20 format — the v1.0.0 carry retires here or is formally re-deferred at exit. **Sole remaining deliverable; blocks the v2.8.0 tag.**
+- [x] Chore: §4 line-count sweep walked; wiring.js reviewed/split, modal.js reviewed with it — evidence: commit 974c89f (wireDialog dedup + ingestion → data.js; wiring 324 → 260, data.js 274; the forecast's "dedup alone suffices" was optimistic — dedup landed ~303, the ingestion move closed it). Sweep decisions for the remaining over-trigger files recorded at the exit walk below
+- [x] Refactor: `hypothesis.js` split out of distributions.js — evidence: commit 2585fa6 (verbatim move, distributions 297 → 158, suite green before new numerics); follow-up commit 30d7692 split the CDF special functions onward to `specfun.js` (126) after hypothesis.js was born at 325 — over-trigger on creation day, split at the natural numerics/tests seam rather than tolerated
+- [x] `mannWhitneyU` / `kruskalWallis` — evidence: commit 2d88df8; tie-corrected normal approximation + continuity correction; shared `rankWithTies`; published critical-U bracket at n=10,10 (p(23)=.045 < .05 < p(24)=.054); KW hand case H=7.2/p=e^(−3.6); χ² anchors 5.991→.05, 15.086→.01
+- [x] `pairedT` / `wilcoxonSignedRank` — evidence: commit 2d88df8; zero-drop documented at site with nZero reported; Wilcoxon exact-enumeration tolerance check (50/1024 = .0488 vs approx .0528, gap .004 < .005); paired t hand case t=15/df=3/dz=7.5
+- [x] Compare groups UI: Method select + Paired-columns mode — evidence: commit b2a4601; rank tables median+IQR, paired same-column guard, dropped-pair counting, "(normal approx.)" marker under n=10, Paired disabled <2 numeric cols; Phase 13 tests pass unmodified (ids stable, Parametric default)
+- [x] Tests + axe — evidence: commits 2d88df8 + b2a4601; comparison.spec.js 6 → 15 (engine references + 3 UI tests); suite at 141; data-tools axe state re-passed after the DOM change (§18 invalidation honored)
 - [x] Interpolated-contour design spike document → Phase 16 scoped (Data Viz + Data Scientist + Security, EL approves) — evidence: measured spike outcomes recorded in Phase 16 above (binned-mean + hull + harmonic fill ACCEPTED at 120 ms/100k with the max-principle no-fabrication proof; IDW rejected at a measured 9.6 s; Delaunay rejected on silent-failure robustness)
-- [ ] README feature updates
-- [ ] Exploratory (Data Scientist): skewed and tied real-world data through both methods — verify parametric vs rank-based divergence behaves as theory predicts; paired mode on before/after data
+- [x] README feature updates — evidence: commit 009aca5
+- [x] Exploratory (Data Scientist) — evidence: session on seeded lognormal water-quality data (reproducible, LCG seed 42). Findings (§20 format):
+  - `dataset`: 2-site dissolved-metal concentrations, lognormal σ_log = 0.8, two storm outliers in site A / `workflow`: Compare groups, Parametric then Rank-based / `finding`: **textbook divergence, direction included** — Welch reports mean A 8.23 > mean B 4.72 (d = +0.25, p = 0.25, outlier-dragged); MWU reports median A 3.10 < median B 3.75 (r = −0.086) — the parametric direction is an artifact of two storm events, visible at a glance because the rank table shows medians (the DS table ruling paying off) / `severity`: `informational` (positive validation)
+  - `dataset`: 3 sites, site C censored at the 0.5 detection limit (heavy ties) / `workflow`: Compare groups, both methods / `finding`: ANOVA F(2,119) = 2.48, p = 0.088, η² = 0.04 (outlier-inflated variance masks the effect) vs Kruskal–Wallis H(2) = 11.60, **p = 0.0030**, ε² = 0.096 — the rank test finds what ANOVA misses, exactly as theory predicts; tie correction handled the DL ties without complaint / `severity`: `informational` (positive validation)
+  - `dataset`: 25 paired BOD before/after + 3 incomplete rows / `workflow`: Paired columns, both methods / `finding`: paired t = 8.48, dz = 1.70 and Wilcoxon W = 3, r = 0.98 — concordant where assumptions hold; "3 incomplete pair(s) dropped" visible in both verdicts; approx marker correctly absent at n = 25 / `severity`: `informational`
+  - No blockers; no UI changes requested — when methods diverge, the median-vs-mean table contrast already tells the user why.
+
+**Code-complete (commits 974c89f..009aca5), awaiting the NVDA session for exit.** Suite 141 green; BENCH=1 full set green (warm/cold/grid/computed/memory/filter — cold 219 ms, filter median 13 ms, heap 10.1 → 999.4 → 11.6 MB). **§6 sweep (new §4 line, first walk):** over-trigger files and decisions — modal-fields.js 324 (tolerated, carried: cohesive builder, no modal change this phase — splits with the next one), chart.js 323 (tolerated: dispatcher+cache core is cohesive post-decorations split), datatools.js 302 (tolerated: post-dt-preview split; compare growth went to compare.js as designed), modal.js 301 (tolerated: dialog lifecycle + focus management is one concern). Security checklist walked: new innerHTML sites annotated (compare.js `_cmpRender`, caught by the hook on first commit attempt — the hook works), all messages via textContent, no new network/storage APIs, XSS suite green.
 
 Exit criteria: U/H/W/p match published references; no p renders without its effect size and n's (§20); rank-based tables show median + IQR; paired mode drops incomplete pairs with a visible count; the NVDA session is done (or formally re-deferred with a fresh record); every file over the §6 trigger has a recorded decision; the spike is approved or rejected with rationale; all prior tests green.
 
