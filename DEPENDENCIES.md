@@ -44,6 +44,13 @@ not the URL, is authoritative** — a CDN can change; the bytes cannot.
   - v2.7.0 exit: no changes — heatmap and dual-Y use Plotly 2.32.0 natives
     (heatmap trace, overlaying axes); zero new dependencies; pins stand.
 
+  - v2.8.0 exit: no changes — the rank/paired test numerics (normal CDF,
+    regularized incomplete gamma) are hand-written like the Phase 12/13
+    numerics, same §9 reasoning; zero new dependencies; pins stand. The
+    Plotly 3.x migration is now formally scheduled as Phase 17 (its
+    API-delta spike runs during Phase 16), which answers this note's
+    currency question with a plan rather than another reassessment.
+
 ## Updating a library
 
 1. Replace the file in `lib/` from its official source URL.

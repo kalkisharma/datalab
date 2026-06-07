@@ -1,5 +1,33 @@
 # Changelog
 
+## v2.8.0 — Robust Comparison
+
+### Features
+- **Rank-based comparison** — Compare groups gains a Method select:
+  Parametric (Welch t / ANOVA, unchanged default) or Rank-based
+  (Mann–Whitney U for two groups, Kruskal–Wallis for three or more).
+  Rank-based results report rank-biserial r / ε² with every p-value and
+  show **median + IQR** per group — the honest center for the test being
+  run. p-values use the tie-corrected normal approximation; verdicts
+  append "(normal approx.)" whenever any group has fewer than 10 values.
+- **Paired comparison** — Compare select: Groups or Paired columns. Two
+  numeric columns compared row-by-row: paired t (with dz) or Wilcoxon
+  signed-rank (with rank-biserial r; zero differences dropped and
+  counted, the standard convention). Only complete pairs are used —
+  the verdict always shows n pairs and how many incomplete pairs were
+  dropped. Picking the same column twice is rejected.
+
+### Internal
+- Hypothesis tests live in `hypothesis.js`; the special-function
+  numerics (log-gamma, incomplete beta/gamma, normal CDF) in
+  `specfun.js`. Dialog wiring deduplicated; CSV ingestion moved next to
+  the parser.
+
+## Schema
+### v2.8.0 (state version unchanged at 2)
+- No session-schema changes — Compare is a Data Tools view; nothing new
+  is serialized. v2.0–v2.7 session files load unchanged.
+
 ## v2.7.0 — Chart & Workspace Completions
 
 ### Features
