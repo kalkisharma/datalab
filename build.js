@@ -64,6 +64,7 @@ const appJs = [
   'src/js/sessions.js',
   'src/js/stats.js',
   'src/js/distributions.js',
+  'src/js/hypothesis.js',
   'src/js/expr.js',
   'src/js/compare.js',
   'src/js/datatools.js',
