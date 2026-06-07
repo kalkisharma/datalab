@@ -48,7 +48,9 @@ Maintainer: Kalki Sharma <kalkijsharma@gmail.com>
 - **Data tools (Σ per dataset):** summary statistics, paginated data
   preview, cleaning operations (rename, drop, cast, missing values),
   cast to datetime, column reorder, computed columns, group comparison
-  (Welch t-test / one-way ANOVA — always reported with effect sizes),
+  (parametric: Welch t-test / one-way ANOVA; rank-based: Mann–Whitney U /
+  Kruskal–Wallis; paired columns: paired t / Wilcoxon signed-rank — every
+  p-value reported with its effect size and sample sizes),
   Pearson correlation heatmap, cleaned-CSV export
 - **Export:** PNG, SVG, **Export all** (one numbered PNG per visible plot —
   your browser may ask once to allow multiple downloads), ZIP of saved
