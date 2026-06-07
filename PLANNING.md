@@ -651,7 +651,7 @@ Deliverables (dependency order per §18):
 - [ ] `pairedT` / `wilcoxonSignedRank` with zero/tie handling documented at the implementation site (Data Scientist)
 - [ ] Compare groups UI: Method select + Paired-columns mode per the recorded flows (Frontend + UX)
 - [ ] Tests: hand-derived/published references for all four tests, tie/zero edge cases, dropped-pair counting; axe state for the extended compare section (QA + Accessibility)
-- [ ] Interpolated-contour design spike document → Phase 16 scoped (Data Viz + Data Scientist + Security, EL approves)
+- [x] Interpolated-contour design spike document → Phase 16 scoped (Data Viz + Data Scientist + Security, EL approves) — evidence: measured spike outcomes recorded in Phase 16 above (binned-mean + hull + harmonic fill ACCEPTED at 120 ms/100k with the max-principle no-fabrication proof; IDW rejected at a measured 9.6 s; Delaunay rejected on silent-failure robustness)
 - [ ] README feature updates
 - [ ] Exploratory (Data Scientist): skewed and tied real-world data through both methods — verify parametric vs rank-based divergence behaves as theory predicts; paired mode on before/after data
 
@@ -660,11 +660,14 @@ Exit criteria: U/H/W/p match published references; no p renders without its effe
 ### Phase 16 — Interpolated Contours `v2.9.0` *(final scope set by the Phase 15 spike)*
 **Goal:** contours from scattered (x, y, z) data — the oldest deferral in the pool (Phase 3 recorded "interpolated contour support explicitly deferred to Phase 5+").
 
-**Provisional scope (the spike confirms or amends; flows recorded then per §12):**
-- **Gridding hand-written, zero new dependencies** (Security constraint). Candidates for the spike: Delaunay + barycentric linear interpolation (no fabricated extrema, naturally hull-bounded — DS-preferred on paper, heaviest to write), inverse-distance weighting (simple, but smooths and can fabricate structure between clusters), 2-D binned aggregation (honest but coarse). The spike decides with measured perf at 100k rows against §11.
-- **No extrapolation (Data Scientist, misleading-viz authority):** cells outside the data's convex hull render as gaps, never invented values; a "show data points" overlay option lets the reader see where the surface is actually supported.
+**Design spike outcomes (Phase 15, measured — EL approved):**
+- **Algorithm: binned-mean gridding + convex-hull mask + harmonic (Laplace) gap-fill — ACCEPTED.** Points bin to the grid by mean (explicit aggregation, the bar/heatmap precedent); empty in-hull cells are filled by Gauss–Seidel relaxation of the discrete Laplace equation with data cells held fixed. The **maximum principle guarantees no fabricated extrema** — every interpolated value is bounded by its neighbors, which is the DS no-fabrication condition satisfied by *proof*, not by testing. Measured at 100k points on a 60×60 grid: bin 16 ms + hull 80 ms + mask 8 ms + fill 16 ms = **120 ms total**, comfortably inside §11; max-principle violations in the measurement run: 0.
+- **IDW — REJECTED (measured):** naive evaluation costs **9.6 s** at 100k × 3.6k cells — fails §11 outright without acceleration structures — and fabricates distance-decay bullseyes between clusters by construction.
+- **Hand-written Delaunay — REJECTED (robustness):** floating-point in-circle predicates fail *silently* on near-degenerate input — the §20 nightmare in ~250 lines of high-risk geometry, for marginal visual gain over the harmonic fill.
+- **No extrapolation (Data Scientist, misleading-viz authority):** cells outside the data's convex hull render as gaps, never invented values; a "show data points" overlay option lets the reader see where the surface is actually supported. **Open item for implementation (DS):** a convex hull spans concave voids (measured case: a half-annulus's hole gets harmonic fill — bounded, but unsupported by data); decide a data-support mask (cells farther than R from any data cell also render as gaps) with the DS before the branch.
 - **The pre-gridded path is untouched and stays the default.** Interpolation is an explicit opt-in on the contour series ("Interpolate scattered data"), with the method named in the legend/hover — an interpolated surface that doesn't announce itself is a §20 violation, same family as silent aggregation.
-- **Plotly 3.x API-delta spike (docs-only, §16):** the breaking-change review for Phase 17 runs during this phase — removals/renames affecting the 9 renderers, decorations.js, and the export paths; render parity eyeballed on the bench scenes. Output scopes Phase 17.
+- **Reference test (§20):** grid a known analytic field from scattered samples and compare against the field's true values at data cells (binned mean of samples) and the bounded property at filled cells.
+- **Plotly 3.x API-delta spike (docs-only, §16):** the breaking-change review for Phase 17 runs during Phase 16 — removals/renames affecting the 9 renderers, decorations.js, and the export paths; render parity eyeballed on the bench scenes. Output scopes Phase 17.
 
 Exit criteria (provisional): the interpolated surface matches an independently-computed reference on a known analytic field (§20); nothing renders outside the hull; the gridded path behaves identically to v2.8.0; method always visible; all prior tests green.
 
