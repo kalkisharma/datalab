@@ -213,6 +213,106 @@ test('Compare groups UI: verdict always carries effect size and n (§20)', async
   expect(out.text).toContain('x');
 });
 
+test('Compare groups UI, rank-based: MWU verdict, median/IQR table, approx marker', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page,
+    'v,site\n1,a\n2,a\n3,a\n4,a\n5,a\n2,b\n4,b\n6,b\n8,b\n10,b\n9,x',
+    '_cmp_rank.csv');
+  await page.click('.dataset-tools');
+  await page.waitForTimeout(300);
+  // one numeric column → the Paired option is disabled with a tooltip
+  const pairedDisabled = await page.evaluate(() =>
+    document.querySelector('#cmpKind option[value="paired"]').disabled);
+  expect(pairedDisabled).toBe(true);
+
+  await page.selectOption('#cmpMethod', 'rank');
+  await page.selectOption('#cmpVal', 'v');
+  await page.selectOption('#cmpGroup', 'site');
+  await page.click('#cmpRun');
+  await page.waitForTimeout(200);
+  const out = await page.evaluate(() => ({
+    text: document.getElementById('cmpResult').textContent,
+    heads: [...document.querySelectorAll('#cmpResult th')].map(th => th.textContent),
+  }));
+  // Hand case (header): pooled ranks give U = 5, r = 2·5/25 − 1 = −0.6
+  expect(out.text).toContain('Mann–Whitney U = 5.000');
+  expect(out.text).toContain('rank-biserial r = -0.6000');
+  expect(out.text).toContain('(normal approx.)'); // groups of 5 < 10
+  expect(out.heads).toContain('median');          // rank table is median/IQR
+  expect(out.heads).toContain('IQR');
+  expect(out.text).toContain('excluded');         // single-value group still named
+});
+
+test('Compare groups UI, rank-based 3+ groups: Kruskal-Wallis with eps²', async ({ page }) => {
+  await page.goto(FILE_URL);
+  // The KW hand case: H = 7.2, df = 2, p = e^(−3.6) ≈ 0.027, ε² = 0.9
+  await loadCSV(page,
+    'v,g\n1,a\n2,a\n3,a\n4,b\n5,b\n6,b\n7,c\n8,c\n9,c',
+    '_cmp_kw.csv');
+  await page.click('.dataset-tools');
+  await page.waitForTimeout(300);
+  await page.selectOption('#cmpMethod', 'rank');
+  await page.selectOption('#cmpVal', 'v');
+  await page.selectOption('#cmpGroup', 'g');
+  await page.click('#cmpRun');
+  await page.waitForTimeout(200);
+  const text = await page.evaluate(() => document.getElementById('cmpResult').textContent);
+  expect(text).toContain('Kruskal–Wallis H(2) = 7.200');
+  expect(text).toContain('p = 0.027');
+  expect(text).toContain('ε² = 0.9000');
+  expect(text).toContain('(normal approx.)'); // groups of 3 < 10
+});
+
+test('Compare UI, paired columns: t and Wilcoxon verdicts, dropped pairs, same-column guard', async ({ page }) => {
+  await page.goto(FILE_URL);
+  // Paired t hand case (header): t = 15, df = 3, dz = 7.5; one incomplete row
+  await loadCSV(page,
+    'before,after\n5,1\n6,2\n7,4\n8,4\n9,\n',
+    '_cmp_paired.csv');
+  await page.click('.dataset-tools');
+  await page.waitForTimeout(300);
+  await page.selectOption('#cmpKind', 'paired');
+  // group field hides, second-column field shows
+  const vis = await page.evaluate(() => ({
+    grp: document.getElementById('cmpGroupField').classList.contains('hidden'),
+    val2: document.getElementById('cmpVal2Field').classList.contains('hidden'),
+  }));
+  expect(vis.grp).toBe(true);
+  expect(vis.val2).toBe(false);
+
+  // Same column in both pickers → guard, no test
+  await page.selectOption('#cmpVal', 'before');
+  await page.selectOption('#cmpVal2', 'before');
+  await page.click('#cmpRun');
+  await page.waitForTimeout(100);
+  let text = await page.evaluate(() => document.getElementById('cmpResult').textContent);
+  expect(text).toContain('two different columns');
+
+  await page.selectOption('#cmpVal2', 'after');
+  await page.click('#cmpRun');
+  await page.waitForTimeout(100);
+  const out = await page.evaluate(() => ({
+    text: document.getElementById('cmpResult').textContent,
+    heads: [...document.querySelectorAll('#cmpResult th')].map(th => th.textContent),
+  }));
+  expect(out.text).toContain('Paired t = 15.00');
+  expect(out.text).toContain('df = 3');
+  expect(out.text).toContain('dz = 7.500');
+  expect(out.text).toContain('n = 4 pairs');
+  expect(out.text).toContain('1 incomplete pair(s) dropped');
+  expect(out.heads).toContain('Column'); // paired table rows are columns
+
+  // Rank-based: Wilcoxon on diffs [4,4,3,4] → W = 0, r = 1, n = 4 < 10
+  await page.selectOption('#cmpMethod', 'rank');
+  await page.click('#cmpRun');
+  await page.waitForTimeout(100);
+  text = await page.evaluate(() => document.getElementById('cmpResult').textContent);
+  expect(text).toContain('Wilcoxon W = 0.000');
+  expect(text).toContain('rank-biserial r = 1.000');
+  expect(text).toContain('(normal approx.)');
+  expect(text).toContain('n = 4 pairs');
+});
+
 test('histogram + Log X bins in log space; the old warning is gone', async ({ page }) => {
   await page.goto(FILE_URL);
   // Three decades of data — log bins are the only sane choice
