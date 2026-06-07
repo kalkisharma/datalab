@@ -18,65 +18,29 @@ function debounce(fn, ms) {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
-// ── Dropzone ──────────────────────────────────────────────────────────────
+// ── Dialog wiring ─────────────────────────────────────────────────────────
+// Every dialog shares the same chrome: close button(s), a click on the
+// overlay outside the box, and Escape. One registry and ONE document-level
+// keydown listener replace the four copy-pasted blocks this file had grown
+// (§6 review, Phase 15 — behavior identical: dialogs are mutually exclusive,
+// and each old Esc listener only acted on its own open dialog anyway).
 
-function wireDropzone() {
-  const dz = g('dropzone');
-  const fi = g('fileInput');
-  fi.addEventListener('change', e => {
-    [...e.target.files].forEach(f => handleFile(f));
-    fi.value = ''; // allow re-selecting the same file
-  });
-  // Keyboard: the file input is natively focusable and opens on Enter —
-  // no keydown shim on the wrapper (axe nested-interactive, Phase 4 audit)
-  dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
-  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
-  dz.addEventListener('drop', e => {
-    e.preventDefault(); dz.classList.remove('drag-over');
-    [...e.dataTransfer.files].filter(f => f.name.endsWith('.csv')).forEach(f => handleFile(f));
+const _dialogs = [];
+
+function wireDialog(overlayId, closeFn, closeBtnIds) {
+  _dialogs.push({ overlayId, closeFn });
+  closeBtnIds.forEach(id => g(id).addEventListener('click', closeFn));
+  g(overlayId).addEventListener('click', e => {
+    if (e.target === g(overlayId)) closeFn();
   });
 }
 
-/**
- * @param {File} file
- */
-function handleFile(file) {
-  parseCSV(file, result => {
-    if (!result.data.length) return;
-    const headers = result.meta.fields || Object.keys(result.data[0] || {});
-    if (!headers.length) return;
-
-    const name = file.name.replace(/\.csv$/i, '');
-
-    // Reload: same file name as an existing dataset replaces its data in
-    // place (id, display name, and color survive), bumps the dataset
-    // revision to invalidate caches, and re-validates every series that
-    // references it
-    const existing = appState.datasets.find(d => d.name === name);
-    if (existing) {
-      existing.rows    = result.data;
-      existing.headers = headers;
-      bumpDatasetRev(existing.id);
-      const problems = appState.series
-        .filter(s => s.datasetId === existing.id || s.joinDatasetId === existing.id)
-        .map(s => ({ series: s, missing: validateSeriesColumns(s, appState.datasets) }))
-        .filter(p => p.missing.length);
-      showDataAlerts(existing, problems);
-      renderDatasetList();
-      renderSeriesList();
-      if (appState.plotRendered) debounceRender();
-      return;
-    }
-
-    // New dataset: pull color from palette by position
-    const color = PALETTE[appState.datasets.length % PALETTE.length];
-    appState.datasets.push({ id: uid(), name, rows: result.data, headers, color });
-    showDataAlerts(null, []);
-    renderDatasetList();
-    renderSeriesList();
-    updateRenderBtn();
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  _dialogs.forEach(({ overlayId, closeFn }) => {
+    if (!g(overlayId).classList.contains('hidden')) closeFn();
   });
-}
+});
 
 // ── Lock buttons ──────────────────────────────────────────────────────────
 
@@ -120,19 +84,8 @@ function init() {
 
   // Modal triggers
   g('addSeriesBtn').addEventListener('click', () => openModal(null));
-  g('modalClose')  .addEventListener('click', closeModal);
-  g('modalCancel') .addEventListener('click', closeModal);
   g('modalSave')   .addEventListener('click', saveModalSeries);
-
-  // Close modal on overlay click (outside modal box)
-  g('modalOverlay').addEventListener('click', e => {
-    if (e.target === g('modalOverlay')) closeModal();
-  });
-
-  // Close modal on Escape
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && !g('modalOverlay').classList.contains('hidden')) closeModal();
-  });
+  wireDialog('modalOverlay', closeModal, ['modalClose', 'modalCancel']);
 
   // Render button
   g('renderBtn').addEventListener('click', renderPlot);
@@ -155,14 +108,7 @@ function init() {
   // Style presets — Save opens the category picker (Phase 8)
   g('presetSaveBtn').addEventListener('click', openPresetPicker);
   g('presetSave')   .addEventListener('click', savePreset);
-  g('presetCancel') .addEventListener('click', closePresetPicker);
-  g('presetClose')  .addEventListener('click', closePresetPicker);
-  g('presetOverlay').addEventListener('click', e => {
-    if (e.target === g('presetOverlay')) closePresetPicker();
-  });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && !g('presetOverlay').classList.contains('hidden')) closePresetPicker();
-  });
+  wireDialog('presetOverlay', closePresetPicker, ['presetCancel', 'presetClose']);
   Object.keys(PRESET_PICKS).forEach(id => g(id).addEventListener('change', updatePresetSaveState));
   g('presetLoadBtn').addEventListener('click', () => g('presetFileInput').click());
   g('presetFileInput').addEventListener('change', e => {
@@ -171,15 +117,9 @@ function init() {
   });
 
   // Data Tools modal
-  g('dtClose').addEventListener('click', closeDataTools);
   g('dtCorrBtn').addEventListener('click', renderCorrelation);
   g('dtExportBtn').addEventListener('click', exportCleanedCSV);
-  g('dataToolsOverlay').addEventListener('click', e => {
-    if (e.target === g('dataToolsOverlay')) closeDataTools();
-  });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && !g('dataToolsOverlay').classList.contains('hidden')) closeDataTools();
-  });
+  wireDialog('dataToolsOverlay', closeDataTools, ['dtClose']);
 
   // Keyboard shortcuts reference (focus managed like other dialogs)
   let _helpTrigger = null;
@@ -189,11 +129,7 @@ function init() {
     g('helpOverlay').classList.remove('hidden');
     g('helpClose').focus();
   });
-  g('helpClose').addEventListener('click', closeHelp);
-  g('helpOverlay').addEventListener('click', e => { if (e.target === g('helpOverlay')) closeHelp(); });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && !g('helpOverlay').classList.contains('hidden')) closeHelp();
-  });
+  wireDialog('helpOverlay', closeHelp, ['helpClose']);
 
   // + Plot (Phase 7 grid)
   g('addPlotBtn').addEventListener('click', addPlot);

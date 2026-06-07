@@ -1,4 +1,4 @@
-// data.js — CSV parsing, column classification, and filter evaluation
+// data.js — CSV parsing and ingestion, column classification, and filter evaluation
 
 // ── parseCSV — escaping contract ─────────────────────────────────────────
 //
@@ -205,4 +205,66 @@ function classifyColumn(rows, col) {
   if (dtCount > vals.length * 0.5) return 'datetime';
 
   return 'categorical';
+}
+
+// ── Ingestion ─────────────────────────────────────────────────────────────
+// (moved from wiring.js at the Phase 15 §6 review — ingestion lives next to
+// the parser it feeds; wiring.js keeps only event plumbing)
+
+function wireDropzone() {
+  const dz = g('dropzone');
+  const fi = g('fileInput');
+  fi.addEventListener('change', e => {
+    [...e.target.files].forEach(f => handleFile(f));
+    fi.value = ''; // allow re-selecting the same file
+  });
+  // Keyboard: the file input is natively focusable and opens on Enter —
+  // no keydown shim on the wrapper (axe nested-interactive, Phase 4 audit)
+  dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('drag-over');
+    [...e.dataTransfer.files].filter(f => f.name.endsWith('.csv')).forEach(f => handleFile(f));
+  });
+}
+
+/**
+ * @param {File} file
+ */
+function handleFile(file) {
+  parseCSV(file, result => {
+    if (!result.data.length) return;
+    const headers = result.meta.fields || Object.keys(result.data[0] || {});
+    if (!headers.length) return;
+
+    const name = file.name.replace(/\.csv$/i, '');
+
+    // Reload: same file name as an existing dataset replaces its data in
+    // place (id, display name, and color survive), bumps the dataset
+    // revision to invalidate caches, and re-validates every series that
+    // references it
+    const existing = appState.datasets.find(d => d.name === name);
+    if (existing) {
+      existing.rows    = result.data;
+      existing.headers = headers;
+      bumpDatasetRev(existing.id);
+      const problems = appState.series
+        .filter(s => s.datasetId === existing.id || s.joinDatasetId === existing.id)
+        .map(s => ({ series: s, missing: validateSeriesColumns(s, appState.datasets) }))
+        .filter(p => p.missing.length);
+      showDataAlerts(existing, problems);
+      renderDatasetList();
+      renderSeriesList();
+      if (appState.plotRendered) debounceRender();
+      return;
+    }
+
+    // New dataset: pull color from palette by position
+    const color = PALETTE[appState.datasets.length % PALETTE.length];
+    appState.datasets.push({ id: uid(), name, rows: result.data, headers, color });
+    showDataAlerts(null, []);
+    renderDatasetList();
+    renderSeriesList();
+    updateRenderBtn();
+  });
 }
