@@ -134,7 +134,7 @@ Use a modal per series — not a flat panel:
 
 | Chart type | Specific fields | Notes |
 |------------|----------------|-------|
-| scatter | error ± column (Phase 9); trendline with degree picker — linear/quadratic/cubic (Phases 9 + 13); per-group linear fits opt-in (Phase 11); size col planned Phase 14 | — |
+| scatter | error ± column (Phase 9); trendline with degree picker — linear/quadratic/cubic (Phases 9 + 13); per-group linear fits opt-in (Phase 11); size-by col, area-proportional (Phase 14) | — |
 | line | line width; error ± column (Phase 9) | — |
 | bar (Phase 9) | category X, aggregation (none/count/sum/mean/median), SD/SEM error bars (mean only) | silent aggregation forbidden (§20) |
 | parity | join dataset, join key, show ±5% band, show ±10% band | Requires two loaded datasets; Y options come from the JOIN dataset (Phase 9 fix) |
@@ -611,15 +611,65 @@ Deliverables *(UX flow descriptions recorded above per §12)*:
 - [x] README — evidence: release commit
 - [x] Exploratory (Data Scientist) — evidence: session at exit: site×month mean-flow heatmap with named colorbar; stage/flow dual-axis with a dragged note; catchment-sized bubbles spanning exactly 4–28 px. No findings.
 
-**Exited at v2.7.0** — exit refactor review: three files crossed §6 (the phase's breadth showed) — chart.js 369 → decorations.js extraction (283), datatools.js 306 → dt-preview.js split, modal-fields.js 309 reviewed-tolerated (cohesive builder, splits with the next modal change). 132 tests, 9 axe states, benchmarks green.
+**Exited at v2.7.0** — exit refactor review: three files crossed §6 (the phase's breadth showed) — chart.js → decorations.js extraction, datatools.js → dt-preview.js split, modal-fields.js reviewed-tolerated (cohesive builder, splits with the next modal change). 132 tests, 9 axe states, benchmarks green.
+
+**Record correction (Phase 15 review):** the line counts originally recorded above (chart.js "369 → 283", modal-fields "309") were never true of any committed tree — at the v2.7.0 tag chart.js reads 323, modal-fields.js 324, datatools.js 302. Worse, **wiring.js (324) had crossed the §6 trigger entirely unnoticed** while three other files were reviewed by name (modal.js sits at 301). The decisions stand — the extractions happened and the tolerations were judgment calls — but the trigger was being enforced from memory, not measurement. Fixes: §4 release checklist gains a mechanical line-count sweep; the wiring.js review is a named Phase 15 chore.
 
 Exit criteria: heatmap errors on duplicate combos under `none`; bubble areas scale linearly with the value column; dual-Y axis titles visibly tinted with the warning firing only on same-column; annotations round-trip sessions and reject markup; reordered columns drive pickers/preview/export; all prior tests green.
 
-### Phase 15+ — Future `(not scoped)`
-- **Manual NVDA screen-reader session** — deferred by maintainer decision (post-v2.7.0). Deferral record: carried since v1.0.0; formally parked here rather than silently re-carried. Accessibility Specialist's position on record: the session's scope grows with every shipped phase, so the deferral compounds. Mitigations while parked: 9 axe states on every PR, mandatory `.sr-only` mirrors for new annotations, focus-management tests. **Trip-wire: any externally-reported accessibility issue makes this immediately blocking for the then-current phase.** Becomes a named deliverable of the next scoped milestone.
-- Interpolated (non-gridded) contours — gridding algorithm design needed
-- Distribution comparison extensions (paired tests, non-parametric Mann-Whitney/Kruskal-Wallis) — Data Scientist owns scope
-- Plotly 3.x migration — its own phase (breaking-API review, full re-baseline; see DEPENDENCIES.md currency note)
+### Phase 15 — Robust Comparison & the Deferred Session `v2.8.0`
+**Goal:** complete the comparison-statistics suite with rank-based and paired tests, and retire the longest-carried action item in the project — the manual NVDA session. **Data Scientist is primary owner** of the statistics; the Accessibility Specialist owns the session protocol.
+
+**Design decisions (team scoping session, Phase 15 review):**
+- **NVDA session is deliverable #1 (deferral record honored):** carried since v1.0.0, formally parked post-v2.7.0 (ee4f6f9) with the explicit term "named deliverable of whichever milestone is scoped next" — that is this milestone. Protocol (Accessibility): one full NVDA-on-Windows pass of the primary workflows — load CSV → series modal → render → Data Tools (stats, compare, cleaning, computed column) → session save/load → export — findings recorded in §20 format and triaged like exploratory findings. Maintainer action; **blocks the v2.8.0 tag unless re-deferred by a formal PLANNING update at exit** (§16 — no silent re-carry). The external-report trip-wire stays in force meanwhile. Accessibility's compounding-scope objection remains on record.
+- **Rank-based tests (Data Scientist, mirrors the Welch ruling):** Mann-Whitney U (2 groups) and Kruskal-Wallis (3+) join Compare groups under a **Method** select — Parametric (default, unchanged) / Rank-based. p-values via the normal approximation with tie correction, documented at the implementation site; references per §20 from published critical-value tables (exact small-n tables cited as the independent source). Effect sizes, inseparable per §20: **rank-biserial r** for MWU, **ε²** for Kruskal-Wallis.
+- **Paired tests (Data Scientist):** a **Paired columns** mode in Compare groups — two numeric columns, rows kept only where both are finite (dropped-pair count always shown; silent imputation forbidden). Paired t reuses the existing t CDF on the differences; Wilcoxon signed-rank uses the normal approximation with zero-difference and tie handling documented. Effect sizes: Cohen's d_z and rank-biserial r. The Method select applies in paired mode too (Parametric → paired t; Rank-based → signed-rank) — one orthogonal control, not four buttons.
+- **`hypothesis.js` from the start (EL §6 foresight, compare.js precedent):** distributions.js sits at 297 and the Phase 13 exit note already called this split. `logGamma`/`regIncBeta`/`tTestWelch`/`anovaOneWay` move to a new `src/js/hypothesis.js`; all four new tests are built there. The move-only refactor lands first (§6 — behavior-identical, suite green), new numerics second.
+- **§6 sweep chore (this review's record correction):** wiring.js (324) crossed the trigger unnoticed at the Phase 14 exit — its review/split is a named chore this phase; modal.js (301) is reviewed with it.
+- **Interpolated-contour design spike (docs-only, §16 exception):** gridding algorithm choice (Delaunay barycentric linear vs IDW vs 2-D binned aggregation), convex-hull masking, and performance measured against §11 at 100k rows. Security co-reviews for the zero-new-dependency constraint — a triangulation library is exactly the §9 supply-surface temptation; the expr.js/Lentz precedent says hand-write it. Output scopes Phase 16.
+
+**UX flow descriptions (recorded per §12, before implementation):**
+- **Compare groups, Method select:** a Method select (Parametric default / Rank-based) above the existing column selects. Rank-based verdict lines: 2 groups → `Mann-Whitney U = …, p = …, rank-biserial r = …`; 3+ → `Kruskal-Wallis H(df) = …, p = …, ε² = …`. The per-group table stays, but rank-based shows **median + IQR** instead of mean ± SD — medians are the honest center for the test being run (DS ruling). Existing exclusion/error states unchanged; p formatting unchanged.
+- **Paired columns mode:** a Compare select (Groups default / Paired columns). Paired columns swaps the group-column select for a second numeric-column select. Verdict per Method: `Paired t = …, df = …, p = …, dz = …` or `Wilcoxon W = …, p = …, r = …`. n pairs always shown; a dropped-incomplete-pairs count appears whenever any row was dropped. Fewer than 2 complete pairs → message. Same `aria-live` results region.
+
+Deliverables (dependency order per §18):
+- [ ] Manual NVDA session per the protocol above (maintainer + Accessibility); findings in §20 format — the v1.0.0 carry retires here or is formally re-deferred at exit
+- [ ] Chore: §4 line-count sweep walked; wiring.js reviewed/split, modal.js reviewed with it (record correction, Phase 14 exit)
+- [ ] Refactor: `hypothesis.js` split out of distributions.js — move-only, full suite green before any new numerics (Data Scientist + EL)
+- [ ] `mannWhitneyU` / `kruskalWallis` with tie-corrected normal-approximation p; published-table references per §20 (Data Scientist)
+- [ ] `pairedT` / `wilcoxonSignedRank` with zero/tie handling documented at the implementation site (Data Scientist)
+- [ ] Compare groups UI: Method select + Paired-columns mode per the recorded flows (Frontend + UX)
+- [ ] Tests: hand-derived/published references for all four tests, tie/zero edge cases, dropped-pair counting; axe state for the extended compare section (QA + Accessibility)
+- [ ] Interpolated-contour design spike document → Phase 16 scoped (Data Viz + Data Scientist + Security, EL approves)
+- [ ] README feature updates
+- [ ] Exploratory (Data Scientist): skewed and tied real-world data through both methods — verify parametric vs rank-based divergence behaves as theory predicts; paired mode on before/after data
+
+Exit criteria: U/H/W/p match published references; no p renders without its effect size and n's (§20); rank-based tables show median + IQR; paired mode drops incomplete pairs with a visible count; the NVDA session is done (or formally re-deferred with a fresh record); every file over the §6 trigger has a recorded decision; the spike is approved or rejected with rationale; all prior tests green.
+
+### Phase 16 — Interpolated Contours `v2.9.0` *(final scope set by the Phase 15 spike)*
+**Goal:** contours from scattered (x, y, z) data — the oldest deferral in the pool (Phase 3 recorded "interpolated contour support explicitly deferred to Phase 5+").
+
+**Provisional scope (the spike confirms or amends; flows recorded then per §12):**
+- **Gridding hand-written, zero new dependencies** (Security constraint). Candidates for the spike: Delaunay + barycentric linear interpolation (no fabricated extrema, naturally hull-bounded — DS-preferred on paper, heaviest to write), inverse-distance weighting (simple, but smooths and can fabricate structure between clusters), 2-D binned aggregation (honest but coarse). The spike decides with measured perf at 100k rows against §11.
+- **No extrapolation (Data Scientist, misleading-viz authority):** cells outside the data's convex hull render as gaps, never invented values; a "show data points" overlay option lets the reader see where the surface is actually supported.
+- **The pre-gridded path is untouched and stays the default.** Interpolation is an explicit opt-in on the contour series ("Interpolate scattered data"), with the method named in the legend/hover — an interpolated surface that doesn't announce itself is a §20 violation, same family as silent aggregation.
+- **Plotly 3.x API-delta spike (docs-only, §16):** the breaking-change review for Phase 17 runs during this phase — removals/renames affecting the 9 renderers, decorations.js, and the export paths; render parity eyeballed on the bench scenes. Output scopes Phase 17.
+
+Exit criteria (provisional): the interpolated surface matches an independently-computed reference on a known analytic field (§20); nothing renders outside the hull; the gridded path behaves identically to v2.8.0; method always visible; all prior tests green.
+
+### Phase 17 — Plotly 3.x Migration `(version set by the migration outcome)`
+**Goal:** retire the two-major-versions currency note in DEPENDENCIES.md — its own phase, as recorded there since Phase 11.
+
+- New pin + source URL + SHA-256 in DEPENDENCIES.md (Security authors, EL sign-off, §9); build-time hash verification unchanged
+- Breaking-API fixes per the Phase 16 spike across renderers, decorations.js, and export
+- **Full re-baseline:** entire functional suite, all axe states, and the complete §11 benchmark set re-measured — the binding targets stay binding; a regression blocks the phase
+- CSP + worker-allowlist re-verification — Plotly's blob workers may change shape across majors, and the §9 hook/allowlist must still describe reality
+- **Versioning pre-decision (EL, §3 letter):** the session schema is untouched, so MINOR — unless the migration changes what saved sessions *mean* (not merely sub-pixel rendering differences), which would invoke the §3 silently-alters-output clause and force MAJOR. Decided at exit against the migration's actual diff — the Phase 10 "version set by outcome" precedent.
+- **Rollback line (EL):** if the spike or the migration itself finds cost exceeding value (2.32.0 has no flagged CVEs), the phase may close as a documented stay-pinned decision — the DEPENDENCIES.md currency note is updated with the assessment, which still answers the question honestly.
+
+### Phase 18+ — Future `(not scoped)`
+- The Phase 15+ pool is fully consumed by Phases 15–17. The natural source for the next pool is a **second landscape review** — the Phase 8 one is ten phases old; run it as these three milestones near completion.
+- Demonstrated-demand parked items remain parked: per-cell plotConfig (Phase 10), dual-Y inside subplot grids (Phase 14), `.xlsx` import (rejected — revisit only on sustained maintainer demand).
 
 ---
 
