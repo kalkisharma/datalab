@@ -114,6 +114,187 @@ function tTestWelch(xs, ys) {
            n1, n2, m1, m2, s1: Math.sqrt(v1), s2: Math.sqrt(v2) };
 }
 
+// ── Rank-based and paired tests (Phase 15) ────────────────────────────────
+//
+// p-values use the tie-corrected NORMAL APPROXIMATION with continuity
+// correction — the approximation IS the documented definition (pre-impl
+// review decision): test references are hand-derived from these formulas,
+// with agreement-within-tolerance checks against published exact values at
+// moderate n. Callers append "(normal approx.)" to the verdict whenever any
+// group/pair count is below 10 — an unannounced approximate p is the
+// naked-p failure family (§20).
+
+// Standard normal CDF via the Abramowitz–Stegun 7.1.26 erf approximation
+// (|ε| < 1.5e−7 — far below the 2-significant-digit p display precision)
+function normalCdf(z) {
+  const t = 1 / (1 + 0.3275911 * Math.abs(z) / Math.SQRT2);
+  const erf = 1 - t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 +
+              t * (-1.453152027 + t * 1.061405429)))) * Math.exp(-z * z / 2);
+  return z >= 0 ? 0.5 * (1 + erf) : 0.5 * (1 - erf);
+}
+
+// Regularized incomplete gamma — series for x < s+1, Lentz continued
+// fraction otherwise (same numerics family as regIncBeta above)
+function _gammaPSeries(s, x) {
+  let sum = 1 / s, term = sum;
+  for (let k = 1; k < 500; k++) {
+    term *= x / (s + k);
+    sum += term;
+    if (Math.abs(term) < Math.abs(sum) * 3e-14) break;
+  }
+  return sum * Math.exp(-x + s * Math.log(x) - logGamma(s));
+}
+
+function _gammaQCF(s, x) {
+  const FPMIN = 1e-300;
+  let b = x + 1 - s, c = 1 / FPMIN, d = 1 / b, h = d;
+  for (let k = 1; k < 500; k++) {
+    const an = -k * (k - s);
+    b += 2;
+    d = an * d + b; if (Math.abs(d) < FPMIN) d = FPMIN;
+    c = b + an / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+    d = 1 / d;
+    const del = d * c;
+    h *= del;
+    if (Math.abs(del - 1) < 3e-14) break;
+  }
+  return h * Math.exp(-x + s * Math.log(x) - logGamma(s));
+}
+
+// Upper-tail p for chi-squared: P(χ²_df > x) = Q(df/2, x/2)
+function pUpperChi2(x, df) {
+  if (!Number.isFinite(x) || x < 0 || !(df > 0)) return NaN;
+  const s = df / 2, hx = x / 2;
+  if (hx === 0) return 1;
+  return hx < s + 1 ? 1 - _gammaPSeries(s, hx) : _gammaQCF(s, hx);
+}
+
+/**
+ * Average ranks (1-based) with the tie term Σ(t³−t) — the ONE ranker shared
+ * by MWU, Kruskal–Wallis, and the signed-rank (pre-impl review: three
+ * hand-rolled rankers would be three chances to disagree).
+ * @param {number[]} vals
+ * @returns {{ ranks: number[], tieSum: number }}
+ */
+function rankWithTies(vals) {
+  const idx = vals.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0]);
+  const ranks = new Array(vals.length);
+  let tieSum = 0, i = 0;
+  while (i < idx.length) {
+    let j = i;
+    while (j + 1 < idx.length && idx[j + 1][0] === idx[i][0]) j++;
+    const avg = (i + j) / 2 + 1; // average of 1-based ranks i+1 … j+1
+    for (let k = i; k <= j; k++) ranks[idx[k][1]] = avg;
+    const t = j - i + 1;
+    if (t > 1) tieSum += t * t * t - t;
+    i = j + 1;
+  }
+  return { ranks, tieSum };
+}
+
+/**
+ * Mann–Whitney U (2 groups, rank-based). U reported is min(U1, U2), the
+ * tabled convention. r is the rank-biserial correlation r = 2·U1/(n1·n2) − 1
+ * (positive when group 1 tends larger).
+ * @param {number[]} xs - finite values, group 1 (n ≥ 2)
+ * @param {number[]} ys - finite values, group 2 (n ≥ 2)
+ * @returns {{ U, z, p, r, n1, n2 }|null}
+ */
+function mannWhitneyU(xs, ys) {
+  const n1 = xs.length, n2 = ys.length;
+  if (n1 < 2 || n2 < 2) return null;
+  const { ranks, tieSum } = rankWithTies(xs.concat(ys));
+  let R1 = 0;
+  for (let i = 0; i < n1; i++) R1 += ranks[i];
+  const U1 = R1 - n1 * (n1 + 1) / 2;
+  const U = Math.min(U1, n1 * n2 - U1);
+  const n = n1 + n2;
+  const sigma2 = (n1 * n2 / 12) * ((n + 1) - tieSum / (n * (n - 1)));
+  if (sigma2 <= 0) return null; // every pooled value identical — no ordering
+  const z = (U - n1 * n2 / 2 + 0.5) / Math.sqrt(sigma2); // continuity corr.
+  return { U, z, p: Math.min(1, 2 * normalCdf(z)),
+           r: 2 * U1 / (n1 * n2) - 1, n1, n2 };
+}
+
+/**
+ * Kruskal–Wallis (3+ groups, rank-based), tie-corrected H, p from the
+ * chi-squared approximation. ε² = H/(N−1) is the effect size (0..1).
+ * @param {number[][]} groups - each with ≥ 2 finite values, k ≥ 2
+ * @returns {{ H, df, p, eps2 }|null}
+ */
+function kruskalWallis(groups) {
+  const k = groups.length;
+  if (k < 2 || groups.some(g => g.length < 2)) return null;
+  const all = [];
+  for (const grp of groups) all.push(...grp);
+  const N = all.length;
+  const { ranks, tieSum } = rankWithTies(all);
+  let H = 0, off = 0;
+  for (const grp of groups) {
+    let R = 0;
+    for (let i = 0; i < grp.length; i++) R += ranks[off + i];
+    H += R * R / grp.length;
+    off += grp.length;
+  }
+  H = 12 / (N * (N + 1)) * H - 3 * (N + 1);
+  const C = 1 - tieSum / (N * N * N - N); // tie correction divisor
+  if (C <= 0) return null; // every pooled value identical
+  H /= C;
+  return { H, df: k - 1, p: pUpperChi2(H, k - 1), eps2: H / (N - 1) };
+}
+
+/**
+ * Paired t on the differences x−y (index-aligned complete pairs only —
+ * the caller drops incomplete pairs and reports the count).
+ * dz = mean(diff)/sd(diff) is the paired effect size.
+ * @param {number[]} xs
+ * @param {number[]} ys - same length
+ * @returns {{ t, df, p, dz, n }|null}
+ */
+function pairedT(xs, ys) {
+  const n = xs.length;
+  if (n < 2 || ys.length !== n) return null;
+  const d = xs.map((x, i) => x - ys[i]);
+  const m = d.reduce((a, b) => a + b, 0) / n;
+  const sd = Math.sqrt(d.reduce((s, x) => s + (x - m) ** 2, 0) / (n - 1));
+  if (sd === 0) return null; // constant difference — no variability to test
+  const t = m / (sd / Math.sqrt(n));
+  return { t, df: n - 1, p: pTwoTailedT(t, n - 1), dz: m / sd, n };
+}
+
+/**
+ * Wilcoxon signed-rank. Zero differences are DROPPED before ranking (the
+ * standard convention — matches published tables; pre-impl decision);
+ * nZero reports how many. W reported is min(W+, W−), the tabled convention.
+ * r is the matched-pairs rank-biserial r = (W+ − W−)/(n(n+1)/2)
+ * (positive when x tends larger than y).
+ * @param {number[]} xs
+ * @param {number[]} ys - same length
+ * @returns {{ W, z, p, r, n, nZero }|null}
+ */
+function wilcoxonSignedRank(xs, ys) {
+  if (xs.length !== ys.length) return null;
+  const diffs = [];
+  let nZero = 0;
+  for (let i = 0; i < xs.length; i++) {
+    const d = xs[i] - ys[i];
+    if (d === 0) { nZero++; continue; }
+    diffs.push(d);
+  }
+  const n = diffs.length;
+  if (n < 2) return null;
+  const { ranks, tieSum } = rankWithTies(diffs.map(Math.abs));
+  let Wplus = 0;
+  for (let i = 0; i < n; i++) if (diffs[i] > 0) Wplus += ranks[i];
+  const Wtot = n * (n + 1) / 2;
+  const W = Math.min(Wplus, Wtot - Wplus);
+  const sigma2 = n * (n + 1) * (2 * n + 1) / 24 - tieSum / 48;
+  if (sigma2 <= 0) return null; // all |diffs| tied at one value AND n tiny
+  const z = (W - Wtot / 2 + 0.5) / Math.sqrt(sigma2); // continuity corr.
+  return { W, z, p: Math.min(1, 2 * normalCdf(z)),
+           r: (2 * Wplus - Wtot) / Wtot, n, nZero };
+}
+
 /**
  * One-way ANOVA. η² = SSB/SST.
  * @param {number[][]} groups - each with ≥ 2 finite values, k ≥ 2
