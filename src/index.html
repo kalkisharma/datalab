@@ -44,6 +44,9 @@
         </div>
       </div>
       <div id="dataAlerts" aria-live="polite"></div>
+      <!-- Screen-reader load announcement (Phase 16 — closes the Phase 15
+           NVDA finding: dataset arrival was silent) -->
+      <div id="loadStatus" class="sr-only" aria-live="polite"></div>
       <div id="datasetList" role="list" aria-label="Loaded datasets"></div>
     </div>
 
@@ -140,7 +143,17 @@
             <span class="slider-val" id="edgeWidthVal">0.5</span>
           </div>
         </label>
-        <div class="check-row" style="margin-top:12px;gap:8px">
+      </div>
+    </details>
+
+    <!-- Style presets (Phase 16: lifted out of the Style accordion — a preset
+         spans Style, Export size, Plot typography, and Frame & grid, so its
+         buttons sit at the top level, not under the one section they predate) -->
+    <details class="section">
+      <summary>Style presets</summary>
+      <div class="details-body">
+        <div class="field-hint" style="margin:0 0 8px;">A preset can capture Style, Export size, Plot typography, and Frame &amp; grid — choose which when saving.</div>
+        <div class="check-row" style="gap:8px">
           <button class="btn btn-sm" id="presetSaveBtn" title="Save current style settings to a JSON file">Save preset</button>
           <button class="btn btn-sm" id="presetLoadBtn" title="Load a style preset">Load preset</button>
           <input type="file" id="presetFileInput" accept=".json" class="sr-only" aria-label="Load style preset file" />

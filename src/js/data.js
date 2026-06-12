@@ -238,6 +238,12 @@ function handleFile(file) {
     if (!headers.length) return;
 
     const name = file.name.replace(/\.csv$/i, '');
+    // Announce arrival to screen readers — dataset load was silent (Phase 16,
+    // Phase 15 NVDA finding). textContent: no escaping needed.
+    const announce = verb => {
+      const el = document.getElementById('loadStatus');
+      if (el) el.textContent = `${verb} ${name}: ${result.data.length} rows, ${headers.length} columns`;
+    };
 
     // Reload: same file name as an existing dataset replaces its data in
     // place (id, display name, and color survive), bumps the dataset
@@ -255,6 +261,7 @@ function handleFile(file) {
       showDataAlerts(existing, problems);
       renderDatasetList();
       renderSeriesList();
+      announce('Reloaded');
       if (appState.plotRendered) debounceRender();
       return;
     }
@@ -265,6 +272,7 @@ function handleFile(file) {
     showDataAlerts(null, []);
     renderDatasetList();
     renderSeriesList();
+    announce('Loaded');
     updateRenderBtn();
   });
 }
