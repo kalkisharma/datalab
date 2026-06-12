@@ -82,6 +82,17 @@ test('axe: series modal open has no violations', async ({ page }) => {
   expect(await audit(page, 'modal')).toHaveLength(0);
 });
 
+test('axe: series modal with numeric color-by (colorbar label visible) has no violations', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'x,y,z\n1,2,10\n3,4,20\n5,6,30', '_a11y_color.csv');
+  await page.click('#addSeriesBtn');
+  await page.click('.ct-btn[data-ct="scatter"]');
+  await page.waitForTimeout(200);
+  await page.selectOption('#mColorCol', 'z'); // numeric → reveals the Colorbar label field
+  await page.waitForTimeout(150);
+  expect(await audit(page, 'modal-colorbar')).toHaveLength(0);
+});
+
 test('axe: help dialog open has no violations', async ({ page }) => {
   await page.goto(FILE_URL);
   await page.click('#helpBtn');

@@ -26,9 +26,14 @@ Maintainer: Kalki Sharma <kalkijsharma@gmail.com>
 - **Chart types:** scatter (with bubble sizes — marker area proportional
   to a column), line, bar (explicit aggregation — count, sum, mean,
   median), parity (model-vs-observed with NSE/MAE/RMSE stats and error
-  bands), contour (pre-gridded data), histogram (Freedman-Diaconis
+  bands; colorable and sizeable by a column from the observed dataset),
+  contour (pre-gridded data), histogram (Freedman-Diaconis
   auto-binning), box plot (Tukey whiskers), violin, heatmap (category ×
   category with explicit aggregation)
+- **Self-describing encodings:** color a series by a column — categories
+  get a named legend, numbers a labeled colorbar (editable label) — and
+  size markers by a column with a min/median/max size key in the legend;
+  override any series' legend text directly
 - **Analysis on the plot:** distribution fits on histograms (normal,
   lognormal, Weibull MLE) with KDE overlay; trendlines with R² (linear,
   quadratic, cubic) — overall or one linear fit per color group; error

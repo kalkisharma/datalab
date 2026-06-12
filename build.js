@@ -55,6 +55,7 @@ const appJs = [
   'src/js/ui.js',
   'src/js/filters.js',
   'src/js/modal.js',
+  'src/js/modal-chart-fields.js',
   'src/js/modal-fields.js',
   'src/js/grid.js',
   'src/js/chart.js',

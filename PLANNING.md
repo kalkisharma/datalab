@@ -166,7 +166,8 @@ datalab/
       data.js           — parseCSV + ingestion (dropzone/handleFile, Phase 15), applyFilters, classifyColumn, datetime detection
       ui.js             — makeDD, dataset panel, series list
       modal.js          — series editor modal + date format prompt
-      modal-fields.js   — per-chart-type modal fields (split Phase 3)
+      modal-fields.js   — modal field assembly: Style + Filters + wiring (split Phase 3)
+      modal-chart-fields.js — per-chart-type Columns/setup HTML (split from modal-fields, Phase 16)
       filters.js        — filter row UI
       grid.js           — multi-plot live grid, active plot (Phase 7)
       chart.js          — renderPlot dispatcher, trace cache
@@ -699,16 +700,21 @@ Exit criteria: U/H/W/p match published references; no p renders without its effe
 - **Dataset-load announcement:** no visible control; an `aria-live="polite"` region speaks the dataset name, row count, and column count on load.
 
 Deliverables (dependency order per §18; UX flows recorded above per §12):
-- [ ] Categorical color-by → discrete legend in `shared.js` + `scatter.js`; numeric keeps the colorbar — §6/§7 renderer review (Data Viz + EL) — *must precede parity color-by, which builds on the corrected path*
-- [ ] Colorbar label: default to column name + editable `series.colorbarLabel`; escHtml at the build site (Data Viz + Frontend)
-- [ ] Parity color-by + size-by from the observed dataset, threaded through the join pairing; alignment test mandatory (Data Viz + Data Engineer + Data Scientist)
-- [ ] Size key: synthetic min/median/max legend entries, area-honest; DS signs off on the representative set (Data Viz + Data Scientist)
-- [ ] Legend-label override `series.legendLabel`; suffix suppression; escHtml (Frontend + UX)
-- [ ] Preset buttons relocated to a top-level Style presets section (Frontend + UX) — DOM/IA only
-- [ ] `aria-live` dataset-load announcement (Frontend + Accessibility) — closes the Phase 15 NVDA finding
-- [ ] Tests: parity color/size alignment through the join, categorical discrete legend (scatter + parity), colorbar label default + override, size-key areas, legend-label override + suffix suppression, preset-relocation smoke, load-announcement region; axe re-pass on the modal (new fields) — §18 invalidation (QA + Accessibility)
-- [ ] README feature updates
-- [ ] Exploratory (Data Scientist): real multi-site QA dataset — parity colored by site (discrete legend), bubble-sized by a magnitude column with the size key, numeric color-by with a labeled colorbar; confirm encodings are decodable without the underlying table
+- [x] Categorical color-by → discrete legend in `shared.js` + `scatter.js`; numeric keeps the colorbar — evidence: commit 22b7c32; shared `categoryGroups`/`categoryGroupsFromValues`, one trace per category under a legendgroup, size/error sliced per category, >8 palette-repeat warning, datetime-X fallback
+- [x] Colorbar label: default to column name + editable `series.colorbarLabel` — evidence: commit 0a23946; field shown only for numeric color-by; Plotly-title no-escHtml convention (matches heatmap/contour), new free-text sink XSS-covered
+- [x] Parity color-by + size-by from the observed dataset, threaded through the join pairing; **alignment test mandatory** — evidence: commit 79a656b; the dropped-pair test asserts color+size skip the same index x/y drop
+- [x] Size key: synthetic min/median/max legend entries, area-honest — evidence: commit 115b6ab; shared `sizeKeyTraces`, grey swatches via `areaSizes`, absent without size-by / all-equal
+- [x] Legend-label override `series.legendLabel`; suffix suppression — evidence: commit 28f76b8; scatter/line/parity; categorical → group title
+- [x] Preset buttons relocated to a top-level Style presets section — evidence: commit 9149781; DOM/IA only, hint states the breadth
+- [x] `aria-live` dataset-load announcement — evidence: commit 9149781; sr-only `#loadStatus`, "Loaded/Reloaded <name>: N rows, M columns" — closes the Phase 15 NVDA finding
+- [x] Tests + axe re-pass — evidence: color-encoding.spec.js (10), workspace-polish.spec.js (3), xss colorbar cases, a11y 10th state (numeric color-by reveals the colorbar field); §18 modal re-pass done
+- [x] README feature updates — evidence: this release commit (chart-type parity color/size note + "self-describing encodings" bullet)
+- [x] Exploratory (Data Scientist) — evidence: end-to-end render on synthetic 3-site QA data (observed vs modelled, Plynlimon-style). Findings (§20 format):
+  - `dataset`: 3 sites × 15 paired observed/modelled metal conc + catchment area / `workflow`: parity colored by `site` + sized by `catchment`, rendered through the real dispatcher / `finding`: **decodable without the table** — three distinct-colored site groups under the "Site parity" group title (15 pts each) AND a "Size: catchment" key reading 5.40 / 23.6 / 44.8 (min/median/max); `legend.itemsizing` resolved to `'trace'` so swatch areas track the data / `severity`: `informational` (positive)
+  - `finding`: Plotly clamps large legend marker symbols, so the max size-key swatch can look smaller than the data's biggest bubble — **the numeric labels carry the scale regardless**, which is why the key shows raw values. Documented limitation of the synthetic-legend design (the recorded choice), not a defect / `severity`: `informational`
+  - No blockers; no misleading defaults. Numeric color-by colorbar label and the legend-label override verified in the same session.
+
+**Code-complete (commits 22b7c32..this).** Suite 157 + 10 axe states green. **§6 mechanical sweep (measured, not from memory — the first draft of this line claimed "no file crossed the trigger" and was wrong, exactly the failure the sweep exists to catch):** modal-fields.js had grown to 357 with the parity Encoding section, so its standing "splits with the next modal change" deferral came due — the per-chart-type field chain was extracted to `modal-chart-fields.js` (234), leaving modal-fields.js at 133. modal.js measured 308 (legend-label field, +7) — **tolerated** with the rationale that the per-type field complexity now lives in the two modal-*fields files and what remains is cohesive modal lifecycle + save, 8 lines over the soft trigger. Renderers all under: shared.js 254, scatter.js 231, parity.js 198; data.js 278. Awaiting the v2.9.0 exit decision (refactor/security/DS sign-off recorded; release sequence on maintainer go).
 
 Exit criteria: parity points color/size correctly and stay aligned through the join (alignment test green); categorical color-by produces a named legend in both scatter and parity; numeric colorbars carry a label that defaults to the column and is editable; a size key appears whenever size-by is active and reads in area; the legend-label field overrides the auto text; preset buttons sit outside the Style accordion with behavior unchanged; dataset load is announced to a screen reader; all prior tests green.
 

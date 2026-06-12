@@ -275,6 +275,9 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
         </div>
       </div>
       <div id="dataAlerts" aria-live="polite"></div>
+      <!-- Screen-reader load announcement (Phase 16 — closes the Phase 15
+           NVDA finding: dataset arrival was silent) -->
+      <div id="loadStatus" class="sr-only" aria-live="polite"></div>
       <div id="datasetList" role="list" aria-label="Loaded datasets"></div>
     </div>
 
@@ -371,7 +374,17 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
             <span class="slider-val" id="edgeWidthVal">0.5</span>
           </div>
         </label>
-        <div class="check-row" style="margin-top:12px;gap:8px">
+      </div>
+    </details>
+
+    <!-- Style presets (Phase 16: lifted out of the Style accordion — a preset
+         spans Style, Export size, Plot typography, and Frame & grid, so its
+         buttons sit at the top level, not under the one section they predate) -->
+    <details class="section">
+      <summary>Style presets</summary>
+      <div class="details-body">
+        <div class="field-hint" style="margin:0 0 8px;">A preset can capture Style, Export size, Plot typography, and Frame &amp; grid — choose which when saving.</div>
+        <div class="check-row" style="gap:8px">
           <button class="btn btn-sm" id="presetSaveBtn" title="Save current style settings to a JSON file">Save preset</button>
           <button class="btn btn-sm" id="presetLoadBtn" title="Load a style preset">Load preset</button>
           <input type="file" id="presetFileInput" accept=".json" class="sr-only" aria-label="Load style preset file" />
@@ -1003,6 +1016,12 @@ function handleFile(file) {
     if (!headers.length) return;
 
     const name = file.name.replace(/\.csv$/i, '');
+    // Announce arrival to screen readers — dataset load was silent (Phase 16,
+    // Phase 15 NVDA finding). textContent: no escaping needed.
+    const announce = verb => {
+      const el = document.getElementById('loadStatus');
+      if (el) el.textContent = `${verb} ${name}: ${result.data.length} rows, ${headers.length} columns`;
+    };
 
     // Reload: same file name as an existing dataset replaces its data in
     // place (id, display name, and color survive), bumps the dataset
@@ -1020,6 +1039,7 @@ function handleFile(file) {
       showDataAlerts(existing, problems);
       renderDatasetList();
       renderSeriesList();
+      announce('Reloaded');
       if (appState.plotRendered) debounceRender();
       return;
     }
@@ -1030,6 +1050,7 @@ function handleFile(file) {
     showDataAlerts(null, []);
     renderDatasetList();
     renderSeriesList();
+    announce('Loaded');
     updateRenderBtn();
   });
 }
@@ -1465,6 +1486,11 @@ function buildModalBody(existing) {
       <input type="text" class="ctrl-input" id="mSeriesName"
              value="${escHtml(existing?.name || '')}" placeholder="Series name" />
     </div>
+    <div class="modal-field">
+      <label class="modal-label" for="mLegendLabel">Legend label <span class="field-hint" style="margin:0">(optional; overrides the auto label and its suffixes)</span></label>
+      <input type="text" class="ctrl-input" id="mLegendLabel"
+             value="${escHtml(existing?.legendLabel || '')}" placeholder="auto" />
+    </div>
     ${appState.plots.length > 1 ? `
     <div class="modal-field">
       <label class="modal-label" for="mPlot">Plot</label>
@@ -1612,6 +1638,8 @@ function saveModalSeries() {
     trendDegree: parseInt(document.getElementById('mTrendDeg')?.value) || 1, // scatter only (Phase 13)
     trendGroups: document.getElementById('mTrendGroups')?.checked ?? false, // scatter only (Phase 11)
     colorCol:  document.getElementById('mColorCol')?.value || null,
+    colorbarLabel: document.getElementById('mColorbarLabel')?.value.trim() || null, // numeric color-by (Phase 16)
+    legendLabel:   document.getElementById('mLegendLabel')?.value.trim() || null,   // overrides auto legend text (Phase 16)
     filters:   _modalFilters.map(f => ({ ...f })),
     filterLogic: document.getElementById('mFilterLogic')?.value || 'and',
     style,
@@ -1681,33 +1709,14 @@ function showDateFormatPrompt(ds, col, onDone) {
 }
 
 
-// modal-fields.js — per-chart-type field builder for the series modal
-// (split from modal.js at the Phase 3 exit refactor review — verbatim move)
-
-function renderDynamicFields(existing) {
-  const dsId     = document.getElementById('mDataset').value;
-  const chartType = document.getElementById('mChartType').value;
-  const ds       = appState.datasets.find(d => d.id === dsId);
-  const container = document.getElementById('mDynamicFields');
-
-  // innerHTML: empty string — no user data
-  if (!ds || !chartType) { container.innerHTML = ''; return; }
-
-  const cols = ds.headers;
-  const numericCols = cols.filter(c => classifyColumn(ds.rows, c) === 'numeric');
-  const allCols     = cols;
-
-  function colOptions(selected, includeAll, allowDatetime = false) {
-    const list = includeAll ? allCols : numericCols;
-    return list.map(c => {
-      const type = classifyColumn(ds.rows, c);
-      const disabled = (type === 'datetime' && !allowDatetime)
-        ? 'disabled title="Datetime not supported for this field"' : '';
-      // escHtml applied to column name in option text
-      return `<option value="${escHtml(c)}" ${selected === c ? 'selected':''} ${disabled}>${escHtml(c)}${type==='datetime'?' (datetime)':''}</option>`;
-    }).join('');
-  }
-
+// modal-chart-fields.js — per-chart-type Columns/setup field HTML for the
+// series modal (split out of modal-fields.js at the Phase 16 §6 sweep — the
+// standing 'splits with the next modal change' deferral came due when parity
+// gained an Encoding section). Pure HTML builder; modal-fields.js appends the
+// shared Style + Filters sections and wires everything.
+//
+// colOptions is passed in (it closes over the dataset's numeric/all columns).
+function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
   let html = '';
 
   if (chartType === 'scatter' || chartType === 'line') {
@@ -1726,6 +1735,10 @@ function renderDynamicFields(existing) {
         <select id="mColorCol"><option value="">None</option>${colOptions(existing?.colorCol, true)}</select>
       </div>
       ${chartType === 'scatter' ? `
+      <div class="modal-field" id="mColorbarField" style="display:none">
+        <label class="modal-label" for="mColorbarLabel">Colorbar label <span class="field-hint" style="margin:0">(numeric color-by)</span></label>
+        <input type="text" class="ctrl-input" id="mColorbarLabel" value="${escHtml(existing?.colorbarLabel || '')}" placeholder="defaults to the column name" />
+      </div>
       <div class="modal-field">
         <label class="modal-label" for="mSizeCol">Size by (optional, numeric)</label>
         <select id="mSizeCol"><option value="">None</option>${colOptions(existing?.sizeCol, false)}</select>
@@ -1857,6 +1870,21 @@ function renderDynamicFields(existing) {
       <div class="check-row">
         <label><input type="checkbox" id="mBand5"  ${existing?.band5 ?'checked':''} /> ±5%</label>
         <label><input type="checkbox" id="mBand10" ${existing?.band10??true?'checked':''} /> ±10%</label>
+      </div>
+      <div class="modal-section-title">Encoding</div>
+      <div class="modal-field">
+        <label class="modal-label" for="mColorCol">Color by (optional)</label>
+        <select id="mColorCol"><option value="">None</option>${colOptions(existing?.colorCol, true)}</select>
+        <div class="field-hint">From the observed dataset; categories get a legend, numbers a colorbar.</div>
+      </div>
+      <div class="modal-field" id="mColorbarField" style="display:none">
+        <label class="modal-label" for="mColorbarLabel">Colorbar label <span class="field-hint" style="margin:0">(numeric color-by)</span></label>
+        <input type="text" class="ctrl-input" id="mColorbarLabel" value="${escHtml(existing?.colorbarLabel || '')}" placeholder="defaults to the column name" />
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mSizeCol">Size by (optional, numeric)</label>
+        <select id="mSizeCol"><option value="">None</option>${colOptions(existing?.sizeCol, false)}</select>
+        <div class="field-hint">Marker AREA is proportional to the value (4–28 px); hover shows the raw value.</div>
       </div>`;
   } else if (chartType === 'histogram') {
     html = `
@@ -1913,7 +1941,38 @@ function renderDynamicFields(existing) {
         <div class="field-hint">Contour needs pre-gridded data: every combination of the unique X and Y values exactly once (e.g. a parameter sweep). Scattered points need gridding first.</div>
       </div>`;
   }
+  return html;
+}
 
+
+// modal-fields.js — per-chart-type field builder for the series modal
+// (split from modal.js at the Phase 3 exit refactor review — verbatim move)
+
+function renderDynamicFields(existing) {
+  const dsId     = document.getElementById('mDataset').value;
+  const chartType = document.getElementById('mChartType').value;
+  const ds       = appState.datasets.find(d => d.id === dsId);
+  const container = document.getElementById('mDynamicFields');
+
+  // innerHTML: empty string — no user data
+  if (!ds || !chartType) { container.innerHTML = ''; return; }
+
+  const cols = ds.headers;
+  const numericCols = cols.filter(c => classifyColumn(ds.rows, c) === 'numeric');
+  const allCols     = cols;
+
+  function colOptions(selected, includeAll, allowDatetime = false) {
+    const list = includeAll ? allCols : numericCols;
+    return list.map(c => {
+      const type = classifyColumn(ds.rows, c);
+      const disabled = (type === 'datetime' && !allowDatetime)
+        ? 'disabled title="Datetime not supported for this field"' : '';
+      // escHtml applied to column name in option text
+      return `<option value="${escHtml(c)}" ${selected === c ? 'selected':''} ${disabled}>${escHtml(c)}${type==='datetime'?' (datetime)':''}</option>`;
+    }).join('');
+  }
+
+  let html = chartColumnFields(chartType, ds, dsId, existing, colOptions, cols);
   // Style overrides (all chart types) — blank number fields inherit the
   // global Style panel values; color defaults to the series/dataset color
   const curColor = existing?.style?.color ?? ds.color ?? '#5b8dee';
@@ -1951,6 +2010,20 @@ function renderDynamicFields(existing) {
 
   // innerHTML: all column names escaped via colOptions()/escHtml(); dataset/series names escaped via escHtml()
   container.innerHTML = html;
+
+  // Scatter: the colorbar-label field only applies to a NUMERIC color-by
+  // (categorical renders as a discrete legend, no colorbar) — show it only
+  // when the selected color column is numeric
+  const mColorCol = document.getElementById('mColorCol');
+  const mColorbarField = document.getElementById('mColorbarField');
+  if (mColorCol && mColorbarField) {
+    const syncColorbar = () => {
+      const c = mColorCol.value;
+      mColorbarField.style.display = (c && classifyColumn(ds.rows, c) === 'numeric') ? '' : 'none';
+    };
+    mColorCol.addEventListener('change', syncColorbar);
+    syncColorbar();
+  }
 
   // Scatter: the degree select only means something with the trendline on
   const mTrend = document.getElementById('mTrend');
@@ -5126,6 +5199,82 @@ function buildMarkerStyle(seriesStyle, colorOverride) {
 }
 
 /**
+ * Area-proportional marker sizes (Phase 14 mapping; shared by scatter and
+ * parity since Phase 16). Marker AREA is linear in the value, so diameter
+ * ∝ √v — radius-proportional mapping exaggerates large values quadratically
+ * (DS ruling). 4 px → 28 px diameter; non-finite values get the minimum;
+ * all-equal values get a mid size.
+ * @param {number[]} values
+ * @returns {number[]} px diameters, aligned to values
+ */
+function areaSizes(values) {
+  let mn = Infinity, mx = -Infinity;
+  for (const v of values) if (Number.isFinite(v)) { if (v < mn) mn = v; if (v > mx) mx = v; }
+  const DMIN2 = 16, DMAX2 = 784; // 4² and 28² — areas interpolate linearly
+  return values.map(v => {
+    if (!Number.isFinite(v) || mx === mn) return (mx === mn && Number.isFinite(v)) ? 16 : 4;
+    const f = (v - mn) / (mx - mn);
+    return Math.sqrt(DMIN2 + f * (DMAX2 - DMIN2));
+  });
+}
+
+/**
+ * Partition indices by the distinct values in an aligned array, preserving
+ * first-seen order and assigning each a palette color. The discrete-legend
+ * color-by path (scatter + parity, Phase 16) builds one trace per group —
+ * replacing the old continuous-colorbar-over-palette-indices rendering,
+ * which read as a numeric ramp for categories. Parity passes values already
+ * aligned to its joined/finite pairs; scatter passes a row column.
+ * @param {Array} values
+ * @returns {{ cat: string, idx: number[], color: string }[]}
+ */
+function categoryGroupsFromValues(values) {
+  const order = [];
+  const map = new Map();
+  values.forEach((v, i) => {
+    const c = String(v ?? '(blank)');
+    if (!map.has(c)) { map.set(c, []); order.push(c); }
+    map.get(c).push(i);
+  });
+  return order.map((c, gi) => ({ cat: c, idx: map.get(c), color: PALETTE[gi % PALETTE.length] }));
+}
+
+function categoryGroups(rows, col) {
+  return categoryGroupsFromValues(rows.map(r => r[col]));
+}
+
+/**
+ * Legend-only "size key" traces for a bubble (size-by) series — Plotly has
+ * no native size legend (Phase 16). Three swatches at the size column's min,
+ * median, and max (DS: median is the robust center; true min/max are the
+ * endpoints), marker AREAS matching the real mapping via areaSizes so the
+ * key reads in the same units as the data; grey so it reads as size, not a
+ * data color. Plotted at (null, null) so they add no points to the axes.
+ * @param {number[]} values - finite-or-NaN size values (post pairing/filter)
+ * @param {string}   col    - size column name (legend group title)
+ * @param {string}   group  - unique legendgroup id (per series)
+ * @returns {object[]}
+ */
+function sizeKeyTraces(values, col, group) {
+  const finite = values.filter(Number.isFinite);
+  if (finite.length < 2) return [];
+  const sorted = [...finite].sort((a, b) => a - b);
+  const lo = sorted[0], hi = sorted[sorted.length - 1];
+  if (lo === hi) return []; // all values equal — no meaningful range to key
+  // Dedupe: the median can coincide with an endpoint on small/skewed data
+  const reps = [...new Set([lo, quantile(sorted, 0.5), hi])];
+  const px = areaSizes(reps); // reps include min & max, so the mapping matches
+  const f = v => Number(v).toPrecision(3);
+  return reps.map((v, i) => ({
+    type: 'scatter', mode: 'markers', x: [null], y: [null],
+    name: f(v),
+    marker: { size: px[i], color: '#9e9e9e', line: { width: 0.5, color: '#666' } },
+    legendgroup: group, showlegend: true, hoverinfo: 'skip',
+    ...(i === 0 ? { legendgrouptitle: { text: `Size: ${col}` } } : {}),
+  }));
+}
+
+/**
  * Map a categorical or numeric color column to Plotly color values.
  * Returns an array of numeric values (for colorscale) if numeric,
  * or maps categories to palette indices if categorical.
@@ -5180,59 +5329,86 @@ function buildScatterTrace(series, datasets) {
     if (series.errCol) eV = colVals(rows, series.errCol); // row-aligned with x/y
   }
 
-  let markerColor;
+  // Color-by (Phase 16): numeric → continuous colorscale + colorbar;
+  // categorical → ONE TRACE PER CATEGORY in the legend (replaces the old
+  // colorbar-over-palette-indices, which read as a numeric ramp). The
+  // categorical path needs row-aligned points, so it falls back to a single
+  // solid trace on a datetime X axis — datetimeXY drops/realigns pairs, the
+  // same reason size-by punts on datetime.
+  let warning = null;
+  let colorMode = 'solid';
+  let colorInfo = null;
   if (series.colorCol) {
-    const { colorVals } = colorMapping(rows, series.colorCol);
-    markerColor = colorVals;
+    colorInfo = colorMapping(rows, series.colorCol);
+    if (colorInfo.isNumeric) colorMode = 'numeric';
+    else if (isDatetime) warning = 'Color-by category is not supported with a datetime X axis yet — drew one color.';
+    else colorMode = 'categorical';
   }
 
-  const marker = buildMarkerStyle(series.style, series.colorCol ? markerColor : undefined);
-  if (!series.colorCol) marker.color = series.style?.color ?? (ds.color ?? '#5b8dee');
+  const marker = buildMarkerStyle(series.style, colorMode === 'numeric' ? colorInfo.colorVals : undefined);
+  if (colorMode !== 'numeric') marker.color = series.style?.color ?? (ds.color ?? '#5b8dee');
 
-  // Bubble size (Phase 14): marker AREA linear in the value — diameter ∝ √v
-  // (radius-proportional mapping exaggerates quadratically, DS ruling).
-  // 4 px → 28 px diameter; non-finite values get the minimum.
-  let warning = null;
+  // Bubble size (Phase 14): area-proportional, via the shared areaSizes
+  // mapping (one source of truth with parity since Phase 16).
   let sizeNote = '';
   let sizeRaw = null;
   if (series.sizeCol) {
     if (isDatetime) {
       warning = 'Size-by is not supported with a datetime X axis yet.';
     } else {
-      const sV = colVals(rows, series.sizeCol);
-      let mn = Infinity, mx = -Infinity;
-      for (const v of sV) { if (Number.isFinite(v)) { if (v < mn) mn = v; if (v > mx) mx = v; } }
-      const DMIN2 = 16, DMAX2 = 784; // 4² and 28² — areas interpolate linearly
-      const sizes = sV.map(v => {
-        if (!Number.isFinite(v) || mx === mn) return mx === mn && Number.isFinite(v) ? 16 : 4;
-        const f = (v - mn) / (mx - mn);
-        return Math.sqrt(DMIN2 + f * (DMAX2 - DMIN2));
-      });
-      marker.size = sizes;
-      sizeRaw = sV;
+      sizeRaw = colVals(rows, series.sizeCol);
+      marker.size = areaSizes(sizeRaw);
       sizeNote = ` (size: ${series.sizeCol})`;
     }
   }
 
-  // Error bars: name carries "± column" — semantics always visible (§20)
-  const name = (series.name || 'Scatter')
-    + (series.errCol ? ` (± ${series.errCol})` : '') + sizeNote;
+  // WebGL above 10k points — SVG scatter at 50k×10 series measured 9.3s
+  // cold render vs the 5s Phase 3 gate (CSP worker-src blob: permits
+  // Plotly's GL workers). Below the threshold SVG keeps crisper markers.
+  const trType = rows.length > 10000 ? 'scattergl' : 'scatter';
+  // Error bars: name carries "± column" — semantics always visible (§20).
+  // legendLabel (Phase 16) overrides the whole auto label incl. suffixes.
+  const baseName = series.legendLabel || ((series.name || 'Scatter')
+    + (series.errCol ? ` (± ${series.errCol})` : '') + sizeNote);
+  const hover = `${series.xCol}: %{x}<br>${series.yCol}: %{y}`
+    + (sizeRaw ? `<br>${series.sizeCol}: %{customdata}` : '') + '<extra></extra>';
 
-  const traces = [{
-    // WebGL above 10k points — SVG scatter at 50k×10 series measured 9.3s
-    // cold render vs the 5s Phase 3 gate (CSP worker-src blob: permits
-    // Plotly's GL workers). Below the threshold SVG keeps crisper markers.
-    type: rows.length > 10000 ? 'scattergl' : 'scatter',
-    mode: 'markers',
-    x: xV,
-    y: yV,
-    name,
-    marker,
-    hovertemplate: `${series.xCol}: %{x}<br>${series.yCol}: %{y}`
-      + (sizeRaw ? `<br>${series.sizeCol}: %{customdata}` : '') + '<extra></extra>',
-  }];
-  if (sizeRaw) traces[0].customdata = sizeRaw; // hover shows the raw size value
-  if (eV) traces[0].error_y = errorBarsFromCol(eV);
+  const traces = [];
+  if (colorMode === 'categorical') {
+    const groups = categoryGroups(rows, series.colorCol);
+    if (groups.length > PALETTE.length) {
+      warning = `"${series.colorCol}" has ${groups.length} categories — only ${PALETTE.length} palette colors, so colors repeat.`;
+    }
+    // One trace per category; a shared legendgroup keeps them under the
+    // series, with the series name as the group title on the first entry
+    groups.forEach((g, gi) => {
+      const gm = { ...marker, color: g.color };
+      if (Array.isArray(marker.size)) gm.size = g.idx.map(i => marker.size[i]);
+      const tr = {
+        type: trType, mode: 'markers',
+        x: g.idx.map(i => xV[i]), y: g.idx.map(i => yV[i]),
+        name: g.cat, marker: gm,
+        legendgroup: series.id,
+        hovertemplate: hover,
+      };
+      if (gi === 0) tr.legendgrouptitle = { text: baseName };
+      if (sizeRaw) tr.customdata = g.idx.map(i => sizeRaw[i]);
+      if (eV) tr.error_y = errorBarsFromCol(g.idx.map(i => eV[i]));
+      traces.push(tr);
+    });
+  } else {
+    // Numeric color-by: label the colorbar (Phase 16) — default to the
+    // column name, matching heatmap/contour; editable via colorbarLabel.
+    // Plotly title text, not a DOM innerHTML sink — same no-escHtml
+    // convention as the other renderers' colorbar titles (XSS-covered).
+    if (colorMode === 'numeric') marker.colorbar = { title: { text: series.colorbarLabel || series.colorCol } };
+    const tr = { type: trType, mode: 'markers', x: xV, y: yV, name: baseName, marker, hovertemplate: hover };
+    if (sizeRaw) tr.customdata = sizeRaw; // hover shows the raw size value
+    if (eV) tr.error_y = errorBarsFromCol(eV);
+    traces.push(tr);
+  }
+  // Size key (Phase 16): legend swatches at min/median/max of the size column
+  if (sizeRaw) traces.push(...sizeKeyTraces(sizeRaw, series.sizeCol, '__size_' + series.id));
 
   // Linear trendline (Phase 9): least squares on the finite pairs; the
   // legend entry IS the annotation — equation + R² (linearFit in stats.js).
@@ -5397,8 +5573,9 @@ function buildLineTrace(series, datasets) {
     mode: 'lines+markers',
     x: xV,
     y: yV,
-    // Error bars: name carries "± column" — semantics always visible (§20)
-    name: (series.name || 'Line') + (series.errCol ? ` (± ${series.errCol})` : ''),
+    // Error bars: name carries "± column" — semantics always visible (§20).
+    // legendLabel (Phase 16) overrides the auto label incl. the suffix.
+    name: series.legendLabel || ((series.name || 'Line') + (series.errCol ? ` (± ${series.errCol})` : '')),
     line: { color, width: lineWidth },
     marker: { color, size: 4 },
     hovertemplate: `${series.xCol}: %{x}<br>${series.yCol}: %{y}<extra></extra>`,
@@ -5563,9 +5740,19 @@ function buildParityTrace(series, datasets) {
   // corrupting the stats. (Data Scientist blocks-phase finding, Phase 1.)
   const xRaw = colVals(rowsA, series.xCol);
   const yRaw = colVals(rowsB, series.yCol);
-  const xs = [], ys = [];
+  // Color/size come from the OBSERVED dataset (rowsA) and are threaded
+  // through the SAME finite-pair filter as x/y so they stay point-aligned
+  // (Phase 16). Misalignment here is the Phase 1 pairing bug reborn — the
+  // mandatory alignment test guards it.
+  const colorObs = series.colorCol ? rowsA.map(r => r[series.colorCol]) : null;
+  const sizeObs  = series.sizeCol  ? colVals(rowsA, series.sizeCol)     : null;
+  const xs = [], ys = [], catV = [], szV = [];
   for (let i = 0; i < Math.min(xRaw.length, yRaw.length); i++) {
-    if (Number.isFinite(xRaw[i]) && Number.isFinite(yRaw[i])) { xs.push(xRaw[i]); ys.push(yRaw[i]); }
+    if (Number.isFinite(xRaw[i]) && Number.isFinite(yRaw[i])) {
+      xs.push(xRaw[i]); ys.push(yRaw[i]);
+      if (colorObs) catV.push(colorObs[i]);
+      if (sizeObs)  szV.push(sizeObs[i]);
+    }
   }
   const n = xs.length;
 
@@ -5580,20 +5767,56 @@ function buildParityTrace(series, datasets) {
   const pad = (mx - mn) * 0.05;
   const axMin = mn - pad, axMax = mx + pad;
 
-  const color = series.style?.color ?? (ds.color ?? '#5b8dee');
-  const marker = buildMarkerStyle(series.style);
-  marker.color = color;
+  // Color-by (Phase 16): numeric → colorscale + labeled colorbar; categorical
+  // → one trace per category; else solid. Size-by reuses the shared area
+  // mapping. Both encodings are decided before slicing so the marker base
+  // (edge/opacity) is shared. Numeric-ness mirrors colorMapping (>50% finite).
+  let warning = null;
+  let colorMode = 'solid';
+  if (series.colorCol) {
+    const finiteFrac = catV.filter(v => Number.isFinite(Number(v))).length / (catV.length || 1);
+    colorMode = finiteFrac > 0.5 ? 'numeric' : 'categorical';
+  }
+  const marker = buildMarkerStyle(series.style, colorMode === 'numeric' ? catV.map(Number) : undefined);
+  if (colorMode !== 'numeric') marker.color = series.style?.color ?? (ds.color ?? '#5b8dee');
+  if (colorMode === 'numeric') marker.colorbar = { title: { text: series.colorbarLabel || series.colorCol } };
+  let sizeNote = '';
+  if (sizeObs) { marker.size = areaSizes(szV); sizeNote = ` (size: ${series.sizeCol})`; }
+
+  const baseName = series.legendLabel || (series.name || 'Parity'); // legendLabel overrides (Phase 16)
+  const hover = `${series.xCol}: %{x:.4g}<br>${series.yCol}: %{y:.4g}`
+    + (sizeObs ? `<br>${series.sizeCol}: %{customdata}` : '') + '<extra></extra>';
 
   const traces = [];
 
-  // Scatter trace
-  traces.push({
-    type: 'scatter', mode: 'markers',
-    x: xs, y: ys,
-    name: series.name || 'Parity',
-    marker,
-    hovertemplate: `${series.xCol}: %{x:.4g}<br>${series.yCol}: %{y:.4g}<extra></extra>`,
-  });
+  // Scatter trace(s) — one per category when color-by is categorical
+  if (colorMode === 'categorical') {
+    const groups = categoryGroupsFromValues(catV);
+    if (groups.length > PALETTE.length) {
+      warning = `"${series.colorCol}" has ${groups.length} categories — only ${PALETTE.length} palette colors, so colors repeat.`;
+    }
+    groups.forEach((g, gi) => {
+      const gm = { ...marker, color: g.color };
+      if (Array.isArray(marker.size)) gm.size = g.idx.map(i => marker.size[i]);
+      const tr = {
+        type: 'scatter', mode: 'markers',
+        x: g.idx.map(i => xs[i]), y: g.idx.map(i => ys[i]),
+        name: g.cat, marker: gm, legendgroup: series.id, hovertemplate: hover,
+      };
+      if (gi === 0) tr.legendgrouptitle = { text: baseName };
+      if (sizeObs) tr.customdata = g.idx.map(i => szV[i]);
+      traces.push(tr);
+    });
+  } else {
+    const tr = {
+      type: 'scatter', mode: 'markers',
+      x: xs, y: ys, name: baseName, marker, hovertemplate: hover,
+    };
+    if (sizeObs) tr.customdata = szV;
+    traces.push(tr);
+  }
+  // Size key (Phase 16): legend swatches at min/median/max of the size column
+  if (sizeObs) traces.push(...sizeKeyTraces(szV, series.sizeCol, '__size_' + series.id));
 
   // y=x parity line
   traces.push({
@@ -5620,7 +5843,7 @@ function buildParityTrace(series, datasets) {
   // dataMin/dataMax are the unpadded extremes — log-log panels re-derive
   // their range from these (linear padding can push axMin negative even
   // for all-positive data; Phase 9 log axes)
-  return { traces, error: null, layout, stats, annotSR, axMin, axMax, dataMin: mn, dataMax: mx, n };
+  return { traces, error: null, warning, layout, stats, annotSR, axMin, axMax, dataMin: mn, dataMax: mx, n };
 }
 
 function fmt(v) { return isNaN(v) ? 'N/A' : Number(v).toPrecision(4); }
