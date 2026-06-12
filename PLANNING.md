@@ -137,14 +137,14 @@ Use a modal per series — not a flat panel:
 | scatter | error ± column (Phase 9); trendline with degree picker — linear/quadratic/cubic (Phases 9 + 13); per-group linear fits opt-in (Phase 11); size-by col, area-proportional (Phase 14) | — |
 | line | line width; error ± column (Phase 9) | — |
 | bar (Phase 9) | category X, aggregation (none/count/sum/mean/median), SD/SEM error bars (mean only) | silent aggregation forbidden (§20) |
-| parity | join dataset, join key, show ±5% band, show ±10% band | Requires two loaded datasets; Y options come from the JOIN dataset (Phase 9 fix) |
+| parity | join dataset, join key, show ±5% band, show ±10% band; color-by + size-by from the OBSERVED dataset (Phase 16) | Requires two loaded datasets; Y options come from the JOIN dataset (Phase 9 fix); color/size threaded through the join pairing |
 | contour | Z col (third numeric column) | Requires pre-gridded/equally-spaced data; validated at creation |
 | histogram | bin count (FD default, render-time); fit picker (normal/lognormal/Weibull, Phase 11; Phase 5 fitNormal honored via fallback); KDE overlay | Client-side binning |
 | boxplot | X col (optional, categorical); Y col (numeric) | Max 50 categorical X values; render-time warning if exceeded |
 | violin (Phase 11) | as boxplot | Plotly-native trace, Tukey box inside |
 | heatmap (Phase 14) | X category, Y category, aggregation, value column | explicit aggregation per the bar precedent; colorbar names it |
 
-Scatter/line/bar additionally get a Right Y axis toggle (Phase 14; not in subplot grids); scatter gets Size-by (area-proportional, Phase 14).
+Scatter/line/bar additionally get a Right Y axis toggle (Phase 14; not in subplot grids); scatter gets Size-by (area-proportional, Phase 14). Phase 16: categorical Color-by renders as a discrete named legend (scatter + parity); numeric Color-by gets a labeled, editable colorbar; Size-by adds a min/median/max size key; every series gets a Legend-label override.
 
 All chart types additionally get a Cell picker when the target plot has a subplot grid (Phase 10).
 
@@ -658,7 +658,7 @@ Deliverables (dependency order per §18):
 - [x] `pairedT` / `wilcoxonSignedRank` — evidence: commit 2d88df8; zero-drop documented at site with nZero reported; Wilcoxon exact-enumeration tolerance check (50/1024 = .0488 vs approx .0528, gap .004 < .005); paired t hand case t=15/df=3/dz=7.5
 - [x] Compare groups UI: Method select + Paired-columns mode — evidence: commit b2a4601; rank tables median+IQR, paired same-column guard, dropped-pair counting, "(normal approx.)" marker under n=10, Paired disabled <2 numeric cols; Phase 13 tests pass unmodified (ids stable, Parametric default)
 - [x] Tests + axe — evidence: commits 2d88df8 + b2a4601; comparison.spec.js 6 → 15 (engine references + 3 UI tests); suite at 141; data-tools axe state re-passed after the DOM change (§18 invalidation honored)
-- [x] Interpolated-contour design spike document → Phase 16 scoped (Data Viz + Data Scientist + Security, EL approves) — evidence: measured spike outcomes recorded in Phase 16 above (binned-mean + hull + harmonic fill ACCEPTED at 120 ms/100k with the max-principle no-fabrication proof; IDW rejected at a measured 9.6 s; Delaunay rejected on silent-failure robustness)
+- [x] Interpolated-contour design spike document → Phase 17 scoped (Data Viz + Data Scientist + Security, EL approves) — evidence: measured spike outcomes recorded in Phase 17 below (binned-mean + hull + harmonic fill ACCEPTED at 120 ms/100k with the max-principle no-fabrication proof; IDW rejected at a measured 9.6 s; Delaunay rejected on silent-failure robustness)
 - [x] README feature updates — evidence: commit 009aca5
 - [x] Exploratory (Data Scientist) — evidence: session on seeded lognormal water-quality data (reproducible, LCG seed 42). Findings (§20 format):
   - `dataset`: 2-site dissolved-metal concentrations, lognormal σ_log = 0.8, two storm outliers in site A / `workflow`: Compare groups, Parametric then Rank-based / `finding`: **textbook divergence, direction included** — Welch reports mean A 8.23 > mean B 4.72 (d = +0.25, p = 0.25, outlier-dragged); MWU reports median A 3.10 < median B 3.75 (r = −0.086) — the parametric direction is an artifact of two storm events, visible at a glance because the rank table shows medians (the DS table ruling paying off) / `severity`: `informational` (positive validation)
@@ -670,7 +670,49 @@ Deliverables (dependency order per §18):
 
 Exit criteria: U/H/W/p match published references; no p renders without its effect size and n's (§20); rank-based tables show median + IQR; paired mode drops incomplete pairs with a visible count; the NVDA session is done (or formally re-deferred with a fresh record); every file over the §6 trigger has a recorded decision; the spike is approved or rejected with rationale; all prior tests green.
 
-### Phase 16 — Interpolated Contours `v2.9.0` *(final scope set by the Phase 15 spike)*
+### Phase 16 — Legend & Colorbar Polish `v2.9.0`
+**Goal:** make color and size encodings self-describing across renderers, give the user direct control over legend text, and fix two UI-honesty gaps. **Sourced from maintainer review of v2.7.0** (the Phase 6 / Phase 8 maintainer-review precedent). Inserted ahead of the contour work per the Phase 8 ruling — higher value per unit risk, all additive.
+
+**Sequencing note (EL, §16):** this scope is docs-only planning and lands now; **implementation does not begin until Phase 15 is tagged** (v2.8.0 — gated on the NVDA session). No `src/` work starts before then.
+
+**Theme — honest color/size encoding.** Three of the five maintainer items are one coherent problem: an encoding the reader can't decode is a §20 misleading-viz issue, the same family as silent aggregation. A numeric color ramp needs a labeled colorbar; a categorical color needs a named legend; a size mapping needs a size key.
+
+**Design decisions (team scoping session):**
+- **Parity color-by AND size-by, from the observed dataset only (maintainer rulings A + C):** the color/size column is pulled from the observed (primary, `series.datasetId`) dataset — not the join dataset (keeps the picker simple; the model output is rarely the grouping variable). The column array is threaded through the **same inner-join + finite-pair filter** as `xs`/`ys` (`parity.js:42-45`), dropping the identical indices — misalignment here would resurrect the Phase 1 `blocks-phase` pairing bug, so a dedicated alignment test is mandatory. Size-by reuses the area-proportional scatter mapping (4–28 px, DS ruling). Maintainer chose **both** over the team's color-by-only lean (recorded — size on parity can obscure y=x agreement; the maintainer accepts that trade for flexibility).
+- **Categorical color-by → discrete legend, fixed across scatter AND parity (maintainer ruling B):** today a categorical Color-by renders as a *continuous colorbar over palette indices* (`colorMapping` returns indices → `buildMarkerStyle` sets `showscale:true`) — a pre-existing scatter wart, wrong for categories. Replace with **one trace per category, palette-colored, each named in the legend**; numeric color-by keeps the continuous colorbar. This corrects scatter and is the right behavior for parity from the start. Touches `shared.js` + `scatter.js` + `parity.js` → §6/§7 renderer review (Data Viz authors, EL + one domain role approve).
+- **Colorbar label for numeric color-by (item ④):** default the colorbar title to the column name — matching `heatmap.js:94` and `contour.js:73`, which already do this — plus a user-editable label field. The asymmetry (heatmap/contour titled, scatter color-by blank) was the bug.
+- **Size legend / key (item ②):** Plotly has no native bubble-size legend. Add **synthetic legend entries at representative values** — the size column's min, median, and max — as non-data traces whose marker *areas* match the real mapping, labeled with the raw values. DS owns the representative set: **median not mean** (robust), with the true min/max as the endpoints; the key communicates AREA, never radius (§20). Applies wherever size-by is active (scatter + parity).
+- **Legend-label override (item ③, maintainer ruling):** a per-series field setting the exact legend text, overriding the renderer's auto-suffixes (`(± col)`, `(size: col)`). The series *name* already drives the legend, but you can't currently suppress those appended suffixes — this gives the literal control. Fit-line and band entries keep their own legend names (they are separate traces). Additive `series.legendLabel` (optional; empty = current behavior).
+- **Preset buttons relocated (item ⑤):** lift Save/Load preset out of the **Style** accordion into their own top-level **Style presets** section, so their breadth (Style + Export size + Plot typography + Frame & grid — the Phase 8 category picker) is visually honest. DOM/IA move only, no behavior change.
+- **Silent CSV-load announcement (folded Phase 15 a11y finding, `next-phase-specific: 16`):** an `aria-live` status line announces dataset arrival ("Loaded <name>: N rows, M columns"). Small, fits this UX-polish phase, and Phase 16 is now the "next phase" the finding named.
+
+**Schema (all additive, no migration — state stays v2, MINOR):** `series.colorCol`/`series.sizeCol` already exist (scatter) and are reused for parity; new optional `series.legendLabel` and `series.colorbarLabel` (default = `colorCol`). v2.0–v2.8 sessions load unchanged.
+
+**Security (§8/§9):** `legendLabel` and `colorbarLabel` are user strings reaching Plotly pseudo-HTML / the DOM → `escHtml()` at the build site, identical contract to series names and notes (Phase 14). No new injection surface beyond that; the pre-commit hook covers the new `innerHTML` sites if any.
+
+**UX flow descriptions (recorded per §12, before implementation):**
+- **Parity Color-by / Size-by:** the parity modal's Columns section gains "Color by (optional)" and "Size by (optional, numeric)" pickers, identical to scatter's, populated from the **observed** dataset's columns. Categorical Color-by → discrete legend (one named entry per category); numeric → colorbar with its label. Size-by → area-proportional markers + the size key. Both empty = today's single-color parity. Error/empty states unchanged.
+- **Colorbar label:** when a numeric Color-by is set (scatter or parity), a "Colorbar label" text field appears under the Color-by picker, defaulting to the column name; editing it retitles the colorbar live. Cleared = column name.
+- **Size key:** no control — whenever Size-by is active the key appears automatically in the legend area (three entries: min / median / max raw values, areas to scale). Hidden when no size column.
+- **Legend label:** a "Legend label" text field near the series name, placeholder showing the current auto-generated label; typing overrides it verbatim; cleared = the auto label (name + suffixes). Fit/band entries are unaffected.
+- **Style presets:** the Save/Load preset buttons move from inside the Style accordion to a top-level "Style presets" section just below it; the save-category picker dialog (Phase 8) is unchanged. No behavior change — purely where the buttons live.
+- **Dataset-load announcement:** no visible control; an `aria-live="polite"` region speaks the dataset name, row count, and column count on load.
+
+Deliverables (dependency order per §18; UX flows recorded above per §12):
+- [ ] Categorical color-by → discrete legend in `shared.js` + `scatter.js`; numeric keeps the colorbar — §6/§7 renderer review (Data Viz + EL) — *must precede parity color-by, which builds on the corrected path*
+- [ ] Colorbar label: default to column name + editable `series.colorbarLabel`; escHtml at the build site (Data Viz + Frontend)
+- [ ] Parity color-by + size-by from the observed dataset, threaded through the join pairing; alignment test mandatory (Data Viz + Data Engineer + Data Scientist)
+- [ ] Size key: synthetic min/median/max legend entries, area-honest; DS signs off on the representative set (Data Viz + Data Scientist)
+- [ ] Legend-label override `series.legendLabel`; suffix suppression; escHtml (Frontend + UX)
+- [ ] Preset buttons relocated to a top-level Style presets section (Frontend + UX) — DOM/IA only
+- [ ] `aria-live` dataset-load announcement (Frontend + Accessibility) — closes the Phase 15 NVDA finding
+- [ ] Tests: parity color/size alignment through the join, categorical discrete legend (scatter + parity), colorbar label default + override, size-key areas, legend-label override + suffix suppression, preset-relocation smoke, load-announcement region; axe re-pass on the modal (new fields) — §18 invalidation (QA + Accessibility)
+- [ ] README feature updates
+- [ ] Exploratory (Data Scientist): real multi-site QA dataset — parity colored by site (discrete legend), bubble-sized by a magnitude column with the size key, numeric color-by with a labeled colorbar; confirm encodings are decodable without the underlying table
+
+Exit criteria: parity points color/size correctly and stay aligned through the join (alignment test green); categorical color-by produces a named legend in both scatter and parity; numeric colorbars carry a label that defaults to the column and is editable; a size key appears whenever size-by is active and reads in area; the legend-label field overrides the auto text; preset buttons sit outside the Style accordion with behavior unchanged; dataset load is announced to a screen reader; all prior tests green.
+
+### Phase 17 — Interpolated Contours `v2.10.0` *(final scope set by the Phase 15 spike)*
 **Goal:** contours from scattered (x, y, z) data — the oldest deferral in the pool (Phase 3 recorded "interpolated contour support explicitly deferred to Phase 5+").
 
 **Design spike outcomes (Phase 15, measured — EL approved):**
@@ -680,22 +722,22 @@ Exit criteria: U/H/W/p match published references; no p renders without its effe
 - **No extrapolation (Data Scientist, misleading-viz authority):** cells outside the data's convex hull render as gaps, never invented values; a "show data points" overlay option lets the reader see where the surface is actually supported. **Open item for implementation (DS):** a convex hull spans concave voids (measured case: a half-annulus's hole gets harmonic fill — bounded, but unsupported by data); decide a data-support mask (cells farther than R from any data cell also render as gaps) with the DS before the branch.
 - **The pre-gridded path is untouched and stays the default.** Interpolation is an explicit opt-in on the contour series ("Interpolate scattered data"), with the method named in the legend/hover — an interpolated surface that doesn't announce itself is a §20 violation, same family as silent aggregation.
 - **Reference test (§20):** grid a known analytic field from scattered samples and compare against the field's true values at data cells (binned mean of samples) and the bounded property at filled cells.
-- **Plotly 3.x API-delta spike (docs-only, §16):** the breaking-change review for Phase 17 runs during Phase 16 — removals/renames affecting the 9 renderers, decorations.js, and the export paths; render parity eyeballed on the bench scenes. Output scopes Phase 17.
+- **Plotly 3.x API-delta spike (docs-only, §16):** the breaking-change review for Phase 18 runs during Phase 17 — removals/renames affecting the 9 renderers, decorations.js, and the export paths; render parity eyeballed on the bench scenes. Output scopes Phase 18.
 
 Exit criteria (provisional): the interpolated surface matches an independently-computed reference on a known analytic field (§20); nothing renders outside the hull; the gridded path behaves identically to v2.8.0; method always visible; all prior tests green.
 
-### Phase 17 — Plotly 3.x Migration `(version set by the migration outcome)`
+### Phase 18 — Plotly 3.x Migration `(version set by the migration outcome)`
 **Goal:** retire the two-major-versions currency note in DEPENDENCIES.md — its own phase, as recorded there since Phase 11.
 
 - New pin + source URL + SHA-256 in DEPENDENCIES.md (Security authors, EL sign-off, §9); build-time hash verification unchanged
-- Breaking-API fixes per the Phase 16 spike across renderers, decorations.js, and export
+- Breaking-API fixes per the Phase 17 spike across renderers, decorations.js, and export
 - **Full re-baseline:** entire functional suite, all axe states, and the complete §11 benchmark set re-measured — the binding targets stay binding; a regression blocks the phase
 - CSP + worker-allowlist re-verification — Plotly's blob workers may change shape across majors, and the §9 hook/allowlist must still describe reality
 - **Versioning pre-decision (EL, §3 letter):** the session schema is untouched, so MINOR — unless the migration changes what saved sessions *mean* (not merely sub-pixel rendering differences), which would invoke the §3 silently-alters-output clause and force MAJOR. Decided at exit against the migration's actual diff — the Phase 10 "version set by outcome" precedent.
 - **Rollback line (EL):** if the spike or the migration itself finds cost exceeding value (2.32.0 has no flagged CVEs), the phase may close as a documented stay-pinned decision — the DEPENDENCIES.md currency note is updated with the assessment, which still answers the question honestly.
 
-### Phase 18+ — Future `(not scoped)`
-- The Phase 15+ pool is fully consumed by Phases 15–17. The natural source for the next pool is a **second landscape review** — the Phase 8 one is ten phases old; run it as these three milestones near completion.
+### Phase 19+ — Future `(not scoped)`
+- The Phase 15+ pool plus the v2.7.0 maintainer-review batch are consumed by Phases 15–18. The natural source for the next pool is a **second landscape review** — the Phase 8 one is ten phases old; run it as these milestones near completion.
 - Demonstrated-demand parked items remain parked: per-cell plotConfig (Phase 10), dual-Y inside subplot grids (Phase 14), `.xlsx` import (rejected — revisit only on sustained maintainer demand).
 
 ---
