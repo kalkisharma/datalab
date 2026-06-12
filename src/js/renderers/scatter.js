@@ -32,19 +32,28 @@ function buildScatterTrace(series, datasets) {
     if (series.errCol) eV = colVals(rows, series.errCol); // row-aligned with x/y
   }
 
-  let markerColor;
+  // Color-by (Phase 16): numeric → continuous colorscale + colorbar;
+  // categorical → ONE TRACE PER CATEGORY in the legend (replaces the old
+  // colorbar-over-palette-indices, which read as a numeric ramp). The
+  // categorical path needs row-aligned points, so it falls back to a single
+  // solid trace on a datetime X axis — datetimeXY drops/realigns pairs, the
+  // same reason size-by punts on datetime.
+  let warning = null;
+  let colorMode = 'solid';
+  let colorInfo = null;
   if (series.colorCol) {
-    const { colorVals } = colorMapping(rows, series.colorCol);
-    markerColor = colorVals;
+    colorInfo = colorMapping(rows, series.colorCol);
+    if (colorInfo.isNumeric) colorMode = 'numeric';
+    else if (isDatetime) warning = 'Color-by category is not supported with a datetime X axis yet — drew one color.';
+    else colorMode = 'categorical';
   }
 
-  const marker = buildMarkerStyle(series.style, series.colorCol ? markerColor : undefined);
-  if (!series.colorCol) marker.color = series.style?.color ?? (ds.color ?? '#5b8dee');
+  const marker = buildMarkerStyle(series.style, colorMode === 'numeric' ? colorInfo.colorVals : undefined);
+  if (colorMode !== 'numeric') marker.color = series.style?.color ?? (ds.color ?? '#5b8dee');
 
   // Bubble size (Phase 14): marker AREA linear in the value — diameter ∝ √v
   // (radius-proportional mapping exaggerates quadratically, DS ruling).
   // 4 px → 28 px diameter; non-finite values get the minimum.
-  let warning = null;
   let sizeNote = '';
   let sizeRaw = null;
   if (series.sizeCol) {
@@ -66,25 +75,45 @@ function buildScatterTrace(series, datasets) {
     }
   }
 
+  // WebGL above 10k points — SVG scatter at 50k×10 series measured 9.3s
+  // cold render vs the 5s Phase 3 gate (CSP worker-src blob: permits
+  // Plotly's GL workers). Below the threshold SVG keeps crisper markers.
+  const trType = rows.length > 10000 ? 'scattergl' : 'scatter';
   // Error bars: name carries "± column" — semantics always visible (§20)
-  const name = (series.name || 'Scatter')
+  const baseName = (series.name || 'Scatter')
     + (series.errCol ? ` (± ${series.errCol})` : '') + sizeNote;
+  const hover = `${series.xCol}: %{x}<br>${series.yCol}: %{y}`
+    + (sizeRaw ? `<br>${series.sizeCol}: %{customdata}` : '') + '<extra></extra>';
 
-  const traces = [{
-    // WebGL above 10k points — SVG scatter at 50k×10 series measured 9.3s
-    // cold render vs the 5s Phase 3 gate (CSP worker-src blob: permits
-    // Plotly's GL workers). Below the threshold SVG keeps crisper markers.
-    type: rows.length > 10000 ? 'scattergl' : 'scatter',
-    mode: 'markers',
-    x: xV,
-    y: yV,
-    name,
-    marker,
-    hovertemplate: `${series.xCol}: %{x}<br>${series.yCol}: %{y}`
-      + (sizeRaw ? `<br>${series.sizeCol}: %{customdata}` : '') + '<extra></extra>',
-  }];
-  if (sizeRaw) traces[0].customdata = sizeRaw; // hover shows the raw size value
-  if (eV) traces[0].error_y = errorBarsFromCol(eV);
+  const traces = [];
+  if (colorMode === 'categorical') {
+    const groups = categoryGroups(rows, series.colorCol);
+    if (groups.length > PALETTE.length) {
+      warning = `"${series.colorCol}" has ${groups.length} categories — only ${PALETTE.length} palette colors, so colors repeat.`;
+    }
+    // One trace per category; a shared legendgroup keeps them under the
+    // series, with the series name as the group title on the first entry
+    groups.forEach((g, gi) => {
+      const gm = { ...marker, color: g.color };
+      if (Array.isArray(marker.size)) gm.size = g.idx.map(i => marker.size[i]);
+      const tr = {
+        type: trType, mode: 'markers',
+        x: g.idx.map(i => xV[i]), y: g.idx.map(i => yV[i]),
+        name: g.cat, marker: gm,
+        legendgroup: series.id,
+        hovertemplate: hover,
+      };
+      if (gi === 0) tr.legendgrouptitle = { text: baseName };
+      if (sizeRaw) tr.customdata = g.idx.map(i => sizeRaw[i]);
+      if (eV) tr.error_y = errorBarsFromCol(g.idx.map(i => eV[i]));
+      traces.push(tr);
+    });
+  } else {
+    const tr = { type: trType, mode: 'markers', x: xV, y: yV, name: baseName, marker, hovertemplate: hover };
+    if (sizeRaw) tr.customdata = sizeRaw; // hover shows the raw size value
+    if (eV) tr.error_y = errorBarsFromCol(eV);
+    traces.push(tr);
+  }
 
   // Linear trendline (Phase 9): least squares on the finite pairs; the
   // legend entry IS the annotation — equation + R² (linearFit in stats.js).

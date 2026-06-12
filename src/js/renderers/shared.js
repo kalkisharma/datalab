@@ -158,6 +158,27 @@ function buildMarkerStyle(seriesStyle, colorOverride) {
 }
 
 /**
+ * Partition row indices by the distinct values of a categorical column,
+ * preserving first-seen order and assigning each a palette color. The
+ * discrete-legend color-by path (scatter + parity, Phase 16) builds one
+ * trace per group from this — replacing the old continuous-colorbar-over-
+ * palette-indices rendering, which read as a numeric ramp for categories.
+ * @param {object[]} rows
+ * @param {string}   col
+ * @returns {{ cat: string, idx: number[], color: string }[]}
+ */
+function categoryGroups(rows, col) {
+  const order = [];
+  const map = new Map();
+  rows.forEach((r, i) => {
+    const c = String(r[col] ?? '(blank)');
+    if (!map.has(c)) { map.set(c, []); order.push(c); }
+    map.get(c).push(i);
+  });
+  return order.map((c, gi) => ({ cat: c, idx: map.get(c), color: PALETTE[gi % PALETTE.length] }));
+}
+
+/**
  * Map a categorical or numeric color column to Plotly color values.
  * Returns an array of numeric values (for colorscale) if numeric,
  * or maps categories to palette indices if categorical.
