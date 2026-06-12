@@ -5,7 +5,7 @@
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; worker-src blob:; object-src 'none'; base-uri 'none'; form-action 'none';" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DataLab v2.7.0</title>
+  <title>DataLab v2.8.0</title>
   <style>
 /* style.css — DataLab design system (adapted from parity-plotting) */
 
@@ -242,7 +242,7 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
 <body>
 
 <header>
-  <span class="logo">DataLab <span>v2.7.0</span></span>
+  <span class="logo">DataLab <span>v2.8.0</span></span>
   <div class="divider"></div>
   <button class="btn btn-sm" id="addPlotBtn" title="Add a plot panel to the grid">+ Plot</button>
   <button class="btn btn-sm" id="sessionSaveBtn" title="Save full session to a JSON file">💾 Session</button>
@@ -653,7 +653,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
 // Single source of truth for the app version (STANDARDS.md §3).
 // build.js parses the declaration below — do not rename or reformat it.
-const VERSION = '2.7.0';
+const VERSION = '2.8.0';
 
 // ── appState ──────────────────────────────────────────────────────────────
 //
@@ -763,7 +763,7 @@ function escHtml(s) {
 }
 
 
-// data.js — CSV parsing, column classification, and filter evaluation
+// data.js — CSV parsing and ingestion, column classification, and filter evaluation
 
 // ── parseCSV — escaping contract ─────────────────────────────────────────
 //
@@ -970,6 +970,68 @@ function classifyColumn(rows, col) {
   if (dtCount > vals.length * 0.5) return 'datetime';
 
   return 'categorical';
+}
+
+// ── Ingestion ─────────────────────────────────────────────────────────────
+// (moved from wiring.js at the Phase 15 §6 review — ingestion lives next to
+// the parser it feeds; wiring.js keeps only event plumbing)
+
+function wireDropzone() {
+  const dz = g('dropzone');
+  const fi = g('fileInput');
+  fi.addEventListener('change', e => {
+    [...e.target.files].forEach(f => handleFile(f));
+    fi.value = ''; // allow re-selecting the same file
+  });
+  // Keyboard: the file input is natively focusable and opens on Enter —
+  // no keydown shim on the wrapper (axe nested-interactive, Phase 4 audit)
+  dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('drag-over');
+    [...e.dataTransfer.files].filter(f => f.name.endsWith('.csv')).forEach(f => handleFile(f));
+  });
+}
+
+/**
+ * @param {File} file
+ */
+function handleFile(file) {
+  parseCSV(file, result => {
+    if (!result.data.length) return;
+    const headers = result.meta.fields || Object.keys(result.data[0] || {});
+    if (!headers.length) return;
+
+    const name = file.name.replace(/\.csv$/i, '');
+
+    // Reload: same file name as an existing dataset replaces its data in
+    // place (id, display name, and color survive), bumps the dataset
+    // revision to invalidate caches, and re-validates every series that
+    // references it
+    const existing = appState.datasets.find(d => d.name === name);
+    if (existing) {
+      existing.rows    = result.data;
+      existing.headers = headers;
+      bumpDatasetRev(existing.id);
+      const problems = appState.series
+        .filter(s => s.datasetId === existing.id || s.joinDatasetId === existing.id)
+        .map(s => ({ series: s, missing: validateSeriesColumns(s, appState.datasets) }))
+        .filter(p => p.missing.length);
+      showDataAlerts(existing, problems);
+      renderDatasetList();
+      renderSeriesList();
+      if (appState.plotRendered) debounceRender();
+      return;
+    }
+
+    // New dataset: pull color from palette by position
+    const color = PALETTE[appState.datasets.length % PALETTE.length];
+    appState.datasets.push({ id: uid(), name, rows: result.data, headers, color });
+    showDataAlerts(null, []);
+    renderDatasetList();
+    renderSeriesList();
+    updateRenderBtn();
+  });
 }
 
 
@@ -3456,18 +3518,16 @@ function kdeBinned(vals, lo, hi, binWidth) {
   return { xs, ys };
 }
 
-// ── Hypothesis tests (Phase 13) ───────────────────────────────────────────
-//
-// p-values for t and F need the regularized incomplete beta I_x(a,b).
-// Hand-written (zero dependencies, §8/§9): Lanczos log-gamma + the
-// modified-Lentz continued fraction. References in tests come from
-// PUBLISHED STATISTICAL TABLES (the §20 independent source): e.g.
-// t(0.025,10) = 2.228 ⇒ two-tailed p(2.228, df 10) = 0.05;
-// F(0.05; 3,10) = 3.708 ⇒ p = 0.05.
-//
-// Reporting rule (§20): a p-value is NEVER displayed without its effect
-// size and per-group sample sizes — the callers in compare.js comply.
+// (Hypothesis tests moved to hypothesis.js at Phase 15 start — §6 split
+// called by the Phase 13 exit note.)
 
+
+// specfun.js — special functions backing the p-values
+// (split from hypothesis.js at Phase 15 — §6: the file crossed the trigger
+// the day it was created; the CDF numerics are the cohesive half. Lanczos
+// log-gamma, regularized incomplete beta (Lentz CF), regularized incomplete
+// gamma (series + Lentz CF), and the A–S 7.1.26 normal CDF.)
+//
 // Lanczos approximation, g = 7, n = 9 — standard coefficients
 const _LANCZOS = [
   0.99999999999980993, 676.5203681218851, -1259.1392167224028,
@@ -3543,6 +3603,64 @@ function pUpperF(f, d1, d2) {
   return regIncBeta(d2 / (d2 + d1 * f), d2 / 2, d1 / 2);
 }
 
+// Standard normal CDF via the Abramowitz–Stegun 7.1.26 erf approximation
+// (|ε| < 1.5e−7 — far below the 2-significant-digit p display precision)
+function normalCdf(z) {
+  const t = 1 / (1 + 0.3275911 * Math.abs(z) / Math.SQRT2);
+  const erf = 1 - t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 +
+              t * (-1.453152027 + t * 1.061405429)))) * Math.exp(-z * z / 2);
+  return z >= 0 ? 0.5 * (1 + erf) : 0.5 * (1 - erf);
+}
+
+// Regularized incomplete gamma — series for x < s+1, Lentz continued
+// fraction otherwise (same numerics family as regIncBeta above)
+function _gammaPSeries(s, x) {
+  let sum = 1 / s, term = sum;
+  for (let k = 1; k < 500; k++) {
+    term *= x / (s + k);
+    sum += term;
+    if (Math.abs(term) < Math.abs(sum) * 3e-14) break;
+  }
+  return sum * Math.exp(-x + s * Math.log(x) - logGamma(s));
+}
+
+function _gammaQCF(s, x) {
+  const FPMIN = 1e-300;
+  let b = x + 1 - s, c = 1 / FPMIN, d = 1 / b, h = d;
+  for (let k = 1; k < 500; k++) {
+    const an = -k * (k - s);
+    b += 2;
+    d = an * d + b; if (Math.abs(d) < FPMIN) d = FPMIN;
+    c = b + an / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+    d = 1 / d;
+    const del = d * c;
+    h *= del;
+    if (Math.abs(del - 1) < 3e-14) break;
+  }
+  return h * Math.exp(-x + s * Math.log(x) - logGamma(s));
+}
+
+// Upper-tail p for chi-squared: P(χ²_df > x) = Q(df/2, x/2)
+function pUpperChi2(x, df) {
+  if (!Number.isFinite(x) || x < 0 || !(df > 0)) return NaN;
+  const s = df / 2, hx = x / 2;
+  if (hx === 0) return 1;
+  return hx < s + 1 ? 1 - _gammaPSeries(s, hx) : _gammaQCF(s, hx);
+}
+
+
+
+// hypothesis.js — hypothesis tests: Welch t, one-way ANOVA, Mann–Whitney U,
+// Kruskal–Wallis, paired t, Wilcoxon signed-rank
+// (split from distributions.js at Phase 15 start — §6, the split the
+// Phase 13 exit note called; CDF numerics split onward to specfun.js the
+// same phase. The Data Scientist owns correctness; references per
+// STANDARDS §20 come from published statistical tables and hand-derived
+// formula cases — see comparison.spec.js header.)
+//
+// Reporting rule (§20): a p-value is NEVER displayed without its effect
+// size and per-group sample sizes — the callers in compare.js comply.
+
 /**
  * Welch's t-test (unequal variances — the only variant offered, DS ruling).
  * Cohen's d uses the CLASSICAL POOLED SD ( √(((n1−1)s1²+(n2−1)s2²)/(n1+n2−2)) )
@@ -3596,6 +3714,142 @@ function anovaOneWay(groups) {
       sd: Math.sqrt(g.reduce((s, x) => s + (x - means[i]) ** 2, 0) / (ns[i] - 1)),
     })),
   };
+}
+
+// ── Rank-based and paired tests (Phase 15) ────────────────────────────────
+//
+// p-values use the tie-corrected NORMAL APPROXIMATION with continuity
+// correction — the approximation IS the documented definition (pre-impl
+// review decision): test references are hand-derived from these formulas,
+// with agreement-within-tolerance checks against published exact values at
+// moderate n. Callers append "(normal approx.)" to the verdict whenever any
+// group/pair count is below 10 — an unannounced approximate p is the
+// naked-p failure family (§20).
+
+/**
+ * Average ranks (1-based) with the tie term Σ(t³−t) — the ONE ranker shared
+ * by MWU, Kruskal–Wallis, and the signed-rank (pre-impl review: three
+ * hand-rolled rankers would be three chances to disagree).
+ * @param {number[]} vals
+ * @returns {{ ranks: number[], tieSum: number }}
+ */
+function rankWithTies(vals) {
+  const idx = vals.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0]);
+  const ranks = new Array(vals.length);
+  let tieSum = 0, i = 0;
+  while (i < idx.length) {
+    let j = i;
+    while (j + 1 < idx.length && idx[j + 1][0] === idx[i][0]) j++;
+    const avg = (i + j) / 2 + 1; // average of 1-based ranks i+1 … j+1
+    for (let k = i; k <= j; k++) ranks[idx[k][1]] = avg;
+    const t = j - i + 1;
+    if (t > 1) tieSum += t * t * t - t;
+    i = j + 1;
+  }
+  return { ranks, tieSum };
+}
+
+/**
+ * Mann–Whitney U (2 groups, rank-based). U reported is min(U1, U2), the
+ * tabled convention. r is the rank-biserial correlation r = 2·U1/(n1·n2) − 1
+ * (positive when group 1 tends larger).
+ * @param {number[]} xs - finite values, group 1 (n ≥ 2)
+ * @param {number[]} ys - finite values, group 2 (n ≥ 2)
+ * @returns {{ U, z, p, r, n1, n2 }|null}
+ */
+function mannWhitneyU(xs, ys) {
+  const n1 = xs.length, n2 = ys.length;
+  if (n1 < 2 || n2 < 2) return null;
+  const { ranks, tieSum } = rankWithTies(xs.concat(ys));
+  let R1 = 0;
+  for (let i = 0; i < n1; i++) R1 += ranks[i];
+  const U1 = R1 - n1 * (n1 + 1) / 2;
+  const U = Math.min(U1, n1 * n2 - U1);
+  const n = n1 + n2;
+  const sigma2 = (n1 * n2 / 12) * ((n + 1) - tieSum / (n * (n - 1)));
+  if (sigma2 <= 0) return null; // every pooled value identical — no ordering
+  const z = (U - n1 * n2 / 2 + 0.5) / Math.sqrt(sigma2); // continuity corr.
+  return { U, z, p: Math.min(1, 2 * normalCdf(z)),
+           r: 2 * U1 / (n1 * n2) - 1, n1, n2 };
+}
+
+/**
+ * Kruskal–Wallis (3+ groups, rank-based), tie-corrected H, p from the
+ * chi-squared approximation. ε² = H/(N−1) is the effect size (0..1).
+ * @param {number[][]} groups - each with ≥ 2 finite values, k ≥ 2
+ * @returns {{ H, df, p, eps2 }|null}
+ */
+function kruskalWallis(groups) {
+  const k = groups.length;
+  if (k < 2 || groups.some(g => g.length < 2)) return null;
+  const all = [];
+  for (const grp of groups) all.push(...grp);
+  const N = all.length;
+  const { ranks, tieSum } = rankWithTies(all);
+  let H = 0, off = 0;
+  for (const grp of groups) {
+    let R = 0;
+    for (let i = 0; i < grp.length; i++) R += ranks[off + i];
+    H += R * R / grp.length;
+    off += grp.length;
+  }
+  H = 12 / (N * (N + 1)) * H - 3 * (N + 1);
+  const C = 1 - tieSum / (N * N * N - N); // tie correction divisor
+  if (C <= 0) return null; // every pooled value identical
+  H /= C;
+  return { H, df: k - 1, p: pUpperChi2(H, k - 1), eps2: H / (N - 1) };
+}
+
+/**
+ * Paired t on the differences x−y (index-aligned complete pairs only —
+ * the caller drops incomplete pairs and reports the count).
+ * dz = mean(diff)/sd(diff) is the paired effect size.
+ * @param {number[]} xs
+ * @param {number[]} ys - same length
+ * @returns {{ t, df, p, dz, n }|null}
+ */
+function pairedT(xs, ys) {
+  const n = xs.length;
+  if (n < 2 || ys.length !== n) return null;
+  const d = xs.map((x, i) => x - ys[i]);
+  const m = d.reduce((a, b) => a + b, 0) / n;
+  const sd = Math.sqrt(d.reduce((s, x) => s + (x - m) ** 2, 0) / (n - 1));
+  if (sd === 0) return null; // constant difference — no variability to test
+  const t = m / (sd / Math.sqrt(n));
+  return { t, df: n - 1, p: pTwoTailedT(t, n - 1), dz: m / sd, n };
+}
+
+/**
+ * Wilcoxon signed-rank. Zero differences are DROPPED before ranking (the
+ * standard convention — matches published tables; pre-impl decision);
+ * nZero reports how many. W reported is min(W+, W−), the tabled convention.
+ * r is the matched-pairs rank-biserial r = (W+ − W−)/(n(n+1)/2)
+ * (positive when x tends larger than y).
+ * @param {number[]} xs
+ * @param {number[]} ys - same length
+ * @returns {{ W, z, p, r, n, nZero }|null}
+ */
+function wilcoxonSignedRank(xs, ys) {
+  if (xs.length !== ys.length) return null;
+  const diffs = [];
+  let nZero = 0;
+  for (let i = 0; i < xs.length; i++) {
+    const d = xs[i] - ys[i];
+    if (d === 0) { nZero++; continue; }
+    diffs.push(d);
+  }
+  const n = diffs.length;
+  if (n < 2) return null;
+  const { ranks, tieSum } = rankWithTies(diffs.map(Math.abs));
+  let Wplus = 0;
+  for (let i = 0; i < n; i++) if (diffs[i] > 0) Wplus += ranks[i];
+  const Wtot = n * (n + 1) / 2;
+  const W = Math.min(Wplus, Wtot - Wplus);
+  const sigma2 = n * (n + 1) * (2 * n + 1) / 24 - tieSum / 48;
+  if (sigma2 <= 0) return null; // all |diffs| tied at one value AND n tiny
+  const z = (W - Wtot / 2 + 0.5) / Math.sqrt(sigma2); // continuity corr.
+  return { W, z, p: Math.min(1, 2 * normalCdf(z)),
+           r: (2 * Wplus - Wtot) / Wtot, n, nZero };
 }
 
 
@@ -3818,28 +4072,52 @@ function evalExpr(node, row) {
 }
 
 
-// compare.js — Compare groups section of the Data Tools modal (Phase 13)
-// (own module from day one — EL §6 foresight ruling: datatools.js was at
-// 263 lines when this was scoped; tests in distributions.js, UI here)
+// compare.js — Compare groups section of the Data Tools modal
+// (Phase 13: Welch t / ANOVA; Phase 15: Method select adds Mann–Whitney /
+// Kruskal–Wallis, Compare select adds paired columns — paired t / Wilcoxon.
+// Own module from day one — EL §6 foresight ruling.)
 //
-// Reporting rule (§20): the verdict line always carries effect size and
-// per-group n — a p-value never renders alone.
+// Reporting rules (§20 + Phase 15 pre-impl review): the verdict line always
+// carries effect size and n — a p-value never renders alone; rank-based
+// verdicts append "(normal approx.)" whenever any group/pair count is
+// below 10; rank-based tables show median + IQR (the honest center for the
+// test being run), parametric tables show mean + SD.
 
 function compareSectionHTML(ds) {
   const numericCols = ds.headers.filter(c => classifyColumn(ds.rows, c) === 'numeric');
   if (numericCols.length === 0) return '';
-  // escHtml applied to all column names in both pickers
+  // escHtml applied to all column names in all three pickers
   const numOpts = numericCols.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
   const grpOpts = ds.headers.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+  const pairedOff = numericCols.length < 2
+    ? ' disabled title="Paired comparison needs at least 2 numeric columns"' : '';
   return `
     <div class="modal-section-title">Compare groups</div>
+    <div class="modal-field">
+      <label class="modal-label" for="cmpKind">Compare</label>
+      <select id="cmpKind">
+        <option value="groups">Groups</option>
+        <option value="paired"${pairedOff}>Paired columns</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label class="modal-label" for="cmpMethod">Method</label>
+      <select id="cmpMethod">
+        <option value="param">Parametric</option>
+        <option value="rank">Rank-based</option>
+      </select>
+    </div>
     <div class="modal-field">
       <label class="modal-label" for="cmpVal">Numeric column</label>
       <select id="cmpVal">${numOpts}</select>
     </div>
-    <div class="modal-field">
+    <div class="modal-field" id="cmpGroupField">
       <label class="modal-label" for="cmpGroup">Group column</label>
       <select id="cmpGroup">${grpOpts}</select>
+    </div>
+    <div class="modal-field hidden" id="cmpVal2Field">
+      <label class="modal-label" for="cmpVal2">Second column</label>
+      <select id="cmpVal2">${numOpts}</select>
     </div>
     <button class="btn btn-sm" id="cmpRun">Compare</button>
     <div id="cmpResult" aria-live="polite"></div>`;
@@ -3848,15 +4126,57 @@ function compareSectionHTML(ds) {
 function wireCompareSection(ds) {
   const btn = document.getElementById('cmpRun');
   if (!btn) return; // dataset had no numeric columns
+  document.getElementById('cmpKind').addEventListener('change', e => {
+    const paired = e.target.value === 'paired';
+    document.getElementById('cmpGroupField').classList.toggle('hidden', paired);
+    document.getElementById('cmpVal2Field').classList.toggle('hidden', !paired);
+  });
   btn.addEventListener('click', () => runCompare(ds));
 }
 
+// ── Shared formatting ─────────────────────────────────────────────────────
+
+const _cmpFmt  = v => Number(v).toPrecision(4);
+const _cmpFmtP = p => p < 0.0001 ? 'p < 0.0001' : `p = ${Number(p).toPrecision(2)}`;
+
+// Median + IQR for the rank-based table rows
+function _cmpRankRow(vals) {
+  const sorted = [...vals].sort((a, b) => a - b);
+  return { center: quantile(sorted, 0.5),
+           spread: quantile(sorted, 0.75) - quantile(sorted, 0.25) };
+}
+
+// Result table + verdict. Rank-based shows median/IQR (DS ruling — the
+// honest center for the test being run); parametric shows mean/SD.
+// escHtml applied to row names (user data); all numbers are computed.
+function _cmpRender(box, rows, rank, verdict, extra, nameHdr) {
+  const [c1, c2] = rank ? ['median', 'IQR'] : ['mean', 'SD'];
+  // escHtml applied to row names (callers escape anything else user-sourced
+  // in verdict/extra, e.g. excluded group names); numbers are computed
+  box.innerHTML = `
+    <table class="stats-table" style="margin-top:8px">
+      <thead><tr><th scope="col">${nameHdr || 'Group'}</th><th scope="col">n</th>
+        <th scope="col">${c1}</th><th scope="col">${c2}</th></tr></thead>
+      <tbody>${rows.map(g =>
+        `<tr><td>${escHtml(g.name)}</td><td>${g.n}</td><td>${_cmpFmt(g.center)}</td><td>${_cmpFmt(g.spread)}</td></tr>`).join('')}
+      </tbody>
+    </table>
+    <div class="field-hint" style="margin-top:6px"><strong>${verdict}</strong>${extra}</div>`;
+}
+
+// ── Run ───────────────────────────────────────────────────────────────────
+
 function runCompare(ds) {
+  const box = document.getElementById('cmpResult');
+  const msg = t => { box.textContent = t; }; // textContent for messages
+  if (document.getElementById('cmpKind').value === 'paired') runComparePaired(ds, box, msg);
+  else runCompareGroups(ds, box, msg);
+}
+
+function runCompareGroups(ds, box, msg) {
   const valCol = document.getElementById('cmpVal').value;
   const grpCol = document.getElementById('cmpGroup').value;
-  const box = document.getElementById('cmpResult');
-  // textContent for messages; table path below escapes all user strings
-  const msg = t => { box.textContent = t; };
+  const rank   = document.getElementById('cmpMethod').value === 'rank';
 
   // Group finite values by category, preserving first-seen order
   const byCat = new Map();
@@ -3874,37 +4194,87 @@ function runCompare(ds) {
 
   const names  = usable.map(([c]) => c);
   const groups = usable.map(([, v]) => v);
-  const fmt  = v => Number(v).toPrecision(4);
-  const fmtP = p => p < 0.0001 ? 'p < 0.0001' : `p = ${Number(p).toPrecision(2)}`;
+  // (normal approx.) marker: any group below 10 (pre-impl review, §20)
+  const approx = rank && groups.some(g => g.length < 10) ? ' (normal approx.)' : '';
 
   let verdict, rows;
-  if (groups.length === 2) {
+  if (groups.length === 2 && !rank) {
     const r = tTestWelch(groups[0], groups[1]);
     if (!r) { msg('Both groups are constant — no variance to test.'); return; }
-    verdict = `Welch t = ${fmt(r.t)}, df = ${fmt(r.df)}, ${fmtP(r.p)}, Cohen's d = ${fmt(r.d)}`;
+    verdict = `Welch t = ${_cmpFmt(r.t)}, df = ${_cmpFmt(r.df)}, ${_cmpFmtP(r.p)}, Cohen's d = ${_cmpFmt(r.d)}`;
     rows = [
-      { name: names[0], n: r.n1, mean: r.m1, sd: r.s1 },
-      { name: names[1], n: r.n2, mean: r.m2, sd: r.s2 },
+      { name: names[0], n: r.n1, center: r.m1, spread: r.s1 },
+      { name: names[1], n: r.n2, center: r.m2, spread: r.s2 },
     ];
-  } else {
+  } else if (groups.length === 2) {
+    const r = mannWhitneyU(groups[0], groups[1]);
+    if (!r) { msg('Every value is identical — no ordering to test.'); return; }
+    verdict = `Mann–Whitney U = ${_cmpFmt(r.U)}, ${_cmpFmtP(r.p)}, rank-biserial r = ${_cmpFmt(r.r)}${approx}`;
+    rows = groups.map((g, i) => ({ name: names[i], n: g.length, ..._cmpRankRow(g) }));
+  } else if (!rank) {
     const r = anovaOneWay(groups);
     if (!r) { msg('All groups are constant — no variance to test.'); return; }
-    verdict = `F(${r.dfb}, ${r.dfw}) = ${fmt(r.F)}, ${fmtP(r.p)}, η² = ${fmt(r.eta2)}`;
-    rows = r.groups.map((g, i) => ({ name: names[i], ...g }));
+    verdict = `F(${r.dfb}, ${r.dfw}) = ${_cmpFmt(r.F)}, ${_cmpFmtP(r.p)}, η² = ${_cmpFmt(r.eta2)}`;
+    rows = r.groups.map((g, i) => ({ name: names[i], n: g.n, center: g.mean, spread: g.sd }));
+  } else {
+    const r = kruskalWallis(groups);
+    if (!r) { msg('Every value is identical — no ordering to test.'); return; }
+    verdict = `Kruskal–Wallis H(${r.df}) = ${_cmpFmt(r.H)}, ${_cmpFmtP(r.p)}, ε² = ${_cmpFmt(r.eps2)}${approx}`;
+    rows = groups.map((g, i) => ({ name: names[i], n: g.length, ..._cmpRankRow(g) }));
   }
 
-  // escHtml applied to group names and the excluded list — user data;
-  // verdict numbers are computed numerics
-  box.innerHTML = `
-    <table class="stats-table" style="margin-top:8px">
-      <thead><tr><th scope="col">Group</th><th scope="col">n</th>
-        <th scope="col">mean</th><th scope="col">SD</th></tr></thead>
-      <tbody>${rows.map(g =>
-        `<tr><td>${escHtml(g.name)}</td><td>${g.n}</td><td>${fmt(g.mean)}</td><td>${fmt(g.sd)}</td></tr>`).join('')}
-      </tbody>
-    </table>
-    <div class="field-hint" style="margin-top:6px"><strong>${verdict}</strong>${
-      excluded.length ? ` — excluded (fewer than 2 values): ${excluded.map(escHtml).join(', ')}` : ''}</div>`;
+  // escHtml applied to the excluded group names — user data
+  _cmpRender(box, rows, rank, verdict,
+    excluded.length ? ` — excluded (fewer than 2 values): ${excluded.map(escHtml).join(', ')}` : '');
+}
+
+function runComparePaired(ds, box, msg) {
+  const col1 = document.getElementById('cmpVal').value;
+  const col2 = document.getElementById('cmpVal2').value;
+  const rank = document.getElementById('cmpMethod').value === 'rank';
+  if (col1 === col2) { msg('Pick two different columns to compare as pairs.'); return; }
+
+  // A pair = a row where BOTH values are finite. A dropped pair = a row
+  // where exactly one is — rows missing both never formed a pair
+  // (pre-impl review definition).
+  const xs = [], ys = [];
+  let dropped = 0;
+  for (const r of ds.rows) {
+    const a = finiteOrNaN(r[col1]), b = finiteOrNaN(r[col2]);
+    const fa = Number.isFinite(a), fb = Number.isFinite(b);
+    if (fa && fb) { xs.push(a); ys.push(b); }
+    else if (fa !== fb) dropped++;
+  }
+  if (xs.length < 2) { msg('Need at least 2 complete pairs (rows with both values).'); return; }
+
+  let verdict;
+  if (!rank) {
+    const r = pairedT(xs, ys);
+    if (!r) { msg('The differences are constant — no variability to test.'); return; }
+    verdict = `Paired t = ${_cmpFmt(r.t)}, df = ${r.df}, ${_cmpFmtP(r.p)}, dz = ${_cmpFmt(r.dz)}`;
+  } else {
+    const r = wilcoxonSignedRank(xs, ys);
+    if (!r) { msg('The two columns are equal in every complete pair — nothing to test.'); return; }
+    const approx = r.n < 10 ? ' (normal approx.)' : '';
+    const zeros  = r.nZero ? `, ${r.nZero} zero difference(s) dropped` : '';
+    verdict = `Wilcoxon W = ${_cmpFmt(r.W)}, ${_cmpFmtP(r.p)}, rank-biserial r = ${_cmpFmt(r.r)}${zeros}${approx}`;
+  }
+
+  const rows = [
+    { name: col1, n: xs.length, ...(rank ? _cmpRankRow(xs) : { center: xs.reduce((a, b) => a + b, 0) / xs.length, spread: sampleSd(xs) }) },
+    { name: col2, n: ys.length, ...(rank ? _cmpRankRow(ys) : { center: ys.reduce((a, b) => a + b, 0) / ys.length, spread: sampleSd(ys) }) },
+  ];
+  // n pairs is inseparable from the verdict (§20); dropped count when any
+  _cmpRender(box, rows, rank, verdict,
+    ` — n = ${xs.length} pairs${dropped ? `, ${dropped} incomplete pair(s) dropped` : ''}`,
+    'Column');
+}
+
+// Sample SD (n−1) for the paired parametric table
+function sampleSd(vals) {
+  const n = vals.length;
+  const m = vals.reduce((a, b) => a + b, 0) / n;
+  return Math.sqrt(vals.reduce((s, x) => s + (x - m) ** 2, 0) / (n - 1));
 }
 
 
@@ -4354,65 +4724,29 @@ function debounce(fn, ms) {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
-// ── Dropzone ──────────────────────────────────────────────────────────────
+// ── Dialog wiring ─────────────────────────────────────────────────────────
+// Every dialog shares the same chrome: close button(s), a click on the
+// overlay outside the box, and Escape. One registry and ONE document-level
+// keydown listener replace the four copy-pasted blocks this file had grown
+// (§6 review, Phase 15 — behavior identical: dialogs are mutually exclusive,
+// and each old Esc listener only acted on its own open dialog anyway).
 
-function wireDropzone() {
-  const dz = g('dropzone');
-  const fi = g('fileInput');
-  fi.addEventListener('change', e => {
-    [...e.target.files].forEach(f => handleFile(f));
-    fi.value = ''; // allow re-selecting the same file
-  });
-  // Keyboard: the file input is natively focusable and opens on Enter —
-  // no keydown shim on the wrapper (axe nested-interactive, Phase 4 audit)
-  dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
-  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
-  dz.addEventListener('drop', e => {
-    e.preventDefault(); dz.classList.remove('drag-over');
-    [...e.dataTransfer.files].filter(f => f.name.endsWith('.csv')).forEach(f => handleFile(f));
+const _dialogs = [];
+
+function wireDialog(overlayId, closeFn, closeBtnIds) {
+  _dialogs.push({ overlayId, closeFn });
+  closeBtnIds.forEach(id => g(id).addEventListener('click', closeFn));
+  g(overlayId).addEventListener('click', e => {
+    if (e.target === g(overlayId)) closeFn();
   });
 }
 
-/**
- * @param {File} file
- */
-function handleFile(file) {
-  parseCSV(file, result => {
-    if (!result.data.length) return;
-    const headers = result.meta.fields || Object.keys(result.data[0] || {});
-    if (!headers.length) return;
-
-    const name = file.name.replace(/\.csv$/i, '');
-
-    // Reload: same file name as an existing dataset replaces its data in
-    // place (id, display name, and color survive), bumps the dataset
-    // revision to invalidate caches, and re-validates every series that
-    // references it
-    const existing = appState.datasets.find(d => d.name === name);
-    if (existing) {
-      existing.rows    = result.data;
-      existing.headers = headers;
-      bumpDatasetRev(existing.id);
-      const problems = appState.series
-        .filter(s => s.datasetId === existing.id || s.joinDatasetId === existing.id)
-        .map(s => ({ series: s, missing: validateSeriesColumns(s, appState.datasets) }))
-        .filter(p => p.missing.length);
-      showDataAlerts(existing, problems);
-      renderDatasetList();
-      renderSeriesList();
-      if (appState.plotRendered) debounceRender();
-      return;
-    }
-
-    // New dataset: pull color from palette by position
-    const color = PALETTE[appState.datasets.length % PALETTE.length];
-    appState.datasets.push({ id: uid(), name, rows: result.data, headers, color });
-    showDataAlerts(null, []);
-    renderDatasetList();
-    renderSeriesList();
-    updateRenderBtn();
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  _dialogs.forEach(({ overlayId, closeFn }) => {
+    if (!g(overlayId).classList.contains('hidden')) closeFn();
   });
-}
+});
 
 // ── Lock buttons ──────────────────────────────────────────────────────────
 
@@ -4456,19 +4790,8 @@ function init() {
 
   // Modal triggers
   g('addSeriesBtn').addEventListener('click', () => openModal(null));
-  g('modalClose')  .addEventListener('click', closeModal);
-  g('modalCancel') .addEventListener('click', closeModal);
   g('modalSave')   .addEventListener('click', saveModalSeries);
-
-  // Close modal on overlay click (outside modal box)
-  g('modalOverlay').addEventListener('click', e => {
-    if (e.target === g('modalOverlay')) closeModal();
-  });
-
-  // Close modal on Escape
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && !g('modalOverlay').classList.contains('hidden')) closeModal();
-  });
+  wireDialog('modalOverlay', closeModal, ['modalClose', 'modalCancel']);
 
   // Render button
   g('renderBtn').addEventListener('click', renderPlot);
@@ -4491,14 +4814,7 @@ function init() {
   // Style presets — Save opens the category picker (Phase 8)
   g('presetSaveBtn').addEventListener('click', openPresetPicker);
   g('presetSave')   .addEventListener('click', savePreset);
-  g('presetCancel') .addEventListener('click', closePresetPicker);
-  g('presetClose')  .addEventListener('click', closePresetPicker);
-  g('presetOverlay').addEventListener('click', e => {
-    if (e.target === g('presetOverlay')) closePresetPicker();
-  });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && !g('presetOverlay').classList.contains('hidden')) closePresetPicker();
-  });
+  wireDialog('presetOverlay', closePresetPicker, ['presetCancel', 'presetClose']);
   Object.keys(PRESET_PICKS).forEach(id => g(id).addEventListener('change', updatePresetSaveState));
   g('presetLoadBtn').addEventListener('click', () => g('presetFileInput').click());
   g('presetFileInput').addEventListener('change', e => {
@@ -4507,15 +4823,9 @@ function init() {
   });
 
   // Data Tools modal
-  g('dtClose').addEventListener('click', closeDataTools);
   g('dtCorrBtn').addEventListener('click', renderCorrelation);
   g('dtExportBtn').addEventListener('click', exportCleanedCSV);
-  g('dataToolsOverlay').addEventListener('click', e => {
-    if (e.target === g('dataToolsOverlay')) closeDataTools();
-  });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && !g('dataToolsOverlay').classList.contains('hidden')) closeDataTools();
-  });
+  wireDialog('dataToolsOverlay', closeDataTools, ['dtClose']);
 
   // Keyboard shortcuts reference (focus managed like other dialogs)
   let _helpTrigger = null;
@@ -4525,11 +4835,7 @@ function init() {
     g('helpOverlay').classList.remove('hidden');
     g('helpClose').focus();
   });
-  g('helpClose').addEventListener('click', closeHelp);
-  g('helpOverlay').addEventListener('click', e => { if (e.target === g('helpOverlay')) closeHelp(); });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && !g('helpOverlay').classList.contains('hidden')) closeHelp();
-  });
+  wireDialog('helpOverlay', closeHelp, ['helpClose']);
 
   // + Plot (Phase 7 grid)
   g('addPlotBtn').addEventListener('click', addPlot);
