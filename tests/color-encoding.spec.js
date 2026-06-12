@@ -103,6 +103,56 @@ test('numeric colorbar label defaults to the column and accepts an override', as
   expect(out.ovr).toBe('Depth (m)');    // override wins
 });
 
+test('parity color/size thread through the join pairing and stay aligned (mandatory)', async ({ page }) => {
+  await page.goto(FILE_URL);
+  // Pair id=2 has a blank modelled value → dropped. Its observed color (Y)
+  // and size (200) must NOT survive — proving color/size skip the same index
+  // x/y dropped (the Phase 1 pairing-bug guard, generalized to encodings).
+  await loadCSV(page, 'id,obs,site,mag\n1,10,X,100\n2,20,Y,200\n3,30,X,300\n4,40,Z,400', 'obs.csv');
+  await loadCSV(page, 'id,mod\n1,11\n2,\n3,32\n4,38', 'model.csv');
+  const out = await page.evaluate(() => {
+    const dsA = appState.datasets.find(d => d.name === 'obs');
+    const dsB = appState.datasets.find(d => d.name === 'model');
+    const r = buildParityTrace({ id: 'p1', name: 'P', datasetId: dsA.id,
+      joinDatasetId: dsB.id, joinKey: 'id', chartType: 'parity',
+      xCol: 'obs', yCol: 'mod', colorCol: 'site', sizeCol: 'mag', band10: false },
+      appState.datasets);
+    const m = r.traces.filter(t => t.mode === 'markers');
+    return { n: r.n, names: m.map(t => t.name).sort(),
+             X: m.find(t => t.name === 'X'), Z: m.find(t => t.name === 'Z'),
+             hasY: m.some(t => t.name === 'Y') };
+  });
+  expect(out.n).toBe(3);                        // pair 2 dropped
+  expect(out.names).toEqual(['X', 'Z']);        // Y's only point was the dropped pair
+  expect(out.hasY).toBe(false);
+  expect(out.X.x).toEqual([10, 30]);            // observed values, dropped pair skipped
+  expect(out.X.customdata).toEqual([100, 300]); // size aligned to the SAME survivors
+  expect(out.Z.x).toEqual([40]);
+  expect(out.Z.customdata).toEqual([400]);
+});
+
+test('parity numeric color-by gets a labeled colorbar; observed dataset is the source', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'id,obs,depth\n1,10,5\n2,20,15\n3,30,25', 'obsN.csv');
+  await loadCSV(page, 'id,mod\n1,11\n2,19\n3,31', 'modN.csv');
+  const out = await page.evaluate(() => {
+    const dsA = appState.datasets.find(d => d.name === 'obsN');
+    const dsB = appState.datasets.find(d => d.name === 'modN');
+    const r = buildParityTrace({ id: 'p2', name: 'P', datasetId: dsA.id,
+      joinDatasetId: dsB.id, joinKey: 'id', chartType: 'parity',
+      xCol: 'obs', yCol: 'mod', colorCol: 'depth', colorbarLabel: 'Depth', band10: false },
+      appState.datasets);
+    const m = r.traces.find(t => t.mode === 'markers');
+    return { single: r.traces.filter(t => t.mode === 'markers').length,
+             showscale: m.marker.showscale, label: m.marker.colorbar.title.text,
+             colors: m.marker.color };
+  });
+  expect(out.single).toBe(1);                   // numeric → one colorscale trace
+  expect(out.showscale).toBe(true);
+  expect(out.label).toBe('Depth');
+  expect(out.colors).toEqual([5, 15, 25]);      // observed-dataset depth, aligned
+});
+
 test('too many categories warns that colors repeat', async ({ page }) => {
   await page.goto(FILE_URL);
   let csv = 'x,y,g\n';

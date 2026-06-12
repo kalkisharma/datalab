@@ -39,9 +39,19 @@ function buildParityTrace(series, datasets) {
   // corrupting the stats. (Data Scientist blocks-phase finding, Phase 1.)
   const xRaw = colVals(rowsA, series.xCol);
   const yRaw = colVals(rowsB, series.yCol);
-  const xs = [], ys = [];
+  // Color/size come from the OBSERVED dataset (rowsA) and are threaded
+  // through the SAME finite-pair filter as x/y so they stay point-aligned
+  // (Phase 16). Misalignment here is the Phase 1 pairing bug reborn — the
+  // mandatory alignment test guards it.
+  const colorObs = series.colorCol ? rowsA.map(r => r[series.colorCol]) : null;
+  const sizeObs  = series.sizeCol  ? colVals(rowsA, series.sizeCol)     : null;
+  const xs = [], ys = [], catV = [], szV = [];
   for (let i = 0; i < Math.min(xRaw.length, yRaw.length); i++) {
-    if (Number.isFinite(xRaw[i]) && Number.isFinite(yRaw[i])) { xs.push(xRaw[i]); ys.push(yRaw[i]); }
+    if (Number.isFinite(xRaw[i]) && Number.isFinite(yRaw[i])) {
+      xs.push(xRaw[i]); ys.push(yRaw[i]);
+      if (colorObs) catV.push(colorObs[i]);
+      if (sizeObs)  szV.push(sizeObs[i]);
+    }
   }
   const n = xs.length;
 
@@ -56,20 +66,54 @@ function buildParityTrace(series, datasets) {
   const pad = (mx - mn) * 0.05;
   const axMin = mn - pad, axMax = mx + pad;
 
-  const color = series.style?.color ?? (ds.color ?? '#5b8dee');
-  const marker = buildMarkerStyle(series.style);
-  marker.color = color;
+  // Color-by (Phase 16): numeric → colorscale + labeled colorbar; categorical
+  // → one trace per category; else solid. Size-by reuses the shared area
+  // mapping. Both encodings are decided before slicing so the marker base
+  // (edge/opacity) is shared. Numeric-ness mirrors colorMapping (>50% finite).
+  let warning = null;
+  let colorMode = 'solid';
+  if (series.colorCol) {
+    const finiteFrac = catV.filter(v => Number.isFinite(Number(v))).length / (catV.length || 1);
+    colorMode = finiteFrac > 0.5 ? 'numeric' : 'categorical';
+  }
+  const marker = buildMarkerStyle(series.style, colorMode === 'numeric' ? catV.map(Number) : undefined);
+  if (colorMode !== 'numeric') marker.color = series.style?.color ?? (ds.color ?? '#5b8dee');
+  if (colorMode === 'numeric') marker.colorbar = { title: { text: series.colorbarLabel || series.colorCol } };
+  let sizeNote = '';
+  if (sizeObs) { marker.size = areaSizes(szV); sizeNote = ` (size: ${series.sizeCol})`; }
+
+  const baseName = series.name || 'Parity';
+  const hover = `${series.xCol}: %{x:.4g}<br>${series.yCol}: %{y:.4g}`
+    + (sizeObs ? `<br>${series.sizeCol}: %{customdata}` : '') + '<extra></extra>';
 
   const traces = [];
 
-  // Scatter trace
-  traces.push({
-    type: 'scatter', mode: 'markers',
-    x: xs, y: ys,
-    name: series.name || 'Parity',
-    marker,
-    hovertemplate: `${series.xCol}: %{x:.4g}<br>${series.yCol}: %{y:.4g}<extra></extra>`,
-  });
+  // Scatter trace(s) — one per category when color-by is categorical
+  if (colorMode === 'categorical') {
+    const groups = categoryGroupsFromValues(catV);
+    if (groups.length > PALETTE.length) {
+      warning = `"${series.colorCol}" has ${groups.length} categories — only ${PALETTE.length} palette colors, so colors repeat.`;
+    }
+    groups.forEach((g, gi) => {
+      const gm = { ...marker, color: g.color };
+      if (Array.isArray(marker.size)) gm.size = g.idx.map(i => marker.size[i]);
+      const tr = {
+        type: 'scatter', mode: 'markers',
+        x: g.idx.map(i => xs[i]), y: g.idx.map(i => ys[i]),
+        name: g.cat, marker: gm, legendgroup: series.id, hovertemplate: hover,
+      };
+      if (gi === 0) tr.legendgrouptitle = { text: baseName };
+      if (sizeObs) tr.customdata = g.idx.map(i => szV[i]);
+      traces.push(tr);
+    });
+  } else {
+    const tr = {
+      type: 'scatter', mode: 'markers',
+      x: xs, y: ys, name: baseName, marker, hovertemplate: hover,
+    };
+    if (sizeObs) tr.customdata = szV;
+    traces.push(tr);
+  }
 
   // y=x parity line
   traces.push({
@@ -96,7 +140,7 @@ function buildParityTrace(series, datasets) {
   // dataMin/dataMax are the unpadded extremes — log-log panels re-derive
   // their range from these (linear padding can push axMin negative even
   // for all-positive data; Phase 9 log axes)
-  return { traces, error: null, layout, stats, annotSR, axMin, axMax, dataMin: mn, dataMax: mx, n };
+  return { traces, error: null, warning, layout, stats, annotSR, axMin, axMax, dataMin: mn, dataMax: mx, n };
 }
 
 function fmt(v) { return isNaN(v) ? 'N/A' : Number(v).toPrecision(4); }

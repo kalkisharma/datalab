@@ -178,6 +178,21 @@ function renderDynamicFields(existing) {
       <div class="check-row">
         <label><input type="checkbox" id="mBand5"  ${existing?.band5 ?'checked':''} /> ±5%</label>
         <label><input type="checkbox" id="mBand10" ${existing?.band10??true?'checked':''} /> ±10%</label>
+      </div>
+      <div class="modal-section-title">Encoding</div>
+      <div class="modal-field">
+        <label class="modal-label" for="mColorCol">Color by (optional)</label>
+        <select id="mColorCol"><option value="">None</option>${colOptions(existing?.colorCol, true)}</select>
+        <div class="field-hint">From the observed dataset; categories get a legend, numbers a colorbar.</div>
+      </div>
+      <div class="modal-field" id="mColorbarField" style="display:none">
+        <label class="modal-label" for="mColorbarLabel">Colorbar label <span class="field-hint" style="margin:0">(numeric color-by)</span></label>
+        <input type="text" class="ctrl-input" id="mColorbarLabel" value="${escHtml(existing?.colorbarLabel || '')}" placeholder="defaults to the column name" />
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mSizeCol">Size by (optional, numeric)</label>
+        <select id="mSizeCol"><option value="">None</option>${colOptions(existing?.sizeCol, false)}</select>
+        <div class="field-hint">Marker AREA is proportional to the value (4–28 px); hover shows the raw value.</div>
       </div>`;
   } else if (chartType === 'histogram') {
     html = `

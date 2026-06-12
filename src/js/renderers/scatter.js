@@ -51,26 +51,16 @@ function buildScatterTrace(series, datasets) {
   const marker = buildMarkerStyle(series.style, colorMode === 'numeric' ? colorInfo.colorVals : undefined);
   if (colorMode !== 'numeric') marker.color = series.style?.color ?? (ds.color ?? '#5b8dee');
 
-  // Bubble size (Phase 14): marker AREA linear in the value — diameter ∝ √v
-  // (radius-proportional mapping exaggerates quadratically, DS ruling).
-  // 4 px → 28 px diameter; non-finite values get the minimum.
+  // Bubble size (Phase 14): area-proportional, via the shared areaSizes
+  // mapping (one source of truth with parity since Phase 16).
   let sizeNote = '';
   let sizeRaw = null;
   if (series.sizeCol) {
     if (isDatetime) {
       warning = 'Size-by is not supported with a datetime X axis yet.';
     } else {
-      const sV = colVals(rows, series.sizeCol);
-      let mn = Infinity, mx = -Infinity;
-      for (const v of sV) { if (Number.isFinite(v)) { if (v < mn) mn = v; if (v > mx) mx = v; } }
-      const DMIN2 = 16, DMAX2 = 784; // 4² and 28² — areas interpolate linearly
-      const sizes = sV.map(v => {
-        if (!Number.isFinite(v) || mx === mn) return mx === mn && Number.isFinite(v) ? 16 : 4;
-        const f = (v - mn) / (mx - mn);
-        return Math.sqrt(DMIN2 + f * (DMAX2 - DMIN2));
-      });
-      marker.size = sizes;
-      sizeRaw = sV;
+      sizeRaw = colVals(rows, series.sizeCol);
+      marker.size = areaSizes(sizeRaw);
       sizeNote = ` (size: ${series.sizeCol})`;
     }
   }

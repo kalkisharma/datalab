@@ -158,24 +158,48 @@ function buildMarkerStyle(seriesStyle, colorOverride) {
 }
 
 /**
- * Partition row indices by the distinct values of a categorical column,
- * preserving first-seen order and assigning each a palette color. The
- * discrete-legend color-by path (scatter + parity, Phase 16) builds one
- * trace per group from this — replacing the old continuous-colorbar-over-
- * palette-indices rendering, which read as a numeric ramp for categories.
- * @param {object[]} rows
- * @param {string}   col
+ * Area-proportional marker sizes (Phase 14 mapping; shared by scatter and
+ * parity since Phase 16). Marker AREA is linear in the value, so diameter
+ * ∝ √v — radius-proportional mapping exaggerates large values quadratically
+ * (DS ruling). 4 px → 28 px diameter; non-finite values get the minimum;
+ * all-equal values get a mid size.
+ * @param {number[]} values
+ * @returns {number[]} px diameters, aligned to values
+ */
+function areaSizes(values) {
+  let mn = Infinity, mx = -Infinity;
+  for (const v of values) if (Number.isFinite(v)) { if (v < mn) mn = v; if (v > mx) mx = v; }
+  const DMIN2 = 16, DMAX2 = 784; // 4² and 28² — areas interpolate linearly
+  return values.map(v => {
+    if (!Number.isFinite(v) || mx === mn) return (mx === mn && Number.isFinite(v)) ? 16 : 4;
+    const f = (v - mn) / (mx - mn);
+    return Math.sqrt(DMIN2 + f * (DMAX2 - DMIN2));
+  });
+}
+
+/**
+ * Partition indices by the distinct values in an aligned array, preserving
+ * first-seen order and assigning each a palette color. The discrete-legend
+ * color-by path (scatter + parity, Phase 16) builds one trace per group —
+ * replacing the old continuous-colorbar-over-palette-indices rendering,
+ * which read as a numeric ramp for categories. Parity passes values already
+ * aligned to its joined/finite pairs; scatter passes a row column.
+ * @param {Array} values
  * @returns {{ cat: string, idx: number[], color: string }[]}
  */
-function categoryGroups(rows, col) {
+function categoryGroupsFromValues(values) {
   const order = [];
   const map = new Map();
-  rows.forEach((r, i) => {
-    const c = String(r[col] ?? '(blank)');
+  values.forEach((v, i) => {
+    const c = String(v ?? '(blank)');
     if (!map.has(c)) { map.set(c, []); order.push(c); }
     map.get(c).push(i);
   });
   return order.map((c, gi) => ({ cat: c, idx: map.get(c), color: PALETTE[gi % PALETTE.length] }));
+}
+
+function categoryGroups(rows, col) {
+  return categoryGroupsFromValues(rows.map(r => r[col]));
 }
 
 /**
