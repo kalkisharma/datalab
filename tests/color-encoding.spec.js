@@ -85,6 +85,24 @@ test('categorical color-by carries size and error arrays into each category trac
   expect(out.aAreaMonotone).toBe(true);
 });
 
+test('numeric colorbar label defaults to the column and accepts an override', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'x,y,depth\n1,2,10\n2,3,20\n3,4,30', '_ce_cbar.csv');
+  const out = await page.evaluate(() => {
+    const ds = appState.datasets[0];
+    const base = { id: 's4', name: 'S', datasetId: ds.id, chartType: 'scatter',
+                   xCol: 'x', yCol: 'y', colorCol: 'depth' };
+    const def = buildScatterTrace(base, appState.datasets);
+    const ovr = buildScatterTrace({ ...base, colorbarLabel: 'Depth (m)' }, appState.datasets);
+    return {
+      def: def.traces[0].marker.colorbar.title.text,
+      ovr: ovr.traces[0].marker.colorbar.title.text,
+    };
+  });
+  expect(out.def).toBe('depth');        // defaults to the column name
+  expect(out.ovr).toBe('Depth (m)');    // override wins
+});
+
 test('too many categories warns that colors repeat', async ({ page }) => {
   await page.goto(FILE_URL);
   let csv = 'x,y,g\n';

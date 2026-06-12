@@ -43,6 +43,10 @@ function renderDynamicFields(existing) {
         <select id="mColorCol"><option value="">None</option>${colOptions(existing?.colorCol, true)}</select>
       </div>
       ${chartType === 'scatter' ? `
+      <div class="modal-field" id="mColorbarField" style="display:none">
+        <label class="modal-label" for="mColorbarLabel">Colorbar label <span class="field-hint" style="margin:0">(numeric color-by)</span></label>
+        <input type="text" class="ctrl-input" id="mColorbarLabel" value="${escHtml(existing?.colorbarLabel || '')}" placeholder="defaults to the column name" />
+      </div>
       <div class="modal-field">
         <label class="modal-label" for="mSizeCol">Size by (optional, numeric)</label>
         <select id="mSizeCol"><option value="">None</option>${colOptions(existing?.sizeCol, false)}</select>
@@ -268,6 +272,20 @@ function renderDynamicFields(existing) {
 
   // innerHTML: all column names escaped via colOptions()/escHtml(); dataset/series names escaped via escHtml()
   container.innerHTML = html;
+
+  // Scatter: the colorbar-label field only applies to a NUMERIC color-by
+  // (categorical renders as a discrete legend, no colorbar) — show it only
+  // when the selected color column is numeric
+  const mColorCol = document.getElementById('mColorCol');
+  const mColorbarField = document.getElementById('mColorbarField');
+  if (mColorCol && mColorbarField) {
+    const syncColorbar = () => {
+      const c = mColorCol.value;
+      mColorbarField.style.display = (c && classifyColumn(ds.rows, c) === 'numeric') ? '' : 'none';
+    };
+    mColorCol.addEventListener('change', syncColorbar);
+    syncColorbar();
+  }
 
   // Scatter: the degree select only means something with the trendline on
   const mTrend = document.getElementById('mTrend');

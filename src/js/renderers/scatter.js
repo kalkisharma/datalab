@@ -109,6 +109,11 @@ function buildScatterTrace(series, datasets) {
       traces.push(tr);
     });
   } else {
+    // Numeric color-by: label the colorbar (Phase 16) — default to the
+    // column name, matching heatmap/contour; editable via colorbarLabel.
+    // Plotly title text, not a DOM innerHTML sink — same no-escHtml
+    // convention as the other renderers' colorbar titles (XSS-covered).
+    if (colorMode === 'numeric') marker.colorbar = { title: { text: series.colorbarLabel || series.colorCol } };
     const tr = { type: trType, mode: 'markers', x: xV, y: yV, name: baseName, marker, hovertemplate: hover };
     if (sizeRaw) tr.customdata = sizeRaw; // hover shows the raw size value
     if (eV) tr.error_y = errorBarsFromCol(eV);

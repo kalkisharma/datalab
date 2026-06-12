@@ -232,6 +232,7 @@ function saveModalSeries() {
     trendDegree: parseInt(document.getElementById('mTrendDeg')?.value) || 1, // scatter only (Phase 13)
     trendGroups: document.getElementById('mTrendGroups')?.checked ?? false, // scatter only (Phase 11)
     colorCol:  document.getElementById('mColorCol')?.value || null,
+    colorbarLabel: document.getElementById('mColorbarLabel')?.value.trim() || null, // numeric color-by (Phase 16)
     filters:   _modalFilters.map(f => ({ ...f })),
     filterLogic: document.getElementById('mFilterLogic')?.value || 'and',
     style,

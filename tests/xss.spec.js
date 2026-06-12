@@ -145,6 +145,28 @@ for (const [label, payload] of [['PAYLOAD_SCRIPT', PAYLOAD_SCRIPT], ['PAYLOAD_IM
   });
 }
 
+// ── Colorbar label injection (Phase 16) ───────────────────────────────────
+// Free-text colorbar label reaches a Plotly colorbar title — Plotly text,
+// like the plot title above, not an innerHTML sink. Verify regardless.
+
+for (const [label, payload] of [['PAYLOAD_SCRIPT', PAYLOAD_SCRIPT], ['PAYLOAD_IMG', PAYLOAD_IMG]]) {
+  test(`colorbar label: ${label} does not execute`, async ({ page }) => {
+    await loadApp(page);
+    await loadCSV(page, 'x,y,z\n1,2,10\n3,4,20\n5,6,30', '_xss_cbar.csv');
+    await page.click('#addSeriesBtn');
+    await page.click('.ct-btn[data-ct="scatter"]');
+    await page.selectOption('#mXCol', 'x');
+    await page.selectOption('#mYCol', 'y');
+    await page.selectOption('#mColorCol', 'z'); // numeric → colorbar appears
+    await page.fill('#mColorbarLabel', payload);
+    await page.click('#modalSave');
+    await page.click('#renderBtn');
+    await page.waitForTimeout(500);
+
+    expect(await xssNotExecuted(page)).toBe(true);
+  });
+}
+
 // ── Session file id injection ─────────────────────────────────────────────
 // Plot/dataset/series ids from imported session files reach innerHTML id
 // attributes and querySelector strings unescaped (grid.js, ui.js) — escHtml
