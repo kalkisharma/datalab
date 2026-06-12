@@ -199,6 +199,30 @@ test('parity numeric color-by gets a labeled colorbar; observed dataset is the s
   expect(out.colors).toEqual([5, 15, 25]);      // observed-dataset depth, aligned
 });
 
+test('colorbar title and number fonts follow the typography sliders', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'x,y,z\n1,2,10\n2,3,20\n3,4,30\n4,5,40', '_ce_cbfont.csv');
+  await page.click('#addSeriesBtn');
+  await page.click('.ct-btn[data-ct="scatter"]');
+  await page.selectOption('#mXCol', 'x');
+  await page.selectOption('#mYCol', 'y');
+  await page.selectOption('#mColorCol', 'z'); // numeric → colorbar
+  await page.click('#modalSave');
+  // Axis label size → 28, Tick label size → 22
+  await page.evaluate(() => {
+    const set = (id, v) => { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); };
+    set('fsAxis', 28); set('fsTick', 22);
+  });
+  await page.click('#renderBtn');
+  await page.waitForTimeout(500);
+  const cb = await page.evaluate(() => {
+    const t = activePlotDiv().data.find(d => d.marker && d.marker.colorbar);
+    return { title: t.marker.colorbar.title.font.size, tick: t.marker.colorbar.tickfont.size };
+  });
+  expect(cb.title).toBe(28); // colorbar title ← Axis label size
+  expect(cb.tick).toBe(22);  // colorbar numbers ← Tick label size
+});
+
 test('legend-label override replaces the auto label and its suffixes', async ({ page }) => {
   await page.goto(FILE_URL);
   await loadCSV(page, 'x,y,e,g\n1,2,0.1,A\n2,3,0.2,B\n3,4,0.3,A', '_ce_legend.csv');

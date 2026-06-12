@@ -256,6 +256,7 @@ function renderOnePlot(plot) {
   }
 
   appendNotes(layout, plot, pd, srParts);
+  applyColorbarFonts(traces); // colorbar title/ticks follow the typography sliders (Phase 16)
 
   const srEl = document.getElementById('plotSR-' + plot.id);
   if (srEl) srEl.textContent = srParts.join('; ');

@@ -2,6 +2,23 @@
 // auto-label helpers (split from chart.js at the Phase 6 and Phase 10 exit
 // refactor reviews — verbatim moves)
 
+// Colorbar fonts follow the typography panel (Phase 16): the title scales
+// with "Axis label size", the numbers with "Tick label size" — a colorbar is
+// an axis, so it tracks the same controls. Applied centrally to every trace's
+// colorbar (marker.colorbar for scatter/parity, trace.colorbar for
+// heatmap/contour/correlation) so renderers don't each read the DOM.
+function applyColorbarFonts(traces) {
+  const v = (id, d) => { const n = parseFloat(document.getElementById(id)?.value); return Number.isFinite(n) ? n : d; };
+  const titleSize = v('fsAxis', 12), tickSize = v('fsTick', 10);
+  for (const t of traces) {
+    const cb = t.colorbar || (t.marker && t.marker.colorbar);
+    if (!cb) continue;
+    cb.title = cb.title || {};
+    cb.title.font = { ...(cb.title.font || {}), size: titleSize };
+    cb.tickfont = { ...(cb.tickfont || {}), size: tickSize };
+  }
+}
+
 // ── Auto-label helpers (per the ACTIVE plot's inputs) ─────────────────────
 
 function plotSeries(plot) {

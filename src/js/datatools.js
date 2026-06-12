@@ -254,14 +254,16 @@ function renderCorrelation() {
   const m  = pearsonMatrix(ds.rows, cols).map(row => row.map(v => Number.isFinite(v) ? v : null));
   const th = plotTheme();
   const pd = activePlotDiv();
-  Plotly.react(pd, [{
+  const corrTrace = {
     type: 'heatmap',
     x: cols, y: cols, z: m,
     zmin: -1, zmax: 1,
     colorscale: 'RdBu', reversescale: true, // +1 warm, −1 cool, 0 white
     colorbar: { title: { text: 'Pearson r' } },
     hovertemplate: '%{x} × %{y}: r = %{z:.3f}<extra></extra>',
-  }], {
+  };
+  applyColorbarFonts([corrTrace]); // colorbar fonts follow the typography sliders (Phase 16)
+  Plotly.react(pd, [corrTrace], {
     paper_bgcolor: th.bg, plot_bgcolor: th.bg,
     autosize: true,
     font: { family: 'IBM Plex Sans,system-ui,sans-serif', color: th.text, size: 12 },
