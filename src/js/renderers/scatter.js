@@ -109,6 +109,8 @@ function buildScatterTrace(series, datasets) {
     if (eV) tr.error_y = errorBarsFromCol(eV);
     traces.push(tr);
   }
+  // Size key (Phase 16): legend swatches at min/median/max of the size column
+  if (sizeRaw) traces.push(...sizeKeyTraces(sizeRaw, series.sizeCol, '__size_' + series.id));
 
   // Linear trendline (Phase 9): least squares on the finite pairs; the
   // legend entry IS the annotation — equation + R² (linearFit in stats.js).

@@ -117,7 +117,7 @@ test('parity color/size thread through the join pairing and stay aligned (mandat
       joinDatasetId: dsB.id, joinKey: 'id', chartType: 'parity',
       xCol: 'obs', yCol: 'mod', colorCol: 'site', sizeCol: 'mag', band10: false },
       appState.datasets);
-    const m = r.traces.filter(t => t.mode === 'markers');
+    const m = r.traces.filter(t => t.mode === 'markers' && !String(t.legendgroup || '').startsWith('__size'));
     return { n: r.n, names: m.map(t => t.name).sort(),
              X: m.find(t => t.name === 'X'), Z: m.find(t => t.name === 'Z'),
              hasY: m.some(t => t.name === 'Y') };
@@ -129,6 +129,52 @@ test('parity color/size thread through the join pairing and stay aligned (mandat
   expect(out.X.customdata).toEqual([100, 300]); // size aligned to the SAME survivors
   expect(out.Z.x).toEqual([40]);
   expect(out.Z.customdata).toEqual([400]);
+});
+
+test('size-by adds a min/median/max size key with area-honest swatches', async ({ page }) => {
+  await page.goto(FILE_URL);
+  // sizes 10,20,30,40,50 → min 10, median 30, max 50
+  await loadCSV(page, 'x,y,m\n1,1,10\n2,2,20\n3,3,30\n4,4,40\n5,5,50', '_ce_sizekey.csv');
+  const out = await page.evaluate(() => {
+    const ds = appState.datasets[0];
+    const r = buildScatterTrace({ id: 'sk', name: 'S', datasetId: ds.id,
+      chartType: 'scatter', xCol: 'x', yCol: 'y', sizeCol: 'm' }, appState.datasets);
+    const key = r.traces.filter(t => t.legendgroup === '__size_sk');
+    return {
+      labels: key.map(t => t.name),
+      title: key[0].legendgrouptitle.text,
+      grey: key.every(t => t.marker.color === '#9e9e9e'),
+      noPoints: key.every(t => t.x[0] === null),
+      // areas honest: min swatch 4 px diameter, max 28 px, median in between
+      px: key.map(t => Math.round(t.marker.size)),
+    };
+  });
+  expect(out.labels).toEqual(['10.0', '30.0', '50.0']); // min, median, max
+  expect(out.title).toBe('Size: m');
+  expect(out.grey).toBe(true);
+  expect(out.noPoints).toBe(true);
+  expect(out.px[0]).toBe(4);                  // min → 4 px
+  expect(out.px[2]).toBe(28);                 // max → 28 px
+  expect(out.px[1]).toBeGreaterThan(4);
+  expect(out.px[1]).toBeLessThan(28);
+});
+
+test('size key is absent without size-by and when all sizes are equal', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'x,y,m\n1,1,7\n2,2,7\n3,3,7', '_ce_nokey.csv');
+  const out = await page.evaluate(() => {
+    const ds = appState.datasets[0];
+    const none = buildScatterTrace({ id: 'a', name: 'S', datasetId: ds.id,
+      chartType: 'scatter', xCol: 'x', yCol: 'y' }, appState.datasets);
+    const equal = buildScatterTrace({ id: 'b', name: 'S', datasetId: ds.id,
+      chartType: 'scatter', xCol: 'x', yCol: 'y', sizeCol: 'm' }, appState.datasets);
+    return {
+      noneHasKey: none.traces.some(t => /^__size_/.test(t.legendgroup || '')),
+      equalHasKey: equal.traces.some(t => /^__size_/.test(t.legendgroup || '')),
+    };
+  });
+  expect(out.noneHasKey).toBe(false);
+  expect(out.equalHasKey).toBe(false); // all-equal → no meaningful range
 });
 
 test('parity numeric color-by gets a labeled colorbar; observed dataset is the source', async ({ page }) => {

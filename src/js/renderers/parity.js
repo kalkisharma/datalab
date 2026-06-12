@@ -114,6 +114,8 @@ function buildParityTrace(series, datasets) {
     if (sizeObs) tr.customdata = szV;
     traces.push(tr);
   }
+  // Size key (Phase 16): legend swatches at min/median/max of the size column
+  if (sizeObs) traces.push(...sizeKeyTraces(szV, series.sizeCol, '__size_' + series.id));
 
   // y=x parity line
   traces.push({

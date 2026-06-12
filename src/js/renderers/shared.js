@@ -203,6 +203,37 @@ function categoryGroups(rows, col) {
 }
 
 /**
+ * Legend-only "size key" traces for a bubble (size-by) series — Plotly has
+ * no native size legend (Phase 16). Three swatches at the size column's min,
+ * median, and max (DS: median is the robust center; true min/max are the
+ * endpoints), marker AREAS matching the real mapping via areaSizes so the
+ * key reads in the same units as the data; grey so it reads as size, not a
+ * data color. Plotted at (null, null) so they add no points to the axes.
+ * @param {number[]} values - finite-or-NaN size values (post pairing/filter)
+ * @param {string}   col    - size column name (legend group title)
+ * @param {string}   group  - unique legendgroup id (per series)
+ * @returns {object[]}
+ */
+function sizeKeyTraces(values, col, group) {
+  const finite = values.filter(Number.isFinite);
+  if (finite.length < 2) return [];
+  const sorted = [...finite].sort((a, b) => a - b);
+  const lo = sorted[0], hi = sorted[sorted.length - 1];
+  if (lo === hi) return []; // all values equal — no meaningful range to key
+  // Dedupe: the median can coincide with an endpoint on small/skewed data
+  const reps = [...new Set([lo, quantile(sorted, 0.5), hi])];
+  const px = areaSizes(reps); // reps include min & max, so the mapping matches
+  const f = v => Number(v).toPrecision(3);
+  return reps.map((v, i) => ({
+    type: 'scatter', mode: 'markers', x: [null], y: [null],
+    name: f(v),
+    marker: { size: px[i], color: '#9e9e9e', line: { width: 0.5, color: '#666' } },
+    legendgroup: group, showlegend: true, hoverinfo: 'skip',
+    ...(i === 0 ? { legendgrouptitle: { text: `Size: ${col}` } } : {}),
+  }));
+}
+
+/**
  * Map a categorical or numeric color column to Plotly color values.
  * Returns an array of numeric values (for colorscale) if numeric,
  * or maps categories to palette indices if categorical.
