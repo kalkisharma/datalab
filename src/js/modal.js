@@ -85,6 +85,11 @@ function buildModalBody(existing) {
       <input type="text" class="ctrl-input" id="mSeriesName"
              value="${escHtml(existing?.name || '')}" placeholder="Series name" />
     </div>
+    <div class="modal-field">
+      <label class="modal-label" for="mLegendLabel">Legend label <span class="field-hint" style="margin:0">(optional; overrides the auto label and its suffixes)</span></label>
+      <input type="text" class="ctrl-input" id="mLegendLabel"
+             value="${escHtml(existing?.legendLabel || '')}" placeholder="auto" />
+    </div>
     ${appState.plots.length > 1 ? `
     <div class="modal-field">
       <label class="modal-label" for="mPlot">Plot</label>
@@ -233,6 +238,7 @@ function saveModalSeries() {
     trendGroups: document.getElementById('mTrendGroups')?.checked ?? false, // scatter only (Phase 11)
     colorCol:  document.getElementById('mColorCol')?.value || null,
     colorbarLabel: document.getElementById('mColorbarLabel')?.value.trim() || null, // numeric color-by (Phase 16)
+    legendLabel:   document.getElementById('mLegendLabel')?.value.trim() || null,   // overrides auto legend text (Phase 16)
     filters:   _modalFilters.map(f => ({ ...f })),
     filterLogic: document.getElementById('mFilterLogic')?.value || 'and',
     style,

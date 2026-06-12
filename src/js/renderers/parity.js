@@ -82,7 +82,7 @@ function buildParityTrace(series, datasets) {
   let sizeNote = '';
   if (sizeObs) { marker.size = areaSizes(szV); sizeNote = ` (size: ${series.sizeCol})`; }
 
-  const baseName = series.name || 'Parity';
+  const baseName = series.legendLabel || (series.name || 'Parity'); // legendLabel overrides (Phase 16)
   const hover = `${series.xCol}: %{x:.4g}<br>${series.yCol}: %{y:.4g}`
     + (sizeObs ? `<br>${series.sizeCol}: %{customdata}` : '') + '<extra></extra>';
 

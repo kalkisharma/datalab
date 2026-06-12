@@ -69,9 +69,10 @@ function buildScatterTrace(series, datasets) {
   // cold render vs the 5s Phase 3 gate (CSP worker-src blob: permits
   // Plotly's GL workers). Below the threshold SVG keeps crisper markers.
   const trType = rows.length > 10000 ? 'scattergl' : 'scatter';
-  // Error bars: name carries "± column" — semantics always visible (§20)
-  const baseName = (series.name || 'Scatter')
-    + (series.errCol ? ` (± ${series.errCol})` : '') + sizeNote;
+  // Error bars: name carries "± column" — semantics always visible (§20).
+  // legendLabel (Phase 16) overrides the whole auto label incl. suffixes.
+  const baseName = series.legendLabel || ((series.name || 'Scatter')
+    + (series.errCol ? ` (± ${series.errCol})` : '') + sizeNote);
   const hover = `${series.xCol}: %{x}<br>${series.yCol}: %{y}`
     + (sizeRaw ? `<br>${series.sizeCol}: %{customdata}` : '') + '<extra></extra>';
 

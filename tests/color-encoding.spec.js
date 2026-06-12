@@ -199,6 +199,31 @@ test('parity numeric color-by gets a labeled colorbar; observed dataset is the s
   expect(out.colors).toEqual([5, 15, 25]);      // observed-dataset depth, aligned
 });
 
+test('legend-label override replaces the auto label and its suffixes', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'x,y,e,g\n1,2,0.1,A\n2,3,0.2,B\n3,4,0.3,A', '_ce_legend.csv');
+  const out = await page.evaluate(() => {
+    const ds = appState.datasets[0];
+    // Single trace: override suppresses the "(± e)" suffix
+    const single = buildScatterTrace({ id: 'L1', name: 'Raw', datasetId: ds.id,
+      chartType: 'scatter', xCol: 'x', yCol: 'y', errCol: 'e',
+      legendLabel: 'My series' }, appState.datasets);
+    // Categorical: override becomes the legend GROUP title; categories keep names
+    const cat = buildScatterTrace({ id: 'L2', name: 'Raw', datasetId: ds.id,
+      chartType: 'scatter', xCol: 'x', yCol: 'y', colorCol: 'g',
+      legendLabel: 'Grouped' }, appState.datasets);
+    const catData = cat.traces.filter(t => t.legendgroup === 'L2');
+    return {
+      singleName: single.traces[0].name,
+      groupTitle: catData[0].legendgrouptitle.text,
+      catNames: catData.map(t => t.name).sort(),
+    };
+  });
+  expect(out.singleName).toBe('My series');   // no "(± e)" suffix
+  expect(out.groupTitle).toBe('Grouped');      // override is the group title
+  expect(out.catNames).toEqual(['A', 'B']);    // categories unaffected
+});
+
 test('too many categories warns that colors repeat', async ({ page }) => {
   await page.goto(FILE_URL);
   let csv = 'x,y,g\n';

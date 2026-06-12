@@ -43,8 +43,9 @@ function buildLineTrace(series, datasets) {
     mode: 'lines+markers',
     x: xV,
     y: yV,
-    // Error bars: name carries "± column" — semantics always visible (§20)
-    name: (series.name || 'Line') + (series.errCol ? ` (± ${series.errCol})` : ''),
+    // Error bars: name carries "± column" — semantics always visible (§20).
+    // legendLabel (Phase 16) overrides the auto label incl. the suffix.
+    name: series.legendLabel || ((series.name || 'Line') + (series.errCol ? ` (± ${series.errCol})` : '')),
     line: { color, width: lineWidth },
     marker: { color, size: 4 },
     hovertemplate: `${series.xCol}: %{x}<br>${series.yCol}: %{y}<extra></extra>`,
