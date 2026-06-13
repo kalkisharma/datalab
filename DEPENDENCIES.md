@@ -19,9 +19,12 @@ not the URL, is authoritative** — a CDN can change; the bytes cannot.
 - **Line endings:** `lib/*.js` are exempt from git eol normalization via
   `.gitattributes` — conversion on a fresh clone would change the bytes and abort
   every build. Do not remove that exemption.
-- **Dev-only dependencies** (`@playwright/test`, `@axe-core/playwright`) are not
-  bundled, never ship to users, and are out of scope for this table. They follow
-  the normal npm lockfile.
+- **Dev-only dependencies** (`@playwright/test`, `@axe-core/playwright`, and
+  `@guidepup/guidepup` — the NVDA speech-capture harness added at v2.8.0) are
+  not bundled, never ship to users, and are out of scope for this table. They
+  follow the normal npm lockfile. `@guidepup/guidepup` drives a real,
+  separately-installed NVDA (via `npx @guidepup/setup`) and pulls in no
+  runtime code — it is a test tool, not an app dependency.
 - **Currency (Phase 11 review):** Plotly 2.32.0 is pinned two major versions behind
   current. Deliberate for now — a Plotly 3.x migration is its own future phase
   (breaking API review, full regression + benchmark re-baseline), not a routine

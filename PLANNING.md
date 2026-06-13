@@ -128,7 +128,7 @@ Use a modal per series — not a flat panel:
 1. Left panel: dataset list + series list (name, type, dataset, edit/delete)
 2. "+ Add Series" → opens modal: dataset picker → chart type → columns → filters → style → Save
 3. Modal closes; series added to list
-4. "Render" button (or auto-render with debounce once columns are set)
+4. Auto-render (debounced) — the plot updates on every series add/edit/delete and on style/range changes. The original "Render button" alternative was removed at Phase 16 (maintainer review: it was inconsistent — style edits already auto-rendered while series adds waited for a click).
 
 **Modal field matrix** — all chart types share: X col, Y col (where applicable), color-by col, filters, style. Chart-type-specific fields:
 
