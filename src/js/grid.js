@@ -163,7 +163,7 @@ function deletePlot(pid) {
   syncActivePlotInputs();
   renderPlotGrid();
   renderSeriesList();
-  updateRenderBtn();
+  scheduleRender();
   if (appState.plotRendered) debounceRender();
 }
 

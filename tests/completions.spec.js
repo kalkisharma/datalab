@@ -59,7 +59,7 @@ test('bubble sizes are AREA-proportional: 0→4px, max→28px, mid→20px', asyn
   await page.selectOption('#mSizeCol', 'pop');
   await page.fill('#mSeriesName', 'bub');
   await page.click('#modalSave');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(700);
 
   const out = await page.evaluate(() => {
@@ -95,7 +95,7 @@ test('right axis: y2 overlay, tinted titles, same-column warning, grid exclusion
   await page.evaluate(() => { document.getElementById('mStyleColor').value = '#d55e00'; });
   await page.fill('#mSeriesName', 'right');
   await page.click('#modalSave');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(700);
 
   let out = await page.evaluate(() => {
@@ -150,7 +150,7 @@ test('notes: add renders an annotation, text is escaped, round-trips, deletes', 
   await page.selectOption('#mXCol', 'x');
   await page.selectOption('#mYCol', 'y');
   await page.click('#modalSave');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(700);
 
   const payload = '"><img src=x onerror="window.__xss=1">peak flow';

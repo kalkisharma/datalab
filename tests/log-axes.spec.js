@@ -41,7 +41,7 @@ test('log toggles drive axis type and round-trip through session state', async (
   await page.goto(FILE_URL);
   await loadCSV(page, 'x,y\n1,2\n10,20\n100,200', '_log_basic.csv');
   await addSeries(page, 'scatter', 'x', 'y', 's');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(700);
 
   await setLog(page, 'x', true);
@@ -77,7 +77,7 @@ test('non-positive values on a log axis produce a warning with the count', async
   await page.goto(FILE_URL);
   await loadCSV(page, 'x,y\n-5,2\n0,4\n10,6', '_log_nonpos.csv');
   await addSeries(page, 'scatter', 'x', 'y', 's');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(700);
   await setLog(page, 'x', true);
   await page.waitForTimeout(700);
@@ -96,7 +96,7 @@ test('histogram honors Log X with log-space bins; Log Y applies', async ({ page 
   await page.click('.ct-btn[data-ct="histogram"]');
   await page.selectOption('#mXCol', 'v');
   await page.click('#modalSave');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(700);
   await setLog(page, 'x', true);
   await setLog(page, 'y', true);
@@ -128,7 +128,7 @@ test('parity falls back to linear unless log-log with positive data', async ({ p
   await page.selectOption('#mXCol', 'obs');
   await page.selectOption('#mYCol', 'mod');
   await page.click('#modalSave');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(700);
 
   // X only → linear fallback + warning
@@ -167,7 +167,7 @@ test('manual ranges on a log axis are converted from data units to log10', async
   await page.goto(FILE_URL);
   await loadCSV(page, 'x,y\n1,2\n10,20\n100,200', '_log_rng.csv');
   await addSeries(page, 'scatter', 'x', 'y', 's');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(700);
   await setLog(page, 'x', true);
   await page.evaluate(() => {

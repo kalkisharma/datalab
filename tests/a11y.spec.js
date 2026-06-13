@@ -59,7 +59,7 @@ test('axe: loaded data + rendered plot has no violations', async ({ page }) => {
     });
     renderSeriesList();
   });
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(1000);
   // Plotly's generated SVG internals are third-party output — exclude the
   // plot canvas itself, audit everything we author around it
@@ -137,9 +137,7 @@ test('axe: series modal with heatmap fields has no violations', async ({ page })
 
 test('axe: preset category picker open has no violations', async ({ page }) => {
   await page.goto(FILE_URL);
-  await page.evaluate(() => {
-    document.getElementById('presetSaveBtn').closest('details').open = true;
-  });
+  // Preset buttons are an always-visible row now (Phase 16) — no disclosure to open
   await page.click('#presetSaveBtn');
   await page.waitForTimeout(200);
   expect(await audit(page, 'preset-picker')).toHaveLength(0);

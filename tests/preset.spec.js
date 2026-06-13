@@ -64,11 +64,9 @@ test('picker saves only the checked categories as a v2 file', async ({ page }) =
   await page.goto(FILE_URL);
   await page.evaluate(() => {
     document.getElementById('fsTitle').value = '30';
-    // The button sits in the collapsed Style <details> section
-    document.getElementById('presetSaveBtn').closest('details').open = true;
   });
 
-  await page.click('#presetSaveBtn');
+  await page.click('#presetSaveBtn'); // always-visible preset row (Phase 16)
   await expect(page.locator('#presetOverlay')).not.toHaveClass(/hidden/);
   // Focus lands on the first category checkbox (ARIA checklist 3)
   expect(await page.evaluate(() => document.activeElement.id)).toBe('pcStyle');
@@ -103,10 +101,7 @@ test('picker saves only the checked categories as a v2 file', async ({ page }) =
 
 test('save is disabled with zero categories; Escape cancels and restores focus', async ({ page }) => {
   await page.goto(FILE_URL);
-  await page.evaluate(() => {
-    document.getElementById('presetSaveBtn').closest('details').open = true;
-  });
-  await page.click('#presetSaveBtn');
+  await page.click('#presetSaveBtn'); // always-visible preset row (Phase 16)
   await page.uncheck('#pcStyle');
   await page.uncheck('#pcExportSize');
   await page.uncheck('#pcTypography');

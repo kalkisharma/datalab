@@ -87,9 +87,6 @@ function init() {
   g('modalSave')   .addEventListener('click', saveModalSeries);
   wireDialog('modalOverlay', closeModal, ['modalClose', 'modalCancel']);
 
-  // Render button
-  g('renderBtn').addEventListener('click', renderPlot);
-
   // Export buttons
   g('downloadBtn')   .addEventListener('click', () => downloadPlot('png'));
   g('downloadSvgBtn').addEventListener('click', () => downloadPlot('svg'));

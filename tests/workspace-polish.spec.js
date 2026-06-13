@@ -19,21 +19,41 @@ async function loadCSV(page, content, filename) {
 test('preset buttons live in their own section, not inside the Style accordion', async ({ page }) => {
   await page.goto(FILE_URL);
   const out = await page.evaluate(() => {
-    const summaries = [...document.querySelectorAll('details.section > summary')]
-      .map(s => s.textContent.trim());
-    // The details whose summary is exactly "Style"
+    const save = document.getElementById('presetSaveBtn');
+    // The collapsible Style section
     const styleDetails = [...document.querySelectorAll('details.section')]
       .find(d => d.querySelector('summary')?.textContent.trim() === 'Style');
-    const save = document.getElementById('presetSaveBtn');
+    const titles = [...document.querySelectorAll('.section-title')].map(t => t.textContent.trim());
     return {
-      hasPresetSection: summaries.includes('Style presets'),
-      saveInsideStyle: !!(styleDetails && styleDetails.contains(save)),
       saveExists: !!save,
+      inAnyDetails: !!save.closest('details'),      // should be false — always visible
+      insideStyle: !!(styleDetails && styleDetails.contains(save)),
+      hasPresetTitle: titles.includes('Style presets'),
     };
   });
   expect(out.saveExists).toBe(true);
-  expect(out.hasPresetSection).toBe(true);   // dedicated top-level section
-  expect(out.saveInsideStyle).toBe(false);   // no longer buried under Style
+  expect(out.hasPresetTitle).toBe(true);   // labeled section
+  expect(out.inAnyDetails).toBe(false);    // always-visible, not behind a disclosure
+  expect(out.insideStyle).toBe(false);     // and not buried under Style
+});
+
+test('adding a series auto-renders — no Render button needed', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'x,y\n1,2\n2,3\n3,4', '_autorender.csv');
+  await page.click('#addSeriesBtn');
+  await page.click('.ct-btn[data-ct="scatter"]');
+  await page.selectOption('#mXCol', 'x');
+  await page.selectOption('#mYCol', 'y');
+  await page.click('#modalSave'); // no Render click — auto-render should fire
+  await page.waitForTimeout(600);  // cover the debounce
+  const out = await page.evaluate(() => ({
+    rendered: appState.plotRendered,
+    hasTrace: (activePlotDiv()?.data || []).length > 0,
+    noButton: document.getElementById('renderBtn') === null,
+  }));
+  expect(out.noButton).toBe(true);   // the button is gone
+  expect(out.rendered).toBe(true);   // plot rendered without it
+  expect(out.hasTrace).toBe(true);
 });
 
 test('loading a dataset announces it to screen readers', async ({ page }) => {

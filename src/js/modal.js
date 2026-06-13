@@ -263,7 +263,7 @@ function saveModalSeries() {
   }
 
   renderSeriesList();
-  updateRenderBtn();
+  scheduleRender();
   closeModal();
   if (appState.plotRendered) debounceRender();
   return true;

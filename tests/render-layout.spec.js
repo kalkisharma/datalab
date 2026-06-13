@@ -28,7 +28,7 @@ test('first render fills its container — no edit needed to size correctly', as
   await page.selectOption('#mXCol', 'x');
   await page.selectOption('#mYCol', 'y');
   await page.click('#modalSave');
-  await page.click('#renderBtn');           // the FIRST render — no edits after
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)           // the FIRST render — no edits after
   await page.waitForTimeout(600);
 
   const m = await page.evaluate(() => {

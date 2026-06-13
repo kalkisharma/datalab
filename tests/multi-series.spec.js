@@ -67,7 +67,7 @@ test('exit criteria: 3 CSVs, 6 series, reorder, edit, render', async ({ page }) 
   expect(await page.evaluate(() => appState.series.length)).toBe(6);
 
   // Render all 6 — parity contributes extra traces (y=x line, bands)
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(1500);
   const traceCount = await page.evaluate(() => activePlotDiv().data.length);
   expect(traceCount).toBeGreaterThanOrEqual(6);

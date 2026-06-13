@@ -54,7 +54,7 @@ test('reload with missing columns warns and produces a clear render error', asyn
   await page.goto(FILE_URL);
   await loadCSV(page, 'x,y\n1,2\n3,4', '_rv_missing.csv');
   await addScatter(page, 'depends-on-xy');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(600);
 
   // Reload same filename with different columns — series now references

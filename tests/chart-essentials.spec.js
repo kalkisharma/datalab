@@ -111,7 +111,7 @@ test('scatter/line error column attaches ± bars and labels the legend', async (
   await page.selectOption('#mErrCol', 'e');
   await page.fill('#mSeriesName', 'with-errors');
   await page.click('#modalSave');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(700);
 
   const out = await page.evaluate(() => {
@@ -134,7 +134,7 @@ test('scatter trendline draws the fit with equation and R² in the legend + sr m
   await page.check('#mTrend');
   await page.fill('#mSeriesName', 'fitme');
   await page.click('#modalSave');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(700);
 
   const out = await page.evaluate(() => {

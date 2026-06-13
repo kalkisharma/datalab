@@ -203,7 +203,7 @@ test('histogram normal fit overlays a correctly scaled curve', async ({ page }) 
   // fitNormal boolean back-compat path is covered in distributions.spec.js
   await page.selectOption('#mFitDist', 'normal');
   await page.click('#modalSave');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(800);
 
   const out = await page.evaluate(() => {

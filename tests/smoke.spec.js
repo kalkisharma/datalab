@@ -33,7 +33,7 @@ test('core DOM elements are present', async ({ page }) => {
   await page.goto(FILE_URL);
   await expect(page.locator('#dropzone')).toBeVisible();
   await expect(page.locator('#addSeriesBtn')).toBeVisible();
-  await expect(page.locator('#renderBtn')).toBeVisible();
+  await expect(page.locator('#presetSaveBtn')).toBeVisible(); // always-visible preset row (Phase 16)
   await expect(page.locator('#emptyState')).toBeVisible();
 });
 
@@ -79,7 +79,7 @@ test('load CSV, add scatter series, render produces SVG', async ({ page }) => {
     await expect(page.locator('#modalOverlay')).toHaveClass(/hidden/);
 
     // Render
-    await page.click('#renderBtn');
+    await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
     await page.waitForTimeout(1000);
 
     // Plotly should have produced an SVG inside plotDiv

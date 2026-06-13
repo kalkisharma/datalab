@@ -31,7 +31,7 @@ test('session exports, clears, and imports back identically', async ({ page }) =
   await page.goto(FILE_URL);
   await loadCSV(page, 'x,y,site\n1,2,a\n3,4,b\n5,6,a', '_p4_session.csv');
   await addScatter(page, 'round-trip');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(800);
 
   // Serialize exactly what exportSession writes, without the download
@@ -121,7 +121,7 @@ test('SVG export produces a valid SVG image', async ({ page }) => {
   await page.goto(FILE_URL);
   await loadCSV(page, 'x,y\n1,2\n3,4\n5,6', '_p4_svg.csv');
   await addScatter(page, 'svg-test');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(800);
 
   await expect(page.locator('#downloadSvgBtn')).toBeVisible();

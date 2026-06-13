@@ -18,7 +18,7 @@ async function loadAndRender(page) {
   await page.selectOption('#mXCol', 'x');
   await page.selectOption('#mYCol', 'y');
   await page.click('#modalSave');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(700);
 }
 

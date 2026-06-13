@@ -377,20 +377,19 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
       </div>
     </details>
 
-    <!-- Style presets (Phase 16: lifted out of the Style accordion — a preset
-         spans Style, Export size, Plot typography, and Frame & grid, so its
-         buttons sit at the top level, not under the one section they predate) -->
-    <details class="section">
-      <summary>Style presets</summary>
-      <div class="details-body">
-        <div class="field-hint" style="margin:0 0 8px;">A preset can capture Style, Export size, Plot typography, and Frame &amp; grid — choose which when saving.</div>
-        <div class="check-row" style="gap:8px">
-          <button class="btn btn-sm" id="presetSaveBtn" title="Save current style settings to a JSON file">Save preset</button>
-          <button class="btn btn-sm" id="presetLoadBtn" title="Load a style preset">Load preset</button>
-          <input type="file" id="presetFileInput" accept=".json" class="sr-only" aria-label="Load style preset file" />
-        </div>
+    <!-- Style presets (Phase 16: always-visible row, not a collapsible
+         section — two buttons whose reach spans Style, Export size, Plot
+         typography, and Frame & grid; hiding them behind a disclosure saved
+         no space and cost a click) -->
+    <div class="section">
+      <div class="section-title">Style presets</div>
+      <div class="field-hint" style="margin:0 0 8px;">Captures Style, Export size, Plot typography, and Frame &amp; grid — choose which when saving.</div>
+      <div class="check-row" style="gap:8px">
+        <button class="btn btn-sm" id="presetSaveBtn" title="Save current style settings to a JSON file">Save preset</button>
+        <button class="btn btn-sm" id="presetLoadBtn" title="Load a style preset">Load preset</button>
+        <input type="file" id="presetFileInput" accept=".json" class="sr-only" aria-label="Load style preset file" />
       </div>
-    </details>
+    </div>
 
     <!-- Export size (Phase 7: panels autosize to the grid on screen;
          these sliders set the PNG/SVG export dimensions only) -->
@@ -493,11 +492,6 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
         <button class="btn btn-sm" id="resetRangesBtn" style="margin-top:6px;">Reset</button>
       </div>
     </details>
-
-    <!-- Render -->
-    <div class="section" style="border-bottom:none;">
-      <button class="btn btn-primary btn-full" id="renderBtn" disabled>Render</button>
-    </div>
 
   </div><!-- /left-panel -->
 
@@ -1051,7 +1045,7 @@ function handleFile(file) {
     renderDatasetList();
     renderSeriesList();
     announce('Loaded');
-    updateRenderBtn();
+    scheduleRender();
   });
 }
 
@@ -1190,7 +1184,7 @@ function removeDataset(id) {
   bumpDatasetRev(id);
   renderDatasetList();
   renderSeriesList();
-  updateRenderBtn();
+  scheduleRender();
 }
 
 // ── Series panel ──────────────────────────────────────────────────────────
@@ -1253,7 +1247,7 @@ function renderSeriesList() {
       } else if (e.key === 'Delete') {
         appState.series = appState.series.filter(x => x.id !== s.id);
         renderSeriesList();
-        updateRenderBtn();
+        scheduleRender();
         if (appState.plotRendered) debounceRender();
         document.querySelector('.series-item')?.focus();
       }
@@ -1269,7 +1263,7 @@ function renderSeriesList() {
     item.querySelector('.series-del').addEventListener('click', () => {
       appState.series = appState.series.filter(x => x.id !== s.id);
       renderSeriesList();
-      updateRenderBtn();
+      scheduleRender();
       if (appState.plotRendered) debounceRender();
     });
     list.appendChild(item); // seriesEmpty hint lives outside the role=list container
@@ -1288,9 +1282,14 @@ function moveSeries(id, dir) {
   if (appState.plotRendered) debounceRender();
 }
 
-function updateRenderBtn() {
-  const btn = document.getElementById('renderBtn');
-  btn.disabled = appState.series.length === 0;
+// Auto-render (Phase 16 — the manual Render button was removed): any change
+// to the renderable series set schedules a debounced render, matching the
+// style/range controls that already auto-render. The empty case clears the
+// grid immediately (no point debouncing a teardown). Called from every site
+// that adds, edits, deletes, or loads series.
+function scheduleRender() {
+  if (appState.series.length) debounceRender();
+  else if (appState.plotRendered) clearPlot();
 }
 
 
@@ -1664,7 +1663,7 @@ function saveModalSeries() {
   }
 
   renderSeriesList();
-  updateRenderBtn();
+  scheduleRender();
   closeModal();
   if (appState.plotRendered) debounceRender();
   return true;
@@ -2245,7 +2244,7 @@ function deletePlot(pid) {
   syncActivePlotInputs();
   renderPlotGrid();
   renderSeriesList();
-  updateRenderBtn();
+  scheduleRender();
   if (appState.plotRendered) debounceRender();
 }
 
@@ -2321,13 +2320,20 @@ function renderPlot() {
     return;
   }
 
+  // Un-hide the grid BEFORE plotting. Plotly.react sizes against the
+  // container; on the FIRST render, plotting into a still-`display:none`
+  // grid measured a zero-height box and the plot came up tiny, only
+  // snapping to full size when a later edit triggered Plotly.Plots.resize
+  // (maintainer-reported). Make the container visible first so the very
+  // first render measures correctly.
+  appState.plotRendered = true;
+  document.getElementById('emptyState').classList.add('hidden');
+  document.getElementById('plotGrid').classList.remove('hidden');
+
   renderPlotGrid(); // panels exist before plotting into them
 
   for (const plot of appState.plots) renderOnePlot(plot);
 
-  appState.plotRendered = true;
-  document.getElementById('emptyState').classList.add('hidden');
-  document.getElementById('plotGrid').classList.remove('hidden');
   document.getElementById('downloadBtn').style.display    = '';
   document.getElementById('downloadSvgBtn').style.display = '';
   // Export all only earns its place with 2+ panels (1 panel = same as ↓ PNG)
@@ -2519,6 +2525,7 @@ function renderOnePlot(plot) {
   }
 
   appendNotes(layout, plot, pd, srParts);
+  applyColorbarFonts(traces); // colorbar title/ticks follow the typography sliders (Phase 16)
 
   const srEl = document.getElementById('plotSR-' + plot.id);
   if (srEl) srEl.textContent = srParts.join('; ');
@@ -2685,6 +2692,23 @@ function applyLogInteractions(layout, plot, traces, warnings, parityByCell) {
 // layout.js — plot theme (background-luminance adaptive), base layout, and
 // auto-label helpers (split from chart.js at the Phase 6 and Phase 10 exit
 // refactor reviews — verbatim moves)
+
+// Colorbar fonts follow the typography panel (Phase 16): the title scales
+// with "Axis label size", the numbers with "Tick label size" — a colorbar is
+// an axis, so it tracks the same controls. Applied centrally to every trace's
+// colorbar (marker.colorbar for scatter/parity, trace.colorbar for
+// heatmap/contour/correlation) so renderers don't each read the DOM.
+function applyColorbarFonts(traces) {
+  const v = (id, d) => { const n = parseFloat(document.getElementById(id)?.value); return Number.isFinite(n) ? n : d; };
+  const titleSize = v('fsAxis', 12), tickSize = v('fsTick', 10);
+  for (const t of traces) {
+    const cb = t.colorbar || (t.marker && t.marker.colorbar);
+    if (!cb) continue;
+    cb.title = cb.title || {};
+    cb.title.font = { ...(cb.title.font || {}), size: titleSize };
+    cb.tickfont = { ...(cb.tickfont || {}), size: tickSize };
+  }
+}
 
 // ── Auto-label helpers (per the ACTIVE plot's inputs) ─────────────────────
 
@@ -3146,7 +3170,7 @@ function applySessionState(st) {
   syncActivePlotInputs(); // mirrors the active plot's config into the UI
   renderDatasetList();
   renderSeriesList();
-  updateRenderBtn();
+  scheduleRender();
   showDataAlerts(null, []);
 
   // Rebuild the saved plots strip
@@ -4607,14 +4631,16 @@ function renderCorrelation() {
   const m  = pearsonMatrix(ds.rows, cols).map(row => row.map(v => Number.isFinite(v) ? v : null));
   const th = plotTheme();
   const pd = activePlotDiv();
-  Plotly.react(pd, [{
+  const corrTrace = {
     type: 'heatmap',
     x: cols, y: cols, z: m,
     zmin: -1, zmax: 1,
     colorscale: 'RdBu', reversescale: true, // +1 warm, −1 cool, 0 white
     colorbar: { title: { text: 'Pearson r' } },
     hovertemplate: '%{x} × %{y}: r = %{z:.3f}<extra></extra>',
-  }], {
+  };
+  applyColorbarFonts([corrTrace]); // colorbar fonts follow the typography sliders (Phase 16)
+  Plotly.react(pd, [corrTrace], {
     paper_bgcolor: th.bg, plot_bgcolor: th.bg,
     autosize: true,
     font: { family: 'IBM Plex Sans,system-ui,sans-serif', color: th.text, size: 12 },
@@ -4865,9 +4891,6 @@ function init() {
   g('addSeriesBtn').addEventListener('click', () => openModal(null));
   g('modalSave')   .addEventListener('click', saveModalSeries);
   wireDialog('modalOverlay', closeModal, ['modalClose', 'modalCancel']);
-
-  // Render button
-  g('renderBtn').addEventListener('click', renderPlot);
 
   // Export buttons
   g('downloadBtn')   .addEventListener('click', () => downloadPlot('png'));

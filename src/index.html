@@ -146,20 +146,19 @@
       </div>
     </details>
 
-    <!-- Style presets (Phase 16: lifted out of the Style accordion — a preset
-         spans Style, Export size, Plot typography, and Frame & grid, so its
-         buttons sit at the top level, not under the one section they predate) -->
-    <details class="section">
-      <summary>Style presets</summary>
-      <div class="details-body">
-        <div class="field-hint" style="margin:0 0 8px;">A preset can capture Style, Export size, Plot typography, and Frame &amp; grid — choose which when saving.</div>
-        <div class="check-row" style="gap:8px">
-          <button class="btn btn-sm" id="presetSaveBtn" title="Save current style settings to a JSON file">Save preset</button>
-          <button class="btn btn-sm" id="presetLoadBtn" title="Load a style preset">Load preset</button>
-          <input type="file" id="presetFileInput" accept=".json" class="sr-only" aria-label="Load style preset file" />
-        </div>
+    <!-- Style presets (Phase 16: always-visible row, not a collapsible
+         section — two buttons whose reach spans Style, Export size, Plot
+         typography, and Frame & grid; hiding them behind a disclosure saved
+         no space and cost a click) -->
+    <div class="section">
+      <div class="section-title">Style presets</div>
+      <div class="field-hint" style="margin:0 0 8px;">Captures Style, Export size, Plot typography, and Frame &amp; grid — choose which when saving.</div>
+      <div class="check-row" style="gap:8px">
+        <button class="btn btn-sm" id="presetSaveBtn" title="Save current style settings to a JSON file">Save preset</button>
+        <button class="btn btn-sm" id="presetLoadBtn" title="Load a style preset">Load preset</button>
+        <input type="file" id="presetFileInput" accept=".json" class="sr-only" aria-label="Load style preset file" />
       </div>
-    </details>
+    </div>
 
     <!-- Export size (Phase 7: panels autosize to the grid on screen;
          these sliders set the PNG/SVG export dimensions only) -->
@@ -262,11 +261,6 @@
         <button class="btn btn-sm" id="resetRangesBtn" style="margin-top:6px;">Reset</button>
       </div>
     </details>
-
-    <!-- Render -->
-    <div class="section" style="border-bottom:none;">
-      <button class="btn btn-primary btn-full" id="renderBtn" disabled>Render</button>
-    </div>
 
   </div><!-- /left-panel -->
 

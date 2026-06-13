@@ -322,7 +322,7 @@ test('histogram + Log X bins in log space; the old warning is gone', async ({ pa
   await page.click('.ct-btn[data-ct="histogram"]');
   await page.selectOption('#mXCol', 'v');
   await page.click('#modalSave');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(700);
   await page.evaluate(() => {
     const el = document.getElementById('xLogChk');
@@ -384,7 +384,7 @@ test('polynomial fits: exact recovery, normal-equation residuals, legend + per-g
   await page.check('#mTrend');
   await page.selectOption('#mTrendDeg', '2');
   await page.click('#modalSave');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(700);
   let out = await page.evaluate(() => ({
     fit: activePlotDiv().data.find(t => t.mode === 'lines')?.name,

@@ -106,7 +106,7 @@ function applySessionState(st) {
   syncActivePlotInputs(); // mirrors the active plot's config into the UI
   renderDatasetList();
   renderSeriesList();
-  updateRenderBtn();
+  scheduleRender();
   showDataAlerts(null, []);
 
   // Rebuild the saved plots strip

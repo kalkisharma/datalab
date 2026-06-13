@@ -138,7 +138,7 @@ for (const [label, payload] of [['PAYLOAD_SCRIPT', PAYLOAD_SCRIPT], ['PAYLOAD_IM
     await page.click('#modalSave');
     // Title is rendered by Plotly — not via innerHTML, but verify anyway
     await page.fill('#inputTitle', payload);
-    await page.click('#renderBtn');
+    await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
     await page.waitForTimeout(500);
 
     expect(await xssNotExecuted(page)).toBe(true);
@@ -160,7 +160,7 @@ for (const [label, payload] of [['PAYLOAD_SCRIPT', PAYLOAD_SCRIPT], ['PAYLOAD_IM
     await page.selectOption('#mColorCol', 'z'); // numeric → colorbar appears
     await page.fill('#mColorbarLabel', payload);
     await page.click('#modalSave');
-    await page.click('#renderBtn');
+    await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
     await page.waitForTimeout(500);
 
     expect(await xssNotExecuted(page)).toBe(true);
@@ -243,7 +243,7 @@ for (const [label, payload] of [['PAYLOAD_SCRIPT', PAYLOAD_SCRIPT], ['PAYLOAD_IM
     await page.click('#modalSave');
     await page.fill('#inputXLabel', payload);
     await page.fill('#inputYLabel', payload);
-    await page.click('#renderBtn');
+    await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
     await page.waitForTimeout(500);
 
     expect(await xssNotExecuted(page)).toBe(true);

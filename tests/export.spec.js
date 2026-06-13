@@ -30,7 +30,7 @@ test('export all downloads one numbered PNG per visible plot', async ({ page }) 
   await addScatter(page, 'first', 'y');     // plot 1
   await page.click('#addPlotBtn');          // plot 2 (active)
   await addScatter(page, 'second', 'z');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(900);
 
   // Visible only when the grid has 2+ panels
@@ -53,7 +53,7 @@ test('export all button hidden with a single plot', async ({ page }) => {
   await page.goto(FILE_URL);
   await loadCSV(page, 'x,y\n1,2\n3,4', '_exp_one.csv');
   await addScatter(page, 'only', 'y');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(700);
 
   await expect(page.locator('#downloadBtn')).toBeVisible();

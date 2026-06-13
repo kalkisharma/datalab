@@ -213,7 +213,7 @@ test('colorbar title and number fonts follow the typography sliders', async ({ p
     const set = (id, v) => { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); };
     set('fsAxis', 28); set('fsTick', 22);
   });
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(500);
   const cb = await page.evaluate(() => {
     const t = activePlotDiv().data.find(d => d.marker && d.marker.colorbar);

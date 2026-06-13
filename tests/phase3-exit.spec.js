@@ -114,7 +114,7 @@ test('all 5 chart types render together from realistic CSVs', async ({ page }) =
   await add('contour',   { dataset: 'sweep',  x: 'xpos', y: 'ypos', z: 'response', name: 'contour' });
 
   expect(await page.evaluate(() => appState.series.length)).toBe(5);
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(1500);
 
   // All five render without errors (overlaying them is statistically odd but

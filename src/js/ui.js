@@ -132,7 +132,7 @@ function removeDataset(id) {
   bumpDatasetRev(id);
   renderDatasetList();
   renderSeriesList();
-  updateRenderBtn();
+  scheduleRender();
 }
 
 // ── Series panel ──────────────────────────────────────────────────────────
@@ -195,7 +195,7 @@ function renderSeriesList() {
       } else if (e.key === 'Delete') {
         appState.series = appState.series.filter(x => x.id !== s.id);
         renderSeriesList();
-        updateRenderBtn();
+        scheduleRender();
         if (appState.plotRendered) debounceRender();
         document.querySelector('.series-item')?.focus();
       }
@@ -211,7 +211,7 @@ function renderSeriesList() {
     item.querySelector('.series-del').addEventListener('click', () => {
       appState.series = appState.series.filter(x => x.id !== s.id);
       renderSeriesList();
-      updateRenderBtn();
+      scheduleRender();
       if (appState.plotRendered) debounceRender();
     });
     list.appendChild(item); // seriesEmpty hint lives outside the role=list container
@@ -230,7 +230,12 @@ function moveSeries(id, dir) {
   if (appState.plotRendered) debounceRender();
 }
 
-function updateRenderBtn() {
-  const btn = document.getElementById('renderBtn');
-  btn.disabled = appState.series.length === 0;
+// Auto-render (Phase 16 — the manual Render button was removed): any change
+// to the renderable series set schedules a debounced render, matching the
+// style/range controls that already auto-render. The empty case clears the
+// grid immediately (no point debouncing a teardown). Called from every site
+// that adds, edits, deletes, or loads series.
+function scheduleRender() {
+  if (appState.series.length) debounceRender();
+  else if (appState.plotRendered) clearPlot();
 }

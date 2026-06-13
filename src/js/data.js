@@ -273,6 +273,6 @@ function handleFile(file) {
     renderDatasetList();
     renderSeriesList();
     announce('Loaded');
-    updateRenderBtn();
+    scheduleRender();
   });
 }

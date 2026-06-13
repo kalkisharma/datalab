@@ -35,7 +35,7 @@ test('toggling a series off removes its trace; back on restores it', async ({ pa
   await addSeries(page, 'scatter', 'one');
   await addSeries(page, 'line', 'two');
 
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(800);
   expect(await traceCount(page)).toBe(2);
 
@@ -82,7 +82,7 @@ test('per-series style overrides persist and apply to the trace', async ({ page 
   const style = await page.evaluate(() => appState.series[0].style);
   expect(style.markerSize).toBe(15);
 
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(800);
   const markerSize = await page.evaluate(() =>
     activePlotDiv().data[0].marker.size

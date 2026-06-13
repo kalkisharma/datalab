@@ -104,7 +104,7 @@ test('two plots render disjoint series with isolated settings', async ({ page })
     set('xMin', '0'); set('xMax', '10');
   });
 
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(900);
 
   const out = await page.evaluate(() => {
@@ -194,7 +194,7 @@ test('a two-plot session round-trips completely', async ({ page }) => {
   await page.click('#addPlotBtn');
   await addScatter(page, 'beta');
   await page.fill('#inputTitle', 'Beta plot');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(800);
 
   const exported = await page.evaluate(() =>

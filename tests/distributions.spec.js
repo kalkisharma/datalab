@@ -116,7 +116,7 @@ test('weibull fit + KDE overlay render through the UI with parameters in the leg
   await page.selectOption('#mFitDist', 'weibull');
   await page.check('#mKde');
   await page.click('#modalSave');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(900);
 
   const out = await page.evaluate(() => ({
@@ -138,7 +138,7 @@ test('violin renders grouped with box inside; non-numeric Y errors', async ({ pa
   await page.selectOption('#mYCol', 'v');
   await page.selectOption('#mXCol', 'site');
   await page.click('#modalSave');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(900);
 
   const out = await page.evaluate(() => {
@@ -170,7 +170,7 @@ test('per-group trendlines: one palette fit per category; cap and fallback behav
   await page.check('#mTrendGroups');
   await page.fill('#mSeriesName', 'grp');
   await page.click('#modalSave');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(900);
 
   const out = await page.evaluate(() => {

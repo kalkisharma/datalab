@@ -44,7 +44,7 @@ test('2×2 grid assigns traces to cell axes with per-cell auto labels', async ({
   await setGrid(page, 2, 2);
   await addSeries(page, 'scatter', { '#mXCol': 'x', '#mYCol': 'y' }, 'cell11', '1,1');
   await addSeries(page, 'line',    { '#mXCol': 'x', '#mYCol': 'z' }, 'cell22', '2,2');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(900);
 
   const out = await page.evaluate(() => {
@@ -76,7 +76,7 @@ test('shareX wires matches across non-parity cells; round-trips via session', as
   await setGrid(page, 1, 2, true, false);
   await addSeries(page, 'scatter', { '#mXCol': 'x', '#mYCol': 'y' }, 'a', '1,1');
   await addSeries(page, 'scatter', { '#mXCol': 'x', '#mYCol': 'z' }, 'b', '1,2');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(900);
 
   let out = await page.evaluate(() => ({
@@ -121,7 +121,7 @@ test('parity cell is excluded from sharing with a warning; keeps equal axes', as
   await page.selectOption('#mCell', '1,2');
   await page.fill('#mSeriesName', 'par');
   await page.click('#modalSave');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(900);
 
   const out = await page.evaluate(() => {
@@ -143,7 +143,7 @@ test('shrinking the grid clamps cells at render and restores on re-grow', async 
   await setGrid(page, 2, 2);
   await addSeries(page, 'scatter', { '#mXCol': 'x', '#mYCol': 'y' }, 'a', '1,1');
   await addSeries(page, 'scatter', { '#mXCol': 'x', '#mYCol': 'z' }, 'b', '2,2');
-  await page.click('#renderBtn');
+  await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
   await page.waitForTimeout(900);
 
   // Shrink to 1×1 — figure renders single-pair, no errors, stored cell kept
