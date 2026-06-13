@@ -47,9 +47,14 @@ not the URL, is authoritative** — a CDN can change; the bytes cannot.
   - v2.8.0 exit: no changes — the rank/paired test numerics (normal CDF,
     regularized incomplete gamma) are hand-written like the Phase 12/13
     numerics, same §9 reasoning; zero new dependencies; pins stand. The
-    Plotly 3.x migration is now formally scheduled as Phase 17 (its
-    API-delta spike runs during Phase 16), which answers this note's
+    Plotly 3.x migration is now formally scheduled (its API-delta spike
+    runs during the interpolated-contour phase), which answers this note's
     currency question with a plan rather than another reassessment.
+
+  - v2.9.0 exit: no changes — the legend/colorbar work uses Plotly 2.32.0
+    natives (discrete legend traces, `marker.colorbar`, `legend.itemsizing`)
+    and the `@guidepup/guidepup` NVDA harness added at v2.8.0 stays a
+    dev-only, never-bundled tool; zero new bundled dependencies; pins stand.
 
 ## Updating a library
 

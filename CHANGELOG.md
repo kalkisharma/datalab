@@ -1,5 +1,38 @@
 # Changelog
 
+## v2.9.0 — Legend & Colorbar Polish
+
+### Features
+- **Self-describing color** — coloring a series by a column now reads
+  correctly: a **categorical** column produces a named discrete legend
+  (one entry per category, palette-colored) instead of a continuous
+  colorbar over category codes; a **numeric** column keeps the colorbar
+  and gives it a **label** (defaults to the column name, editable).
+- **Parity color & size** — parity plots can be colored and sized by a
+  column from the observed dataset, threaded through the join so colors
+  and sizes stay aligned with their points.
+- **Bubble size key** — a size-by series shows a min / median / max key in
+  the legend, with swatch areas matching the data mapping.
+- **Legend label override** — a per-series field sets the exact legend
+  text, overriding the auto-generated label and its suffixes.
+- **Colorbar fonts** follow the typography panel — the title scales with
+  "Axis label size", the numbers with "Tick label size".
+- **Auto-render** — plots update automatically as you add, edit, or remove
+  series; the manual Render button is gone.
+- **Style presets** are an always-visible row in the settings panel.
+- **Accessibility** — datasets announce their arrival (name, rows,
+  columns) to screen readers when loaded.
+
+### Fixes
+- The first render now sizes to its container instead of coming up small
+  until the next edit.
+
+## Schema
+### v2.9.0 (state version unchanged at 2 — all additive)
+- `series.colorbarLabel`, `series.legendLabel` (both optional). `colorCol`
+  and `sizeCol` (existing) now apply to parity series too. v2.0–v2.8
+  session files load unchanged.
+
 ## v2.8.0 — Robust Comparison
 
 ### Features
