@@ -58,13 +58,20 @@ function renderPlot() {
     return;
   }
 
+  // Un-hide the grid BEFORE plotting. Plotly.react sizes against the
+  // container; on the FIRST render, plotting into a still-`display:none`
+  // grid measured a zero-height box and the plot came up tiny, only
+  // snapping to full size when a later edit triggered Plotly.Plots.resize
+  // (maintainer-reported). Make the container visible first so the very
+  // first render measures correctly.
+  appState.plotRendered = true;
+  document.getElementById('emptyState').classList.add('hidden');
+  document.getElementById('plotGrid').classList.remove('hidden');
+
   renderPlotGrid(); // panels exist before plotting into them
 
   for (const plot of appState.plots) renderOnePlot(plot);
 
-  appState.plotRendered = true;
-  document.getElementById('emptyState').classList.add('hidden');
-  document.getElementById('plotGrid').classList.remove('hidden');
   document.getElementById('downloadBtn').style.display    = '';
   document.getElementById('downloadSvgBtn').style.display = '';
   // Export all only earns its place with 2+ panels (1 panel = same as ↓ PNG)
