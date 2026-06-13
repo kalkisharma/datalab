@@ -1,8 +1,12 @@
 // xss.spec.js — XSS injection tests
 //
-// Insertion points (5): series name, column name, filter value, plot title,
-// axis labels. Rationale: all are user-controlled strings that reach the DOM
-// via innerHTML — the highest-risk injection surface in the app.
+// Insertion points: series name, column name, filter value, plot title,
+// axis labels, colorbar label (Phase 16), and column-name-in-hovertemplate.
+// Two classes (§8): DOM HTML-injection sinks where escHtml() must neutralize
+// the payload (series/column/filter names in dropdowns, lists, modal), and
+// Plotly trace/layout text sinks (titles, hovertemplate, colorbar label)
+// that Plotly renders inertly — these tests prove non-execution, which is
+// why those sinks are covered by this suite rather than manual escaping.
 //
 // Payloads (2):
 //   PAYLOAD_SCRIPT  — classic script injection
@@ -141,6 +145,32 @@ for (const [label, payload] of [['PAYLOAD_SCRIPT', PAYLOAD_SCRIPT], ['PAYLOAD_IM
     await page.evaluate(() => renderPlot()); // auto-render replaced the button (Phase 16)
     await page.waitForTimeout(500);
 
+    expect(await xssNotExecuted(page)).toBe(true);
+  });
+}
+
+// ── Hovertemplate injection (column name → Plotly hovertemplate) ───────────
+// A malicious column name flows raw into the scatter hovertemplate string.
+// Plotly renders hovertemplate as inert SVG text — this proves it does not
+// execute, which is why Plotly text sinks are not manually escHtml'd (§8,
+// clarified v2.9.0 doc review). Hover to force the template to render.
+
+for (const [label, payload] of [['PAYLOAD_SCRIPT', PAYLOAD_SCRIPT], ['PAYLOAD_IMG', PAYLOAD_IMG]]) {
+  test(`hovertemplate (column name): ${label} does not execute`, async ({ page }) => {
+    await loadApp(page);
+    await loadCSV(page, `${csvField(payload)},y\n1,2\n3,4\n5,6`, '_xss_hover.csv');
+    await page.click('#addSeriesBtn');
+    await page.click('.ct-btn[data-ct="scatter"]');
+    // The payload column is the X option; select it and Y, then render
+    await page.evaluate((col) => {
+      const ds = appState.datasets[0];
+      appState.series.push({ id: 'hvx', name: 's', datasetId: ds.id, chartType: 'scatter',
+        xCol: col, yCol: 'y', filters: [], style: {}, enabled: true });
+      renderPlot();
+    }, payload);
+    await page.waitForTimeout(400);
+    await page.mouse.move(400, 300); // trigger hover rendering of the template
+    await page.waitForTimeout(200);
     expect(await xssNotExecuted(page)).toBe(true);
   });
 }
