@@ -751,8 +751,42 @@ Exit criteria (provisional): the interpolated surface matches an independently-c
 - **Versioning pre-decision (EL, §3 letter):** the session schema is untouched, so MINOR — unless the migration changes what saved sessions *mean* (not merely sub-pixel rendering differences), which would invoke the §3 silently-alters-output clause and force MAJOR. Decided at exit against the migration's actual diff — the Phase 10 "version set by outcome" precedent.
 - **Rollback line (EL):** if the spike or the migration itself finds cost exceeding value (2.32.0 has no flagged CVEs), the phase may close as a documented stay-pinned decision — the DEPENDENCIES.md currency note is updated with the assessment, which still answers the question honestly.
 
-### Phase 19+ — Future `(not scoped)`
-- The Phase 15+ pool plus the v2.7.0 maintainer-review batch are consumed by Phases 15–18. The natural source for the next pool is a **second landscape review** — the Phase 8 one is ten phases old; run it as these milestones near completion.
+## Second Landscape Review (v2.9.1 round)
+
+The Phase 8 review is eleven phases old; this re-survey (matplotlib/seaborn, Plotly Express, Tableau/Power BI, GraphPad Prism, JMP, Excel/pandas) re-baselines the gap list now that DataLab has 9 chart types, subplot grids, the full cleaning/computed-column suite, and a deep statistics engine (distribution fits + KDE; t/ANOVA/Mann–Whitney/Kruskal–Wallis/paired-t/Wilcoxon with mandatory effect sizes; trendlines to cubic).
+
+**Niche unchanged:** still the only zero-install, zero-internet, GUI-driven tool where data provably never leaves the machine. The bar remains *what does a scientist/engineer with a sensitive CSV expect next?*
+
+**Gap candidates surveyed (team), ranked by value-per-risk:**
+- **Statistical diagnostics** — residual plots, Q–Q normality plots, confidence/prediction bands on trendlines. Builds on the tool's deepest, most differentiated area; DS-owned; contained. **→ adopted as Phase 19** (maintainer pick).
+- **Data reshaping & pivot** — group-by summary tables, long↔wide pivot, a general join builder (only parity joins today). Highest raw utility (the Excel/pandas-parity gap) but the largest new surface. → Phase 20+ pool.
+- **Faceting / small multiples** — auto-grid split by a categorical column, on the Phase 10 subplot engine. → Phase 20+ pool.
+- **Time-series toolkit** — resampling, rolling mean/std, decomposition. Useful for monitoring data but the narrowest audience. → Phase 20+ pool.
+
+### Phase 19 — Statistical Diagnostics `v2.11.0`
+**Goal:** let the user check the assumptions behind the fits and tests already shipped — residuals, normality, and fit uncertainty. **Data Scientist is primary owner** (Phase 5+ statistical-feature ownership); every reference hand-derived or published per §20. **A docs-only pre-impl review precedes the branch** (Phase 14/15 precedent) to lock UI placement and the numerics plan before any `src/` work.
+
+**Design decisions (team scoping session — provisional, pre-impl review confirms):**
+- **Q–Q normality plot = 10th chart type (`qq`, Data Viz + DS):** a numeric column's sample quantiles vs theoretical normal quantiles, with a reference line through the quartiles. Plotting positions `(i − 0.5)/n` (Blom/Hazen family — DS picks the exact convention at impl); theoretical quantiles need the **normal inverse CDF (probit)** — added to `specfun.js`, hand-written rational approximation (Acklam/Beasley-Springer-Moro), `|error|` documented, references from published probit values (e.g. Φ⁻¹(0.975) = 1.95996). New renderer → §6/§7 review with `shared.js`.
+- **Residual plot = 11th chart type (`residual`, Data Viz + DS):** residuals (observed − fitted) vs fitted, with a zero reference line, for a chosen X/Y and fit degree (reuses `polyFit`/`linearFit`). Its own panel because the axes differ from the source scatter — it composes with sessions and subplot grids rather than overlaying. DS owns the guidance comment (what a funnel/curve pattern means).
+- **Confidence & prediction bands on the scatter trendline (DS):** additive `series.trendBands` (`none` default / `ci` / `pi` / `both`); **linear-only for v2.11.0** (closed-form textbook bands; polynomial/SE bands deferred — DS ruling, the per-group-stays-linear precedent). Band = ŷ ± t(0.975, n−2)·SE, SE differing for the mean-response (CI) vs new-observation (PI) case. Needs a **t inverse quantile** — added by **bisection on the existing forward t CDF** (`pTwoTailedT`/`regIncBeta`), no new approximation; references from the published t table already in `comparison.spec.js` (t(0.975, 10) = 2.228). Bands are filled traces under the fit line; the legend names them (CI vs PI — a band that doesn't say which is a §20 violation, the error-bar-semantics precedent).
+- **§6 watch:** `specfun.js` (126) gains probit + t-quantile (~40 lines → ~165, under trigger); two new renderers are small. No split foreseen, but the mechanical sweep decides at exit.
+
+**Schema (additive, no migration — state stays v2, MINOR):** new `chartType` values `qq`/`residual`; new optional `series.trendBands`. v2.0–v2.10 sessions load unchanged.
+
+Deliverables (dependency order per §18; pre-impl review + §12 UX flows precede the branch):
+- [ ] Pre-impl review: confirm UI placement (new chart types vs a Data Tools "Diagnostics" view), the plotting-position convention, and the numerics plan (Data Scientist + EL + Data Viz)
+- [ ] `normalInv` (probit) + `tQuantile` (bisection on the t CDF) in `specfun.js`; published/hand-derived references per §20 (Data Scientist)
+- [ ] `renderers/qq.js` (10th type) + modal fields + log-scale guidance; §6/§7 review (Data Viz + DS)
+- [ ] `renderers/residual.js` (11th type) — residuals vs fitted, fit-degree field, zero line (Data Viz + DS)
+- [ ] CI/PI bands on the scatter linear trendline (`series.trendBands`), legend names the band type (Data Viz + DS)
+- [ ] Tests: probit + t-quantile against references; Q–Q of normal data is ~straight, of skewed data curves; residuals of an exact fit are ~0; CI⊂PI and both widen toward the data edges; axe state for the new modal fields (QA + Accessibility)
+- [ ] README + exploratory (Data Scientist): real data through Q–Q (normality call), residuals (pattern call), and a trendline with bands
+
+Exit criteria: probit/t-quantile match references; Q–Q separates normal from skewed; residual plot zeroes on an exact fit and shows structure on a bad one; CI is inside PI and both flare at the extremes; bands name themselves; new types round-trip sessions; all prior tests green.
+
+### Phase 20+ — Future `(not scoped)`
+- Surfaced by the v2.9.1 landscape review, awaiting a maintainer pick: **data reshaping & pivot** (group-by tables, long↔wide, general join builder), **faceting / small multiples** (auto-subplot by category), **time-series toolkit** (resampling, rolling stats).
 - Demonstrated-demand parked items remain parked: per-cell plotConfig (Phase 10), dual-Y inside subplot grids (Phase 14), `.xlsx` import (rejected — revisit only on sustained maintainer demand).
 
 ---
