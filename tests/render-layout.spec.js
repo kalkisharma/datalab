@@ -20,6 +20,26 @@ async function loadCSV(page, content, filename) {
   fs.unlinkSync(csvPath);
 }
 
+test('on startup only the empty state shows — the plot grid stays hidden', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await page.waitForTimeout(400); // after init() reconciles the grid
+  const s = await page.evaluate(() => {
+    const empty = document.getElementById('emptyState');
+    const grid  = document.getElementById('plotGrid');
+    return {
+      emptyVisible: getComputedStyle(empty).display !== 'none',
+      gridHidden:   getComputedStyle(grid).display === 'none',
+      gridHasHiddenClass: grid.classList.contains('hidden'),
+      // renderPlotGrid sets the cols class — it must NOT have removed `hidden`
+      gridCols: grid.classList.contains('cols-1'),
+    };
+  });
+  expect(s.emptyVisible).toBe(true);
+  expect(s.gridHidden).toBe(true);          // no empty plot region below the message
+  expect(s.gridHasHiddenClass).toBe(true);  // the cols-class pass preserved `hidden`
+  expect(s.gridCols).toBe(true);
+});
+
 test('first render fills its container — no edit needed to size correctly', async ({ page }) => {
   await page.goto(FILE_URL);
   await loadCSV(page, 'x,y\n1,2\n2,3\n3,4\n4,5', '_layout.csv');

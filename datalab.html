@@ -2147,9 +2147,15 @@ function renderPlotGrid() {
     panel.setAttribute('aria-label', `Plot panel ${p.name}${p.id === appState.activePlotId ? ', active' : ''}`);
   });
 
-  // Auto columns: 1 → full width, 2 → side by side, 3-4 → 2×2, 5+ → 3 cols
+  // Auto columns: 1 → full width, 2 → side by side, 3-4 → 2×2, 5+ → 3 cols.
+  // Set the cols-* class via classList — a wholesale `grid.className = …`
+  // here clobbered the `hidden` class, so init()'s grid reconciliation
+  // un-hid an empty grid on startup and it showed below the empty state
+  // (maintainer-reported startup split; the visible/hidden state is owned
+  // solely by renderPlot/clearPlot, never by this layout pass).
   const n = appState.plots.length;
-  grid.className = 'plot-grid cols-' + (n <= 1 ? 1 : n <= 4 ? 2 : 3);
+  grid.classList.remove('cols-1', 'cols-2', 'cols-3');
+  grid.classList.add('cols-' + (n <= 1 ? 1 : n <= 4 ? 2 : 3));
   if (n > 6) {
     const box = document.getElementById('dataAlerts');
     // innerHTML: static text — no user data
