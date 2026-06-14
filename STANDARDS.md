@@ -64,9 +64,10 @@
 ## 5. Hotfix Process
 
 - A hotfix is a critical bug or security issue in a released version that cannot wait for the next phase exit.
-- Cut a branch from the release tag: `hotfix/v0.1.1-description`
+- Cut a branch from the release tag: `hotfix/v0.1.1-description`.
+  - **Solo-maintainer carve-out** (added v2.9.1 review, reconciling §5 with the §2 direct-to-master reality): while there is a single human maintainer, a hotfix may be committed directly to `master` *without* a branch-from-tag **only when** every commit on `master` since the last release tag is non-behavioral (docs, tests, planning — nothing that changes `datalab.html`), the full suite is green, and the fix is isolated. Verify with `git diff --stat <lastTag>..HEAD -- src/ lib/` before tagging. If `master` carries **any** unreleased behavioral change that must not ship in the patch, the branch-from-tag flow is mandatory even solo — the patch must contain only the fix. (v2.9.1 met the carve-out: the only `src/` deltas since v2.9.0 were the grid fix and the version bump; the three intervening commits were docs/tests.)
 - Fix must include a regression test (or a documented reproduction case for visual/performance issues).
-- Gets a PATCH version bump. Creates a new tag from the hotfix branch; also merged into `master`.
+- Gets a PATCH version bump. Creates a new tag (from the hotfix branch, or from `master` under the carve-out above).
 - `CHANGELOG.md` updated with a `[hotfix]` entry.
 - Dependency CVE policy: critical CVE — patch before any other work resumes (this is a local file:// tool with no server exposure; urgency is real but not emergency). Moderate CVE — next phase exit.
 - Each release publishes a SHA-256 hash of `datalab.html` in the GitHub release notes alongside the file. The README instructs users to verify the hash before use. Hash generation is part of `build.js` — output to stdout at build time and included in the release checklist.
