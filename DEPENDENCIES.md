@@ -58,6 +58,8 @@ not the URL, is authoritative** — a CDN can change; the bytes cannot.
     natives (discrete legend traces, `marker.colorbar`, `legend.itemsizing`)
     and the `@guidepup/guidepup` NVDA harness added at v2.8.0 stays a
     dev-only, never-bundled tool; zero new bundled dependencies; pins stand.
+  - v2.9.1 hotfix: no changes — a one-line grid-visibility fix, no
+    dependency surface touched.
 
 ## Updating a library
 

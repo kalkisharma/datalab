@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.9.1 — [hotfix]
+
+### Fixes
+- **Startup layout** — opening the app no longer shows an empty plot region
+  beneath the "No data yet" message. `renderPlotGrid()` set the grid's
+  column class with a wholesale assignment that also wiped its `hidden`
+  class, so the reconciliation pass at startup un-hid an empty grid. The
+  column class is now set via `classList`, leaving visibility to the
+  render/clear path. No schema change.
+
 ## v2.9.0 — Legend & Colorbar Polish
 
 ### Features
