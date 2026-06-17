@@ -858,7 +858,7 @@ Seven maintainer feature requests from real use, reviewed full-team during the P
 | Misleading visualizations shipping unnoticed | Data Scientist | Exploratory test + correctness sign-off required at every phase exit |
 | Statistical features built incorrectly in Phase 5+ | Data Scientist | Data Scientist owns requirements and correctness sign-off for every Phase 5+ feature |
 | Series modal too complex for first-time users | UX | Self-review of UX flow after Phase 1; findings documented before Phase 2 |
-| Full Plotly bundle (3.8 MB) slow first load | — | Acceptable for local file://; noted in README |
+| Full Plotly bundle (~5 MB at Plotly 3.6.0) slow first load | — | Acceptable for local file://; noted in README |
 | Phase 5 scope creep into Phase 1–4 | Engineering Lead | Phase 5 explicitly out of scope until v1.0.0 ships |
 | Accidental data exfiltration via network API | Security | CSP blocks at browser level; pre-commit hook catches at code level; two independent layers |
 | Tampered release file downloaded by user | Security | SHA-256 hash published with every release; users instructed to verify before use |

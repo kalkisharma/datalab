@@ -81,7 +81,7 @@ machine**:
 - No cookies, localStorage, or any persistence — closing the tab erases
   everything except files you explicitly exported
 - Every release publishes the artifact's SHA-256 hash; bundled libraries
-  (Plotly 2.32.0, PapaParse 5.4.1, JSZip 3.10.1) are pinned by hash in
+  (Plotly 3.6.0, PapaParse 5.4.1, JSZip 3.10.1) are pinned by hash in
   `DEPENDENCIES.md` and verified at build time
 - The source is intentionally unobfuscated — security teams are encouraged
   to audit `src/` before approving use
