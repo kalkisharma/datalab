@@ -137,6 +137,32 @@ function removeDataset(id) {
 
 // ── Series panel ──────────────────────────────────────────────────────────
 
+// Series clipboard (workspace ergonomics): Copy stores a deep clone; Paste
+// drops it into the ACTIVE plot, so a series can be reused across plots.
+// In-memory only — never serialized.
+let _seriesClipboard = null;
+
+function updatePasteBtn() {
+  const btn = document.getElementById('pasteSeriesBtn');
+  if (!btn) return;
+  btn.disabled = !_seriesClipboard;
+  btn.title = _seriesClipboard
+    ? `Paste "${_seriesClipboard.name}" into the active plot`
+    : 'Copy a series first';
+}
+
+function pasteSeries() {
+  if (!_seriesClipboard) return;
+  const clone = JSON.parse(JSON.stringify(_seriesClipboard));
+  clone.id     = uid();
+  clone.plotId = appState.activePlotId; // paste targets the active plot
+  clone.cell   = null;                  // target plot may have a different grid
+  clone.name   = (_seriesClipboard.name || 'Series') + ' (copy)';
+  appState.series.push(clone);
+  renderSeriesList();
+  scheduleRender();
+}
+
 function renderSeriesList() {
   const list  = document.getElementById('seriesList');
   const empty = document.getElementById('seriesEmpty');
@@ -149,6 +175,7 @@ function renderSeriesList() {
     addBtn.disabled = false;
     addBtn.title = '';
   }
+  updatePasteBtn();
 
   if (!appState.series.length) {
     empty.style.display = '';
@@ -178,6 +205,7 @@ function renderSeriesList() {
       <button class="series-move" data-dir="1" aria-label="Move series ${escHtml(s.name)} down"
               title="Move down" ${idx === appState.series.length - 1 ? 'disabled' : ''}>↓</button>
       <button class="series-edit" aria-label="Edit series ${escHtml(s.name)}" title="Edit">✎</button>
+      <button class="series-copy" aria-label="Copy series ${escHtml(s.name)}" title="Copy — paste into the active plot">⧉</button>
       <button class="series-del"  aria-label="Delete series ${escHtml(s.name)}" title="Delete">×</button>`;
     // Keyboard nav (roving tabindex): arrows move between rows, Enter edits,
     // Delete removes. Buttons inside rows stay Tab-reachable as usual.
@@ -208,6 +236,10 @@ function renderSeriesList() {
       btn.addEventListener('click', () => moveSeries(s.id, parseInt(btn.dataset.dir)));
     });
     item.querySelector('.series-edit').addEventListener('click', () => openModal(s.id));
+    item.querySelector('.series-copy').addEventListener('click', () => {
+      _seriesClipboard = JSON.parse(JSON.stringify(s));
+      updatePasteBtn();
+    });
     item.querySelector('.series-del').addEventListener('click', () => {
       appState.series = appState.series.filter(x => x.id !== s.id);
       renderSeriesList();

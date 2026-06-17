@@ -84,6 +84,7 @@ function init() {
 
   // Modal triggers
   g('addSeriesBtn').addEventListener('click', () => openModal(null));
+  g('pasteSeriesBtn').addEventListener('click', pasteSeries);
   g('modalSave')   .addEventListener('click', saveModalSeries);
   wireDialog('modalOverlay', closeModal, ['modalClose', 'modalCancel']);
 

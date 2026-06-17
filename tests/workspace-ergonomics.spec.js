@@ -55,3 +55,32 @@ test('statsShow:false removes the parity NSE/MAE/RMSE annotation box', async ({ 
   expect(out.withBox).toBe(1);  // present by default
   expect(out.without).toBe(0);  // toggled off
 });
+
+// ── #1 Copy / paste series ──────────────────────────────────────────────────
+test('copy then paste clones a series into the active plot, original untouched', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'x,y\n1,2\n2,3\n3,4', '_we_cp.csv');
+  const out = await page.evaluate(() => {
+    const ds = appState.datasets[0], p1 = appState.plots[0].id;
+    appState.series = [{ id: 's1', name: 'Orig', datasetId: ds.id, plotId: p1,
+                         chartType: 'scatter', xCol: 'x', yCol: 'y' }];
+    renderSeriesList();
+    document.querySelector('.series-item[data-sid="s1"] .series-copy').click();
+    addPlot();                              // a new plot becomes active
+    const active = appState.activePlotId;
+    document.getElementById('pasteSeriesBtn').click();
+    const clone = appState.series.find(s => s.id !== 's1');
+    return {
+      count: appState.series.length, active,
+      cloneId: clone && clone.id, clonePlot: clone && clone.plotId,
+      cloneName: clone && clone.name, cloneXY: clone && [clone.xCol, clone.yCol],
+      origName: appState.series.find(s => s.id === 's1').name,
+    };
+  });
+  expect(out.count).toBe(2);
+  expect(out.cloneId).not.toBe('s1');         // fresh id
+  expect(out.clonePlot).toBe(out.active);     // pasted into the active plot
+  expect(out.cloneName).toBe('Orig (copy)');
+  expect(out.cloneXY).toEqual(['x', 'y']);    // definition carried over
+  expect(out.origName).toBe('Orig');          // original untouched
+});
