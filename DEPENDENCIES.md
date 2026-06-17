@@ -60,6 +60,12 @@ not the URL, is authoritative** — a CDN can change; the bytes cannot.
     dev-only, never-bundled tool; zero new bundled dependencies; pins stand.
   - v2.9.1 hotfix: no changes — a one-line grid-visibility fix, no
     dependency surface touched.
+  - v2.10.0 exit: no changes — interpolated contours are hand-written
+    (`gridScattered`: binned-mean gridding + convex-hull mask + harmonic
+    Laplace fill, `grid-interp.js`), zero new bundled dependencies. The
+    Plotly 3.x API-delta spike ran this phase (LOW RISK — DataLab's surface
+    is clean against every 3.0.0 removal; target 3.6.0; see PLANNING Phase
+    18); the migration itself remains Phase 18. Pins stand.
 
 ## Updating a library
 

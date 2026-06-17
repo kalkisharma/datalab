@@ -1,5 +1,26 @@
 # Changelog
 
+## v2.10.0 — Interpolated Contours
+
+### Features
+- **Interpolated contours** — a contour series can now be built from
+  **scattered** (X, Y, Z) points, not only a pre-gridded sweep. Tick
+  "Interpolate scattered data" on the contour setup. The surface is gridded
+  by binned-mean aggregation, then empty cells inside the data's reach are
+  filled by a harmonic (Laplace) relaxation whose **maximum principle
+  guarantees no invented peaks or valleys**. Cells outside the data's convex
+  hull, or farther than ~1.5 cells from any sample, render as **gaps — never
+  extrapolated**. The method is named on hover. The pre-gridded path is
+  unchanged and stays the default.
+- **Show data points** — an overlay option on an interpolated contour marks
+  the original sample locations, so you can see where the surface is backed
+  by data versus interpolated.
+
+## Schema
+### v2.10.0 (state version unchanged at 2 — all additive)
+- `series.interpolate`, `series.showPoints` (both optional, contour-only).
+  v2.0–v2.9 session files load unchanged.
+
 ## v2.9.1 — [hotfix]
 
 ### Fixes
