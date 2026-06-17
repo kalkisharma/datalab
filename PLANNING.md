@@ -789,6 +789,7 @@ The Phase 8 review is eleven phases old; this re-survey (matplotlib/seaborn, Plo
 
 Deliverables (dependency order per §18; pre-impl review + §12 UX flows precede the branch):
 - [ ] Pre-impl review: confirm UI placement (new chart types vs a Data Tools "Diagnostics" view), the plotting-position convention, and the numerics plan (Data Scientist + EL + Data Viz)
+- [ ] Chore (§6): split the date-format prompt out of `modal.js` (323 at the v2.11.0 exit — the named seam). This phase adds qq/residual modal fields, so the modal changes; do the split with that change rather than tolerating again (the modal-fields.js 357 deferral-creep lesson, recorded at the v2.11.0 doc review)
 - [ ] `normalInv` (probit) + `tQuantile` (bisection on the t CDF) in `specfun.js`; published/hand-derived references per §20 (Data Scientist)
 - [ ] `renderers/qq.js` (10th type) + modal fields + log-scale guidance; §6/§7 review (Data Viz + DS)
 - [ ] `renderers/residual.js` (11th type) — residuals vs fitted, fit-degree field, zero line (Data Viz + DS)
