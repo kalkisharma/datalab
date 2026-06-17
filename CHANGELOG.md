@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.12.0 — Plotly 3.x
+
+### Changed
+- **Plotly.js upgraded 2.32.0 → 3.6.0.** The charting library is now current
+  (it had been two major versions behind). DataLab's API surface was already
+  clean against every Plotly 3.0.0 breaking change, so there is **no behavior
+  change** — plots render identically apart from sub-pixel/antialiasing
+  differences. The full functional suite, all accessibility (axe) states, and
+  the complete benchmark set were re-baselined green, and WebGL rendering
+  (`scattergl`) was confirmed to work under the unchanged Content-Security-
+  Policy (`worker-src blob:`). No schema change; sessions are unaffected.
+
 ## v2.11.0 — Workspace & Encoding Ergonomics
 
 ### Features

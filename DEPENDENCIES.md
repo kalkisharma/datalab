@@ -5,7 +5,7 @@ file's SHA-256 hash against this table before bundling — a mismatch aborts the
 
 | Library | Version | File | Source URL (hash-verified) | SHA-256 |
 |---------|---------|------|----------------------------|---------|
-| Plotly.js | 2.32.0 | `lib/plotly.min.js` | https://cdn.plot.ly/plotly-2.32.0.min.js | `0a17719a72751704861215da0e5c5cdb3f9a8d50eff5cb84cb6f8b80786682b0` |
+| Plotly.js | 3.6.0 | `lib/plotly.min.js` | https://cdn.plot.ly/plotly-3.6.0.min.js | `41a395c2d558d13d3655a1ebafaa67a072c2c1ac8c269e0ee67e18c9a137ac99` |
 | Papa Parse | 5.4.1 | `lib/papaparse.min.js` | https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js | `b8e870c5d2b29772f10c9fa9a693c8b896aac8540ed6701e3cc6304c683febdb` |
 | JSZip | 3.10.1 | `lib/jszip.min.js` | https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js | `acc7e41455a80765b5fd9c7ee1b8078a6d160bbbca455aeae854de65c947d59e` |
 
@@ -25,10 +25,12 @@ not the URL, is authoritative** — a CDN can change; the bytes cannot.
   follow the normal npm lockfile. `@guidepup/guidepup` drives a real,
   separately-installed NVDA (via `npx @guidepup/setup`) and pulls in no
   runtime code — it is a test tool, not an app dependency.
-- **Currency (Phase 11 review):** Plotly 2.32.0 is pinned two major versions behind
-  current. Deliberate for now — a Plotly 3.x migration is its own future phase
-  (breaking API review, full regression + benchmark re-baseline), not a routine
-  bump. Reassessed at each phase exit per STANDARDS §10; CVE policy in §5 overrides.
+- **Currency:** Plotly.js is **current at 3.6.0** (migrated at Phase 18, v2.12.0 —
+  the long-standing "two major versions behind" note is retired). The API-delta
+  spike (Phase 17) found DataLab's surface clean against every 3.0.0 breaking
+  change; the v2.12.0 re-baseline (full suite + axe + benchmarks, with WebGL
+  rendering verified under the CSP) confirmed no behavior change. Reassessed at
+  each phase exit per STANDARDS §10; CVE policy in §5 overrides.
 - **Reassessment log** (§10 requires the reassessment; this log makes it auditable —
   added at the Phase 12 doc review after the v2.4.0 reassessment went unrecorded):
   - v2.4.0 exit: no changes — Plotly 2.32.0 covers the violin trace natively;
@@ -71,6 +73,11 @@ not the URL, is authoritative** — a CDN can change; the bytes cannot.
     sizing, subplot shared encoding, optional scatter join) use Plotly 2.32.0
     natives and reuse the existing parity `innerJoinRows`; zero new bundled
     dependencies. Pins stand.
+  - v2.12.0 exit: **Plotly.js 2.32.0 → 3.6.0** (the planned Phase 18 migration).
+    New pin + source URL + SHA-256 recorded in the table above; `build.js` hash
+    verification updated and green; full re-baseline (suite + axe + benchmarks,
+    WebGL under the CSP) clean. PapaParse and JSZip unchanged. Security + EL
+    signed off on the new pin (§9).
 
 ## Updating a library
 

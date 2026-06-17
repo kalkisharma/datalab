@@ -21,7 +21,7 @@ const VERSION = versionMatch[1];
 
 // ── Library hash verification (DEPENDENCIES.md) ───────────────────────────
 const DEPS = {
-  'lib/plotly.min.js':     '0a17719a72751704861215da0e5c5cdb3f9a8d50eff5cb84cb6f8b80786682b0',
+  'lib/plotly.min.js':     '41a395c2d558d13d3655a1ebafaa67a072c2c1ac8c269e0ee67e18c9a137ac99',
   'lib/papaparse.min.js':  'b8e870c5d2b29772f10c9fa9a693c8b896aac8540ed6701e3cc6304c683febdb',
   'lib/jszip.min.js':      'acc7e41455a80765b5fd9c7ee1b8078a6d160bbbca455aeae854de65c947d59e',
 };
