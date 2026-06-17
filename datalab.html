@@ -681,7 +681,9 @@ const VERSION = '2.9.1';
 //   id, datasetId, xCol, yCol, colorCol, chartType,
 //   // parity-specific (only when chartType === 'parity'):
 //   joinDatasetId, joinKey, showBands, band5, band10,
-//   // contour (Phase 17): interpolate (bool) — grid scattered (x,y,z) when true
+//   // contour (Phase 17): interpolate (bool) — grid scattered (x,y,z) when true;
+//   //                      showPoints (bool) — overlay sample locations
+
 //   // bar (Phase 9): agg ('none'|'count'|'sum'|'mean'|'median'),
 //   //                errMode ('sd'|'sem'|null — mean only)
 //   // scatter/line (Phase 9): errCol (± column), trendline (scatter only)
@@ -1617,6 +1619,7 @@ function saveModalSeries() {
     yCol,
     zCol:      zCol || null,                                  // contour only
     interpolate: document.getElementById('mInterpolate')?.checked ?? false,  // contour only (Phase 17)
+    showPoints:  document.getElementById('mShowPoints')?.checked ?? false,   // contour interpolate overlay (Phase 17)
     binCount:  Number(document.getElementById('mBinCount')?.value) || null, // histogram only
     // fitDist supersedes the Phase 5 fitNormal boolean; old sessions are
     // read via the renderer's fitDist ?? fitNormal fallback
@@ -1944,6 +1947,10 @@ function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
       <div class="check-row">
         <label><input type="checkbox" id="mInterpolate" ${existing?.interpolate ? 'checked' : ''} />
           Interpolate scattered data <span class="field-hint" style="margin:0">(grids scattered X, Y, Z; no values outside the data's support; method named on hover)</span></label>
+      </div>
+      <div class="check-row">
+        <label><input type="checkbox" id="mShowPoints" ${existing?.showPoints ? 'checked' : ''} />
+          Show data points <span class="field-hint" style="margin:0">(with Interpolate — overlays the sample locations so support is visible)</span></label>
       </div>`;
   }
   return html;
@@ -6144,20 +6151,31 @@ function buildContourTrace(series, datasets) {
   if (series.interpolate) {
     const g = gridScattered(pts);
     if (!g) return { traces: [], error: 'Interpolation needs at least 3 (X, Y) points that are not all collinear.' };
-    return {
-      traces: [{
-        type: 'contour',
-        x: g.x, y: g.y, z: g.z,
-        name: (series.name || 'Contour') + ' (interpolated)',
-        colorscale: document.getElementById('cmapSelect')?.value ?? 'Viridis',
-        contours: { coloring: 'heatmap' },
-        connectgaps: false, // unsupported cells (outside hull / beyond R) stay empty
-        colorbar: { title: { text: series.zCol } },
-        // An interpolated surface must announce itself (§20) — method on hover
-        hovertemplate: `${series.xCol}: %{x}<br>${series.yCol}: %{y}<br>${series.zCol}: %{z}<extra>interpolated · binned mean + Laplace fill</extra>`,
-      }],
-      error: null,
-    };
+    const traces = [{
+      type: 'contour',
+      x: g.x, y: g.y, z: g.z,
+      name: (series.name || 'Contour') + ' (interpolated)',
+      colorscale: document.getElementById('cmapSelect')?.value ?? 'Viridis',
+      contours: { coloring: 'heatmap' },
+      connectgaps: false, // unsupported cells (outside hull / beyond R) stay empty
+      colorbar: { title: { text: series.zCol } },
+      // An interpolated surface must announce itself (§20) — method on hover
+      hovertemplate: `${series.xCol}: %{x}<br>${series.yCol}: %{y}<br>${series.zCol}: %{z}<extra>interpolated · binned mean + Laplace fill</extra>`,
+    }];
+    // Data-support overlay (Phase 17, opt-in): the original sample locations,
+    // so the reader sees where the surface is backed by data vs interpolated
+    // (Data Scientist honesty affordance from the spike). WebGL above 10k pts.
+    if (series.showPoints) {
+      traces.push({
+        type: pts.length > 10000 ? 'scattergl' : 'scatter',
+        mode: 'markers',
+        x: pts.map(p => p[0]), y: pts.map(p => p[1]),
+        name: `data points (${pts.length})`,
+        marker: { size: 4, color: 'rgba(40,40,40,0.55)', line: { width: 0.5, color: '#ffffff' } },
+        hovertemplate: `${series.xCol}: %{x}<br>${series.yCol}: %{y}<extra>data</extra>`,
+      });
+    }
+    return { traces, error: null };
   }
 
   // Grid validation: unique X × unique Y must cover the points exactly once

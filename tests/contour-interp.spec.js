@@ -168,3 +168,29 @@ test('pre-gridded data renders unchanged under the default path', async ({ page 
   expect(out.cols).toBe(5);  // unique X
   expect(out.name).not.toMatch(/interpolat/i); // default path carries no method tag
 });
+
+test('showPoints overlays a markers trace at the raw sample locations', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const out = await page.evaluate((rows) => {
+    const ds = { id: 'd1', name: 'D', rows, headers: ['x', 'y', 'z'] };
+    const series = { datasetId: 'd1', name: 'Surf', chartType: 'contour', xCol: 'x', yCol: 'y', zCol: 'z', interpolate: true, showPoints: true };
+    const res = buildContourTrace(series, [ds]);
+    const pts = res.traces.find(t => t.mode === 'markers');
+    return { n: res.traces.length, contour: res.traces[0].type,
+             ptsCount: pts ? pts.x.length : 0, ptsName: pts ? pts.name : null };
+  }, diskRows());
+  expect(out.n).toBe(2);                 // contour + overlay
+  expect(out.contour).toBe('contour');
+  expect(out.ptsCount).toBe(600);        // every sample location (diskRows count)
+  expect(out.ptsName).toMatch(/data/i);
+});
+
+test('interpolate without showPoints draws no overlay', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const n = await page.evaluate((rows) => {
+    const ds = { id: 'd1', name: 'D', rows, headers: ['x', 'y', 'z'] };
+    const series = { datasetId: 'd1', name: 'Surf', chartType: 'contour', xCol: 'x', yCol: 'y', zCol: 'z', interpolate: true };
+    return buildContourTrace(series, [ds]).traces.length;
+  }, diskRows());
+  expect(n).toBe(1);                     // contour surface only
+});

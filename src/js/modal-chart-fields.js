@@ -232,6 +232,10 @@ function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
       <div class="check-row">
         <label><input type="checkbox" id="mInterpolate" ${existing?.interpolate ? 'checked' : ''} />
           Interpolate scattered data <span class="field-hint" style="margin:0">(grids scattered X, Y, Z; no values outside the data's support; method named on hover)</span></label>
+      </div>
+      <div class="check-row">
+        <label><input type="checkbox" id="mShowPoints" ${existing?.showPoints ? 'checked' : ''} />
+          Show data points <span class="field-hint" style="margin:0">(with Interpolate — overlays the sample locations so support is visible)</span></label>
       </div>`;
   }
   return html;

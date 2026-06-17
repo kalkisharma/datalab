@@ -23,7 +23,9 @@ const VERSION = '2.9.1';
 //   id, datasetId, xCol, yCol, colorCol, chartType,
 //   // parity-specific (only when chartType === 'parity'):
 //   joinDatasetId, joinKey, showBands, band5, band10,
-//   // contour (Phase 17): interpolate (bool) — grid scattered (x,y,z) when true
+//   // contour (Phase 17): interpolate (bool) — grid scattered (x,y,z) when true;
+//   //                      showPoints (bool) — overlay sample locations
+
 //   // bar (Phase 9): agg ('none'|'count'|'sum'|'mean'|'median'),
 //   //                errMode ('sd'|'sem'|null — mean only)
 //   // scatter/line (Phase 9): errCol (± column), trendline (scatter only)
