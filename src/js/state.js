@@ -36,7 +36,7 @@ const VERSION = '2.10.0';
 // }
 //
 // Plot shape (entries in appState.plots):
-// { id, name, plotConfig,
+// { id, name, plotConfig, hidden?,  // hidden (bool, default false) — panel hidden from the grid but kept in state (workspace ergonomics)
 //   grid? }  // Phase 10: { rows, cols, shareX, shareY } | null — additive
 //            // with default null (no grid), so state stays v2 (§3)
 //

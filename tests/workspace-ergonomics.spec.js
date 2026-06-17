@@ -113,3 +113,44 @@ test('"match on-screen size" exports at the panel size, else the sliders', async
   expect(out.on.width).toBe(out.cw);       // panel size when on
   expect(out.on.height).toBe(out.ch);
 });
+
+// ── #5 Hide / show plots ────────────────────────────────────────────────────
+test('hide a plot to a restorable chip; last visible cannot be hidden', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'x,y\n1,2\n2,3\n3,4', '_we_hp.csv');
+  const out = await page.evaluate(() => {
+    const ds = appState.datasets[0], p1 = appState.plots[0].id;
+    addPlot();                       // plot 2 becomes active
+    const p2 = appState.activePlotId;
+    appState.series = [
+      { id: 'a', name: 'A', datasetId: ds.id, plotId: p1, chartType: 'scatter', xCol: 'x', yCol: 'y' },
+      { id: 'b', name: 'B', datasetId: ds.id, plotId: p2, chartType: 'scatter', xCol: 'x', yCol: 'y' },
+    ];
+    renderPlot();
+    togglePlotHidden(p2);            // hide the active plot
+    const panel2 = document.querySelector('.plot-panel[data-pid="' + p2 + '"]');
+    const afterHide = {
+      panel2Display: panel2.style.display,
+      chips: document.querySelectorAll('#hiddenPlotsBar .hidden-plot-chip').length,
+      barShown: document.getElementById('hiddenPlotsBar').style.display !== 'none',
+      activeMovedOff: appState.activePlotId === p1,
+      p2hidden: appState.plots.find(p => p.id === p2).hidden === true,
+    };
+    togglePlotHidden(p1);            // try to hide the last visible — refused
+    const p1stillVisible = !appState.plots.find(p => p.id === p1).hidden;
+    document.querySelector('#hiddenPlotsBar .hidden-plot-chip').click(); // restore p2
+    const afterShow = {
+      p2shown: appState.plots.find(p => p.id === p2).hidden === false,
+      barEmpty: document.getElementById('hiddenPlotsBar').style.display === 'none',
+    };
+    return { ...afterHide, p1stillVisible, ...afterShow };
+  });
+  expect(out.panel2Display).toBe('none');  // panel leaves the grid flow
+  expect(out.chips).toBe(1);               // one restorable chip
+  expect(out.barShown).toBe(true);
+  expect(out.activeMovedOff).toBe(true);   // active moves off the hidden plot
+  expect(out.p2hidden).toBe(true);
+  expect(out.p1stillVisible).toBe(true);   // last visible refuses to hide
+  expect(out.p2shown).toBe(true);          // chip restores it
+  expect(out.barEmpty).toBe(true);         // bar empties when nothing hidden
+});

@@ -43,6 +43,7 @@ async function exportAllPlots() {
   try {
     let n = 0;
     for (const plot of appState.plots) {
+      if (plot.hidden) continue; // skip hidden panels (workspace ergonomics)
       const pd = plotDivFor(plot.id);
       if (!pd || !pd.data || !pd.data.length) continue; // skip empty panels
       n++;

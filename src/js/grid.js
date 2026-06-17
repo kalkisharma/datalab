@@ -36,6 +36,7 @@ function renderPlotGrid() {
       panel.innerHTML = `
         <div class="panel-header">
           <input class="panel-name" type="text" value="${escHtml(p.name)}" aria-label="Plot name" />
+          <button class="panel-hide" aria-label="Hide plot ${escHtml(p.name)}" title="Hide plot">⊘</button>
           <button class="panel-del" aria-label="Delete plot ${escHtml(p.name)}" title="Delete plot">×</button>
         </div>
         <div class="panel-errors"></div>
@@ -56,6 +57,7 @@ function renderPlotGrid() {
         syncActivePlotInputs();
         renderSeriesList();
       });
+      panel.querySelector('.panel-hide').addEventListener('click', e => { e.stopPropagation(); togglePlotHidden(p.id); });
       panel.querySelector('.panel-del').addEventListener('click', e => { e.stopPropagation(); deletePlot(p.id); });
       grid.appendChild(panel);
     } else {
@@ -63,6 +65,7 @@ function renderPlotGrid() {
       if (nameEl.value !== p.name && document.activeElement !== nameEl) nameEl.value = p.name;
     }
     panel.classList.toggle('active', p.id === appState.activePlotId);
+    panel.style.display = p.hidden ? 'none' : '';
     panel.setAttribute('aria-label', `Plot panel ${p.name}${p.id === appState.activePlotId ? ', active' : ''}`);
   });
 
@@ -72,7 +75,7 @@ function renderPlotGrid() {
   // un-hid an empty grid on startup and it showed below the empty state
   // (maintainer-reported startup split; the visible/hidden state is owned
   // solely by renderPlot/clearPlot, never by this layout pass).
-  const n = appState.plots.length;
+  const n = appState.plots.filter(p => !p.hidden).length || 1; // visible panels drive the layout
   grid.classList.remove('cols-1', 'cols-2', 'cols-3');
   grid.classList.add('cols-' + (n <= 1 ? 1 : n <= 4 ? 2 : 3));
   if (n > 6) {
@@ -89,6 +92,40 @@ function renderPlotGrid() {
     const pd = plotDivFor(p.id);
     if (pd && pd.data) { try { Plotly.Plots.resize(pd); } catch (e) {} }
   });
+
+  renderHiddenBar();
+}
+
+// ── Show / hide plots (workspace ergonomics) ───────────────────────────────
+// Hiding keeps the plot + its series in state; the panel leaves the grid flow
+// and a restorable chip appears. The last visible plot can never be hidden.
+function togglePlotHidden(pid) {
+  const p = appState.plots.find(x => x.id === pid);
+  if (!p) return;
+  if (!p.hidden) {
+    if (appState.plots.filter(x => !x.hidden).length <= 1) return; // keep one visible
+    p.hidden = true;
+    if (appState.activePlotId === pid) appState.activePlotId = appState.plots.find(x => !x.hidden).id;
+  } else {
+    p.hidden = false;
+  }
+  syncActivePlotInputs();
+  renderPlotGrid();
+  if (appState.plotRendered) renderPlot();
+}
+
+function renderHiddenBar() {
+  const bar = document.getElementById('hiddenPlotsBar');
+  if (!bar) return;
+  const hidden = appState.plots.filter(p => p.hidden);
+  if (!hidden.length) { bar.style.display = 'none'; bar.innerHTML = ''; return; } // innerHTML: empty string — no user data
+  // escHtml applied to plot names — user-editable strings
+  bar.innerHTML = '<span class="hidden-plots-label">Hidden plots:</span>' + hidden.map(p =>
+    `<button class="hidden-plot-chip" data-pid="${escHtml(p.id)}" title="Show plot">${escHtml(p.name)} ▸</button>`
+  ).join('');
+  bar.style.display = '';
+  bar.querySelectorAll('.hidden-plot-chip').forEach(btn =>
+    btn.addEventListener('click', () => togglePlotHidden(btn.dataset.pid)));
 }
 
 // ── Active plot ───────────────────────────────────────────────────────────

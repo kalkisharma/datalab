@@ -40,12 +40,12 @@ function renderPlot() {
 
   renderPlotGrid(); // panels exist before plotting into them
 
-  for (const plot of appState.plots) renderOnePlot(plot);
+  for (const plot of appState.plots) { if (plot.hidden) continue; renderOnePlot(plot); } // skip hidden panels (workspace ergonomics)
 
   document.getElementById('downloadBtn').style.display    = '';
   document.getElementById('downloadSvgBtn').style.display = '';
   // Export all only earns its place with 2+ panels (1 panel = same as ↓ PNG)
-  document.getElementById('exportAllBtn').style.display = appState.plots.length > 1 ? '' : 'none';
+  document.getElementById('exportAllBtn').style.display = appState.plots.filter(p => !p.hidden).length > 1 ? '' : 'none';
   document.getElementById('savedStrip').style.display  = appState.savedPlots.filter(Boolean).length ? '' : 'none';
   document.getElementById('saveBtn').style.display     = '';
   syncAutoLabels();

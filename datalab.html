@@ -162,6 +162,12 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
 .plot-panel.active .panel-name{color:var(--text);}
 .panel-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:15px;padding:2px 4px;line-height:1;border-radius:3px;flex-shrink:0;transition:color 0.15s;}
 .panel-del:hover{color:var(--danger);}
+.panel-hide{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 4px;line-height:1;border-radius:3px;flex-shrink:0;transition:color 0.15s;}
+.panel-hide:hover{color:var(--accent);}
+.hidden-plots-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 2px;}
+.hidden-plots-label{color:var(--text3);font-family:var(--mono);font-size:11px;letter-spacing:0.06em;}
+.hidden-plot-chip{background:var(--panel);border:1px solid var(--border);color:var(--text2);cursor:pointer;font-family:var(--mono);font-size:11px;padding:3px 8px;border-radius:var(--radius);transition:border-color 0.15s,color 0.15s;}
+.hidden-plot-chip:hover{border-color:var(--accent);color:var(--accent);}
 .panel-plot{flex:1;min-height:0;}
 .panel-errors{flex-shrink:0;padding:0 10px;}
 .panel-errors .render-error,.panel-errors .render-warning{margin:6px 0;}
@@ -506,6 +512,7 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
       <div class="empty-title">No data yet</div>
       <div class="empty-sub">Drop a CSV into the Datasets panel, then add a series.</div>
     </div>
+    <div id="hiddenPlotsBar" class="hidden-plots-bar" role="list" aria-label="Hidden plots" style="display:none"></div>
     <div id="plotGrid" class="plot-grid cols-1 hidden"></div>
   </div>
 
@@ -698,7 +705,7 @@ const VERSION = '2.10.0';
 // }
 //
 // Plot shape (entries in appState.plots):
-// { id, name, plotConfig,
+// { id, name, plotConfig, hidden?,  // hidden (bool, default false) — panel hidden from the grid but kept in state (workspace ergonomics)
 //   grid? }  // Phase 10: { rows, cols, shareX, shareY } | null — additive
 //            // with default null (no grid), so state stays v2 (§3)
 //
@@ -2172,6 +2179,7 @@ function renderPlotGrid() {
       panel.innerHTML = `
         <div class="panel-header">
           <input class="panel-name" type="text" value="${escHtml(p.name)}" aria-label="Plot name" />
+          <button class="panel-hide" aria-label="Hide plot ${escHtml(p.name)}" title="Hide plot">⊘</button>
           <button class="panel-del" aria-label="Delete plot ${escHtml(p.name)}" title="Delete plot">×</button>
         </div>
         <div class="panel-errors"></div>
@@ -2192,6 +2200,7 @@ function renderPlotGrid() {
         syncActivePlotInputs();
         renderSeriesList();
       });
+      panel.querySelector('.panel-hide').addEventListener('click', e => { e.stopPropagation(); togglePlotHidden(p.id); });
       panel.querySelector('.panel-del').addEventListener('click', e => { e.stopPropagation(); deletePlot(p.id); });
       grid.appendChild(panel);
     } else {
@@ -2199,6 +2208,7 @@ function renderPlotGrid() {
       if (nameEl.value !== p.name && document.activeElement !== nameEl) nameEl.value = p.name;
     }
     panel.classList.toggle('active', p.id === appState.activePlotId);
+    panel.style.display = p.hidden ? 'none' : '';
     panel.setAttribute('aria-label', `Plot panel ${p.name}${p.id === appState.activePlotId ? ', active' : ''}`);
   });
 
@@ -2208,7 +2218,7 @@ function renderPlotGrid() {
   // un-hid an empty grid on startup and it showed below the empty state
   // (maintainer-reported startup split; the visible/hidden state is owned
   // solely by renderPlot/clearPlot, never by this layout pass).
-  const n = appState.plots.length;
+  const n = appState.plots.filter(p => !p.hidden).length || 1; // visible panels drive the layout
   grid.classList.remove('cols-1', 'cols-2', 'cols-3');
   grid.classList.add('cols-' + (n <= 1 ? 1 : n <= 4 ? 2 : 3));
   if (n > 6) {
@@ -2225,6 +2235,40 @@ function renderPlotGrid() {
     const pd = plotDivFor(p.id);
     if (pd && pd.data) { try { Plotly.Plots.resize(pd); } catch (e) {} }
   });
+
+  renderHiddenBar();
+}
+
+// ── Show / hide plots (workspace ergonomics) ───────────────────────────────
+// Hiding keeps the plot + its series in state; the panel leaves the grid flow
+// and a restorable chip appears. The last visible plot can never be hidden.
+function togglePlotHidden(pid) {
+  const p = appState.plots.find(x => x.id === pid);
+  if (!p) return;
+  if (!p.hidden) {
+    if (appState.plots.filter(x => !x.hidden).length <= 1) return; // keep one visible
+    p.hidden = true;
+    if (appState.activePlotId === pid) appState.activePlotId = appState.plots.find(x => !x.hidden).id;
+  } else {
+    p.hidden = false;
+  }
+  syncActivePlotInputs();
+  renderPlotGrid();
+  if (appState.plotRendered) renderPlot();
+}
+
+function renderHiddenBar() {
+  const bar = document.getElementById('hiddenPlotsBar');
+  if (!bar) return;
+  const hidden = appState.plots.filter(p => p.hidden);
+  if (!hidden.length) { bar.style.display = 'none'; bar.innerHTML = ''; return; } // innerHTML: empty string — no user data
+  // escHtml applied to plot names — user-editable strings
+  bar.innerHTML = '<span class="hidden-plots-label">Hidden plots:</span>' + hidden.map(p =>
+    `<button class="hidden-plot-chip" data-pid="${escHtml(p.id)}" title="Show plot">${escHtml(p.name)} ▸</button>`
+  ).join('');
+  bar.style.display = '';
+  bar.querySelectorAll('.hidden-plot-chip').forEach(btn =>
+    btn.addEventListener('click', () => togglePlotHidden(btn.dataset.pid)));
 }
 
 // ── Active plot ───────────────────────────────────────────────────────────
@@ -2406,12 +2450,12 @@ function renderPlot() {
 
   renderPlotGrid(); // panels exist before plotting into them
 
-  for (const plot of appState.plots) renderOnePlot(plot);
+  for (const plot of appState.plots) { if (plot.hidden) continue; renderOnePlot(plot); } // skip hidden panels (workspace ergonomics)
 
   document.getElementById('downloadBtn').style.display    = '';
   document.getElementById('downloadSvgBtn').style.display = '';
   // Export all only earns its place with 2+ panels (1 panel = same as ↓ PNG)
-  document.getElementById('exportAllBtn').style.display = appState.plots.length > 1 ? '' : 'none';
+  document.getElementById('exportAllBtn').style.display = appState.plots.filter(p => !p.hidden).length > 1 ? '' : 'none';
   document.getElementById('savedStrip').style.display  = appState.savedPlots.filter(Boolean).length ? '' : 'none';
   document.getElementById('saveBtn').style.display     = '';
   syncAutoLabels();
@@ -2986,6 +3030,7 @@ async function exportAllPlots() {
   try {
     let n = 0;
     for (const plot of appState.plots) {
+      if (plot.hidden) continue; // skip hidden panels (workspace ergonomics)
       const pd = plotDivFor(plot.id);
       if (!pd || !pd.data || !pd.data.length) continue; // skip empty panels
       n++;
