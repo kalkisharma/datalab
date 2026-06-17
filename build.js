@@ -74,6 +74,7 @@ const appJs = [
   'src/js/dt-preview.js',
   'src/js/saves.js',
   'src/js/wiring.js',
+  'src/js/grid-interp.js',
   'src/js/renderers/shared.js',
   'src/js/renderers/scatter.js',
   'src/js/renderers/line.js',
