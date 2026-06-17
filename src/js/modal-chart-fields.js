@@ -9,15 +9,42 @@ function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
   let html = '';
 
   if (chartType === 'scatter' || chartType === 'line') {
+    // Optional cross-dataset join (scatter only, workspace ergonomics): X from
+    // this dataset, Y from the joined one, matched on a shared key. When a join
+    // dataset is set, Y options come from IT (the parity Y-from-join lesson);
+    // the mJoinDataset change handler in modal-fields.js repopulates Y + key.
+    let joinHtml = '', yColHtml = colOptions(existing?.yCol, false);
+    if (chartType === 'scatter') {
+      const others = appState.datasets.filter(d => d.id !== dsId);
+      const jds = appState.datasets.find(d => d.id === existing?.joinDatasetId);
+      if (jds) {
+        const jnum = jds.headers.filter(c => classifyColumn(jds.rows, c) === 'numeric');
+        yColHtml = jnum.map(c => `<option value="${escHtml(c)}" ${existing?.yCol === c ? 'selected' : ''}>${escHtml(c)}</option>`).join('');
+      }
+      const sharedKeys = jds ? cols.filter(c => jds.headers.includes(c)) : [];
+      joinHtml = `
+      <div class="modal-field">
+        <label class="modal-label" for="mJoinDataset">Join a second dataset (optional)</label>
+        <select id="mJoinDataset"><option value="">— none (plot all rows) —</option>${others.map(d =>
+          `<option value="${escHtml(d.id)}" ${existing?.joinDatasetId === d.id ? 'selected' : ''}>${escHtml(d.name)}</option>`).join('')}</select>
+        <div class="field-hint">Inner-join on a shared key — X from this dataset, Y from the joined one; only matched rows are plotted.</div>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mJoinKey">Join key</label>
+        <select id="mJoinKey"><option value="">Select key…</option>${sharedKeys.map(c =>
+          `<option value="${escHtml(c)}" ${existing?.joinKey === c ? 'selected' : ''}>${escHtml(c)}</option>`).join('')}</select>
+      </div>`;
+    }
     html = `
       <div class="modal-section-title">Columns</div>
+      ${joinHtml}
       <div class="modal-field">
         <label class="modal-label" for="mXCol">X column <span class="required">*</span></label>
         <select id="mXCol">${colOptions(existing?.xCol, true, true)}</select>
       </div>
       <div class="modal-field">
         <label class="modal-label" for="mYCol">Y column <span class="required">*</span></label>
-        <select id="mYCol">${colOptions(existing?.yCol, false)}</select>
+        <select id="mYCol">${yColHtml}</select>
       </div>
       <div class="modal-field">
         <label class="modal-label" for="mColorCol">Color by (optional)</label>

@@ -174,3 +174,36 @@ test('subplot shared color-by applies one encoding across all cells', async ({ p
   expect(out.a).toBe(2);  // a category-"A" trace in each of the two cells
   expect(out.b).toBe(2);  // a category-"B" trace in each cell — shared encoding took effect
 });
+
+// ── #3 Optional cross-dataset scatter join ──────────────────────────────────
+// The mandatory alignment test (Data Scientist): a dropped/unmatched row must
+// not misalign X (primary) and Y (join). B's rows are deliberately out of order
+// and missing key "c".
+test('scatter join pairs X (primary) with Y (join) on the key; unmatched rows drop, no misalignment', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'id,xv\na,10\nb,20\nc,30\nd,40', '_we_jA.csv');
+  await loadCSV(page, 'id,yv\nb,200\nd,400\na,100', '_we_jB.csv');
+  const out = await page.evaluate(() => {
+    const [dA, dB] = appState.datasets;
+    const r = buildScatterTrace({ id: 'j1', name: 'J', datasetId: dA.id, joinDatasetId: dB.id,
+      joinKey: 'id', chartType: 'scatter', xCol: 'xv', yCol: 'yv' }, appState.datasets);
+    const t = r.traces[0] || {};
+    return { error: r.error, x: t.x, y: t.y };
+  });
+  expect(out.error).toBeNull();
+  expect(out.x).toEqual([10, 20, 40]);    // "c" dropped — no match in the join dataset
+  expect(out.y).toEqual([100, 200, 400]); // paired by key despite the join dataset's order
+});
+
+test('scatter without a join plots all rows (the opt-in changes nothing by default)', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'xv,yv\n1,2\n3,4\n5,6', '_we_nj.csv');
+  const out = await page.evaluate(() => {
+    const ds = appState.datasets[0];
+    const r = buildScatterTrace({ id: 's', name: 'S', datasetId: ds.id,
+      chartType: 'scatter', xCol: 'xv', yCol: 'yv' }, appState.datasets);
+    return { x: r.traces[0].x, y: r.traces[0].y };
+  });
+  expect(out.x).toEqual([1, 3, 5]);
+  expect(out.y).toEqual([2, 4, 6]);
+});

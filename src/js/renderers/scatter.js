@@ -13,14 +13,32 @@ function buildScatterTrace(series, datasets) {
   const ds = datasets.find(d => d.id === series.datasetId);
   if (!ds) return { traces: [], error: 'Dataset not found.' };
 
-  const rows = applyFilters(ds.rows, series.filters || [], series.filterLogic || 'and');
+  let rows = applyFilters(ds.rows, series.filters || [], series.filterLogic || 'and');
   if (!rows.length) return { traces: [], error: 'No rows pass the active filters.' };
 
   if (!series.xCol || !series.yCol) return { traces: [], error: 'X and Y columns are required.' };
 
-  const isDatetime = classifyColumn(ds.rows, series.xCol) === 'datetime';
+  let warning = null;
+  let isDatetime = classifyColumn(ds.rows, series.xCol) === 'datetime';
   let xV, yV, eV = null;
-  if (isDatetime) {
+  if (series.joinDatasetId) {
+    // Optional cross-dataset join (workspace ergonomics): X from the primary
+    // dataset, Y from the join dataset, matched on a shared key — reuses the
+    // parity inner join. Pairs stay index-aligned (mA[i] ↔ mB[i]) and `rows`
+    // becomes the matched primary rows, so the rows[i] ↔ xV[i] ↔ yV[i]
+    // invariant every downstream encoding relies on holds exactly as the
+    // no-join path (the Phase-1 pairing-bug guard — see the alignment test).
+    const joinDs = datasets.find(d => d.id === series.joinDatasetId);
+    if (!joinDs) return { traces: [], error: 'Join dataset not found.' };
+    if (!series.joinKey) return { traces: [], error: 'Join key column is required for the dataset join.' };
+    const { mA, mB } = innerJoinRows(rows, joinDs.rows, series.joinKey);
+    if (!mA.length) return { traces: [], error: 'No rows matched on the join key. Check the key column values.' };
+    if (isDatetime) { warning = 'Datetime X is not supported with a dataset join — treated as numeric.'; isDatetime = false; }
+    rows = mA;
+    xV = colVals(mA, series.xCol);
+    yV = colVals(mB, series.yCol);
+    if (series.errCol) eV = colVals(mA, series.errCol);
+  } else if (isDatetime) {
     const dt = datetimeXY(ds, rows, series.xCol, series.yCol, series.errCol);
     if (dt.error) return { traces: [], error: dt.error };
     ({ xV, yV, eV } = dt);
@@ -38,7 +56,6 @@ function buildScatterTrace(series, datasets) {
   // categorical path needs row-aligned points, so it falls back to a single
   // solid trace on a datetime X axis — datetimeXY drops/realigns pairs, the
   // same reason size-by punts on datetime.
-  let warning = null;
   let colorMode = 'solid';
   let colorInfo = null;
   if (series.colorCol) {

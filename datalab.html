@@ -699,8 +699,8 @@ const VERSION = '2.10.0';
 // Series shape (entries in appState.series):
 // {
 //   id, datasetId, xCol, yCol, colorCol, chartType,
-//   // parity-specific (only when chartType === 'parity'):
-//   joinDatasetId, joinKey, showBands, band5, band10,
+//   // join: joinDatasetId, joinKey — parity always; scatter optional (workspace ergonomics)
+//   // parity-only: showBands, band5, band10
 //   // contour (Phase 17): interpolate (bool) — grid scattered (x,y,z) when true;
 //   //                      showPoints (bool) — overlay sample locations
 
@@ -1722,6 +1722,14 @@ function saveModalSeries() {
     if (!series.joinKey)       { err.textContent = 'Please select a join key.';     return false; }
   }
 
+  // Scatter optional cross-dataset join (workspace ergonomics)
+  if (chartType === 'scatter') {
+    const jd = document.getElementById('mJoinDataset')?.value || null;
+    series.joinDatasetId = jd;
+    series.joinKey = jd ? (document.getElementById('mJoinKey')?.value || null) : null;
+    if (jd && !series.joinKey) { err.textContent = 'Select a join key, or clear the join dataset.'; return false; }
+  }
+
   if (_editingSeriesId) {
     const idx = appState.series.findIndex(s => s.id === _editingSeriesId);
     if (idx >= 0) appState.series[idx] = series;
@@ -1786,15 +1794,42 @@ function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
   let html = '';
 
   if (chartType === 'scatter' || chartType === 'line') {
+    // Optional cross-dataset join (scatter only, workspace ergonomics): X from
+    // this dataset, Y from the joined one, matched on a shared key. When a join
+    // dataset is set, Y options come from IT (the parity Y-from-join lesson);
+    // the mJoinDataset change handler in modal-fields.js repopulates Y + key.
+    let joinHtml = '', yColHtml = colOptions(existing?.yCol, false);
+    if (chartType === 'scatter') {
+      const others = appState.datasets.filter(d => d.id !== dsId);
+      const jds = appState.datasets.find(d => d.id === existing?.joinDatasetId);
+      if (jds) {
+        const jnum = jds.headers.filter(c => classifyColumn(jds.rows, c) === 'numeric');
+        yColHtml = jnum.map(c => `<option value="${escHtml(c)}" ${existing?.yCol === c ? 'selected' : ''}>${escHtml(c)}</option>`).join('');
+      }
+      const sharedKeys = jds ? cols.filter(c => jds.headers.includes(c)) : [];
+      joinHtml = `
+      <div class="modal-field">
+        <label class="modal-label" for="mJoinDataset">Join a second dataset (optional)</label>
+        <select id="mJoinDataset"><option value="">— none (plot all rows) —</option>${others.map(d =>
+          `<option value="${escHtml(d.id)}" ${existing?.joinDatasetId === d.id ? 'selected' : ''}>${escHtml(d.name)}</option>`).join('')}</select>
+        <div class="field-hint">Inner-join on a shared key — X from this dataset, Y from the joined one; only matched rows are plotted.</div>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mJoinKey">Join key</label>
+        <select id="mJoinKey"><option value="">Select key…</option>${sharedKeys.map(c =>
+          `<option value="${escHtml(c)}" ${existing?.joinKey === c ? 'selected' : ''}>${escHtml(c)}</option>`).join('')}</select>
+      </div>`;
+    }
     html = `
       <div class="modal-section-title">Columns</div>
+      ${joinHtml}
       <div class="modal-field">
         <label class="modal-label" for="mXCol">X column <span class="required">*</span></label>
         <select id="mXCol">${colOptions(existing?.xCol, true, true)}</select>
       </div>
       <div class="modal-field">
         <label class="modal-label" for="mYCol">Y column <span class="required">*</span></label>
-        <select id="mYCol">${colOptions(existing?.yCol, false)}</select>
+        <select id="mYCol">${yColHtml}</select>
       </div>
       <div class="modal-field">
         <label class="modal-label" for="mColorCol">Color by (optional)</label>
@@ -2130,7 +2165,15 @@ function renderDynamicFields(existing) {
   if (mjd) {
     mjd.addEventListener('change', () => {
       const jds = appState.datasets.find(d => d.id === mjd.value);
-      if (!jds) return;
+      if (!jds) {
+        // scatter "none": Y reverts to this dataset's numeric columns; key clears
+        // innerHTML: column names escaped via colOptions()/escHtml()
+        document.getElementById('mYCol').innerHTML = colOptions(null, false);
+        const jk = document.getElementById('mJoinKey');
+        // innerHTML: static option markup — no user data
+        if (jk) jk.innerHTML = '<option value="">Select key…</option>';
+        return;
+      }
       const numeric = jds.headers.filter(c => classifyColumn(jds.rows, c) === 'numeric');
       // innerHTML: column names escaped via escHtml()
       document.getElementById('mYCol').innerHTML = numeric.map(c =>
@@ -5672,14 +5715,32 @@ function buildScatterTrace(series, datasets) {
   const ds = datasets.find(d => d.id === series.datasetId);
   if (!ds) return { traces: [], error: 'Dataset not found.' };
 
-  const rows = applyFilters(ds.rows, series.filters || [], series.filterLogic || 'and');
+  let rows = applyFilters(ds.rows, series.filters || [], series.filterLogic || 'and');
   if (!rows.length) return { traces: [], error: 'No rows pass the active filters.' };
 
   if (!series.xCol || !series.yCol) return { traces: [], error: 'X and Y columns are required.' };
 
-  const isDatetime = classifyColumn(ds.rows, series.xCol) === 'datetime';
+  let warning = null;
+  let isDatetime = classifyColumn(ds.rows, series.xCol) === 'datetime';
   let xV, yV, eV = null;
-  if (isDatetime) {
+  if (series.joinDatasetId) {
+    // Optional cross-dataset join (workspace ergonomics): X from the primary
+    // dataset, Y from the join dataset, matched on a shared key — reuses the
+    // parity inner join. Pairs stay index-aligned (mA[i] ↔ mB[i]) and `rows`
+    // becomes the matched primary rows, so the rows[i] ↔ xV[i] ↔ yV[i]
+    // invariant every downstream encoding relies on holds exactly as the
+    // no-join path (the Phase-1 pairing-bug guard — see the alignment test).
+    const joinDs = datasets.find(d => d.id === series.joinDatasetId);
+    if (!joinDs) return { traces: [], error: 'Join dataset not found.' };
+    if (!series.joinKey) return { traces: [], error: 'Join key column is required for the dataset join.' };
+    const { mA, mB } = innerJoinRows(rows, joinDs.rows, series.joinKey);
+    if (!mA.length) return { traces: [], error: 'No rows matched on the join key. Check the key column values.' };
+    if (isDatetime) { warning = 'Datetime X is not supported with a dataset join — treated as numeric.'; isDatetime = false; }
+    rows = mA;
+    xV = colVals(mA, series.xCol);
+    yV = colVals(mB, series.yCol);
+    if (series.errCol) eV = colVals(mA, series.errCol);
+  } else if (isDatetime) {
     const dt = datetimeXY(ds, rows, series.xCol, series.yCol, series.errCol);
     if (dt.error) return { traces: [], error: dt.error };
     ({ xV, yV, eV } = dt);
@@ -5697,7 +5758,6 @@ function buildScatterTrace(series, datasets) {
   // categorical path needs row-aligned points, so it falls back to a single
   // solid trace on a datetime X axis — datetimeXY drops/realigns pairs, the
   // same reason size-by punts on datetime.
-  let warning = null;
   let colorMode = 'solid';
   let colorInfo = null;
   if (series.colorCol) {

@@ -109,7 +109,15 @@ function renderDynamicFields(existing) {
   if (mjd) {
     mjd.addEventListener('change', () => {
       const jds = appState.datasets.find(d => d.id === mjd.value);
-      if (!jds) return;
+      if (!jds) {
+        // scatter "none": Y reverts to this dataset's numeric columns; key clears
+        // innerHTML: column names escaped via colOptions()/escHtml()
+        document.getElementById('mYCol').innerHTML = colOptions(null, false);
+        const jk = document.getElementById('mJoinKey');
+        // innerHTML: static option markup — no user data
+        if (jk) jk.innerHTML = '<option value="">Select key…</option>';
+        return;
+      }
       const numeric = jds.headers.filter(c => classifyColumn(jds.rows, c) === 'numeric');
       // innerHTML: column names escaped via escHtml()
       document.getElementById('mYCol').innerHTML = numeric.map(c =>

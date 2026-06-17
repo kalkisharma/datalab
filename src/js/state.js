@@ -21,8 +21,8 @@ const VERSION = '2.10.0';
 // Series shape (entries in appState.series):
 // {
 //   id, datasetId, xCol, yCol, colorCol, chartType,
-//   // parity-specific (only when chartType === 'parity'):
-//   joinDatasetId, joinKey, showBands, band5, band10,
+//   // join: joinDatasetId, joinKey — parity always; scatter optional (workspace ergonomics)
+//   // parity-only: showBands, band5, band10
 //   // contour (Phase 17): interpolate (bool) — grid scattered (x,y,z) when true;
 //   //                      showPoints (bool) — overlay sample locations
 

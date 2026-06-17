@@ -262,6 +262,14 @@ function saveModalSeries() {
     if (!series.joinKey)       { err.textContent = 'Please select a join key.';     return false; }
   }
 
+  // Scatter optional cross-dataset join (workspace ergonomics)
+  if (chartType === 'scatter') {
+    const jd = document.getElementById('mJoinDataset')?.value || null;
+    series.joinDatasetId = jd;
+    series.joinKey = jd ? (document.getElementById('mJoinKey')?.value || null) : null;
+    if (jd && !series.joinKey) { err.textContent = 'Select a join key, or clear the join dataset.'; return false; }
+  }
+
   if (_editingSeriesId) {
     const idx = appState.series.findIndex(s => s.id === _editingSeriesId);
     if (idx >= 0) appState.series[idx] = series;
