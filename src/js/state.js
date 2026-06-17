@@ -30,7 +30,7 @@ const VERSION = '2.10.0';
 //   //                errMode ('sd'|'sem'|null — mean only)
 //   // scatter/line (Phase 9): errCol (± column), trendline (scatter only)
 //   // subplots (Phase 10): cell { row, col } 1-based, optional (default 1·1)
-//   // all series:
+//   // all series: legendHide (bool) — suppress this series' legend entries (workspace ergonomics)
 //   filters: [{ col, op, value, enabled }],
 //   style:   { color, markerSize, opacity, lineWidth }
 // }
@@ -55,6 +55,7 @@ function makeDefaultPlotConfig() {
     yLabelLocked: false,
     annotPos:     null,   // { x, y } paper coords; null = default
     legendShow:   true,
+    statsShow:    true,   // parity NSE/MAE/RMSE box — toggle like the legend (workspace ergonomics)
     legendPos:    null,   // { x, y }; null = default corner
     xMin: '', xMax: '', yMin: '', yMax: '', // manual axis ranges ('' = auto)
     // Log axis toggles (Phase 9 — additive with defaults, no migration §3)

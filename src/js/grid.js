@@ -112,6 +112,7 @@ function syncActivePlotInputs() {
   g('xLogChk').checked = cfg.xLog ?? false;
   g('yLogChk').checked = cfg.yLog ?? false;
   g('showLegend').checked = cfg.legendShow ?? true;
+  g('showStats').checked = cfg.statsShow ?? true;
   // Subplot grid controls mirror the active plot (Phase 10)
   const gr = activePlot().grid;
   g('gridRows').value = String(gr?.rows ?? 1);

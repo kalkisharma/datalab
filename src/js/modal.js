@@ -90,6 +90,10 @@ function buildModalBody(existing) {
       <input type="text" class="ctrl-input" id="mLegendLabel"
              value="${escHtml(existing?.legendLabel || '')}" placeholder="auto" />
     </div>
+    <div class="check-row">
+      <label><input type="checkbox" id="mLegendHide" ${existing?.legendHide ? 'checked' : ''} />
+        Hide this series from the legend</label>
+    </div>
     ${appState.plots.length > 1 ? `
     <div class="modal-field">
       <label class="modal-label" for="mPlot">Plot</label>
@@ -241,6 +245,7 @@ function saveModalSeries() {
     colorCol:  document.getElementById('mColorCol')?.value || null,
     colorbarLabel: document.getElementById('mColorbarLabel')?.value.trim() || null, // numeric color-by (Phase 16)
     legendLabel:   document.getElementById('mLegendLabel')?.value.trim() || null,   // overrides auto legend text (Phase 16)
+    legendHide:    document.getElementById('mLegendHide')?.checked ?? false,        // suppress legend entries (workspace ergonomics)
     filters:   _modalFilters.map(f => ({ ...f })),
     filterLogic: document.getElementById('mFilterLogic')?.value || 'and',
     style,

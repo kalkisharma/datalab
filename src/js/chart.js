@@ -122,6 +122,7 @@ function renderOnePlot(plot) {
       if (grid) { t.xaxis = 'x' + sfx; t.yaxis = 'y' + sfx; }
       else { delete t.xaxis; delete t.yaxis; }
       if (!grid && wantsRight) t.yaxis = 'y2';
+      if (s.legendHide) t.showlegend = false; // hide this series from the legend (workspace ergonomics)
       traces.push(t);
     }
     if (!grid) {
@@ -203,7 +204,7 @@ function renderOnePlot(plot) {
 
   showPanelErrors(plot.id, errors, warnings);
 
-  appendParityStats(layout, parityResults, plot, srParts);
+  if (plot.plotConfig.statsShow !== false) appendParityStats(layout, parityResults, plot, srParts); // stats-box toggle (workspace ergonomics)
   appendNotes(layout, plot, pd, srParts);
   applyColorbarFonts(traces); // colorbar title/ticks follow the typography sliders (Phase 16)
 

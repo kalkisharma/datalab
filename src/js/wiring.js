@@ -216,6 +216,10 @@ function init() {
     activePlot().plotConfig.legendShow = g('showLegend').checked;
     if (appState.plotRendered) renderPlot();
   });
+  g('showStats').addEventListener('change', () => {
+    activePlot().plotConfig.statsShow = g('showStats').checked;
+    if (appState.plotRendered) renderPlot();
+  });
 
   // Notes (Phase 14) — added to the ACTIVE plot at center; dragging
   // persists via the relayout hook in chart.js

@@ -317,6 +317,7 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
           <label><input type="checkbox" id="majorGrid" checked /> Major grid</label>
           <label><input type="checkbox" id="minorGrid" /> Minor grid</label>
           <label><input type="checkbox" id="showLegend" checked /> Legend</label>
+          <label><input type="checkbox" id="showStats" checked /> Stats box</label>
         </div>
         <!-- Notes (Phase 14) — free-text annotations on the ACTIVE plot -->
         <label class="ctrl-label" style="margin-top:10px;">Notes
@@ -688,7 +689,7 @@ const VERSION = '2.10.0';
 //   //                errMode ('sd'|'sem'|null — mean only)
 //   // scatter/line (Phase 9): errCol (± column), trendline (scatter only)
 //   // subplots (Phase 10): cell { row, col } 1-based, optional (default 1·1)
-//   // all series:
+//   // all series: legendHide (bool) — suppress this series' legend entries (workspace ergonomics)
 //   filters: [{ col, op, value, enabled }],
 //   style:   { color, markerSize, opacity, lineWidth }
 // }
@@ -713,6 +714,7 @@ function makeDefaultPlotConfig() {
     yLabelLocked: false,
     annotPos:     null,   // { x, y } paper coords; null = default
     legendShow:   true,
+    statsShow:    true,   // parity NSE/MAE/RMSE box — toggle like the legend (workspace ergonomics)
     legendPos:    null,   // { x, y }; null = default corner
     xMin: '', xMax: '', yMin: '', yMax: '', // manual axis ranges ('' = auto)
     // Log axis toggles (Phase 9 — additive with defaults, no migration §3)
@@ -1493,6 +1495,10 @@ function buildModalBody(existing) {
       <input type="text" class="ctrl-input" id="mLegendLabel"
              value="${escHtml(existing?.legendLabel || '')}" placeholder="auto" />
     </div>
+    <div class="check-row">
+      <label><input type="checkbox" id="mLegendHide" ${existing?.legendHide ? 'checked' : ''} />
+        Hide this series from the legend</label>
+    </div>
     ${appState.plots.length > 1 ? `
     <div class="modal-field">
       <label class="modal-label" for="mPlot">Plot</label>
@@ -1644,6 +1650,7 @@ function saveModalSeries() {
     colorCol:  document.getElementById('mColorCol')?.value || null,
     colorbarLabel: document.getElementById('mColorbarLabel')?.value.trim() || null, // numeric color-by (Phase 16)
     legendLabel:   document.getElementById('mLegendLabel')?.value.trim() || null,   // overrides auto legend text (Phase 16)
+    legendHide:    document.getElementById('mLegendHide')?.checked ?? false,        // suppress legend entries (workspace ergonomics)
     filters:   _modalFilters.map(f => ({ ...f })),
     filterLogic: document.getElementById('mFilterLogic')?.value || 'and',
     style,
@@ -2206,6 +2213,7 @@ function syncActivePlotInputs() {
   g('xLogChk').checked = cfg.xLog ?? false;
   g('yLogChk').checked = cfg.yLog ?? false;
   g('showLegend').checked = cfg.legendShow ?? true;
+  g('showStats').checked = cfg.statsShow ?? true;
   // Subplot grid controls mirror the active plot (Phase 10)
   const gr = activePlot().grid;
   g('gridRows').value = String(gr?.rows ?? 1);
@@ -2445,6 +2453,7 @@ function renderOnePlot(plot) {
       if (grid) { t.xaxis = 'x' + sfx; t.yaxis = 'y' + sfx; }
       else { delete t.xaxis; delete t.yaxis; }
       if (!grid && wantsRight) t.yaxis = 'y2';
+      if (s.legendHide) t.showlegend = false; // hide this series from the legend (workspace ergonomics)
       traces.push(t);
     }
     if (!grid) {
@@ -2526,7 +2535,7 @@ function renderOnePlot(plot) {
 
   showPanelErrors(plot.id, errors, warnings);
 
-  appendParityStats(layout, parityResults, plot, srParts);
+  if (plot.plotConfig.statsShow !== false) appendParityStats(layout, parityResults, plot, srParts); // stats-box toggle (workspace ergonomics)
   appendNotes(layout, plot, pd, srParts);
   applyColorbarFonts(traces); // colorbar title/ticks follow the typography sliders (Phase 16)
 
@@ -5058,6 +5067,10 @@ function init() {
   // Legend visibility is per plot (active) so sessions round-trip it
   g('showLegend').addEventListener('change', () => {
     activePlot().plotConfig.legendShow = g('showLegend').checked;
+    if (appState.plotRendered) renderPlot();
+  });
+  g('showStats').addEventListener('change', () => {
+    activePlot().plotConfig.statsShow = g('showStats').checked;
     if (appState.plotRendered) renderPlot();
   });
 
