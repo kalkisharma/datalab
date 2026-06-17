@@ -8,15 +8,27 @@ function safeFilename(s, fallback) {
   return String(s || '').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || fallback;
 }
 
+// Export dimensions: the Export-size sliders, or — when "Match on-screen size"
+// is ticked — the panel's live rendered pixel box (workspace ergonomics). The
+// guard falls back to the sliders if the panel has no measured width yet.
+function exportDims(pd) {
+  const fw = parseInt(document.getElementById('figW').value);
+  const fh = parseInt(document.getElementById('figH').value);
+  if (document.getElementById('matchScreen')?.checked && pd && pd.clientWidth) {
+    return { w: Math.round(pd.clientWidth), h: Math.round(pd.clientHeight) };
+  }
+  return { w: fw, h: fh };
+}
+
 function downloadPlot(format = 'png') {
-  // Exports the ACTIVE panel; Export size sliders define the export size
-  // (panels themselves autosize to their grid cell — Phase 7)
+  // Exports the ACTIVE panel at the Export size, or the panel's on-screen
+  // size when "Match on-screen size" is on (panels autosize to their cell)
   const filename = safeFilename(activePlot().plotConfig.title || activePlot().name, 'datalab_plot');
-  const w = parseInt(document.getElementById('figW').value);
-  const h = parseInt(document.getElementById('figH').value);
+  const pd = activePlotDiv();
+  const { w, h } = exportDims(pd);
   // Note: scattergl traces (WebGL, >10k points) are rasterized inside the
   // SVG by Plotly — vector output applies to axes/text and SVG traces
-  Plotly.downloadImage(activePlotDiv(), { format, width: w, height: h, filename });
+  Plotly.downloadImage(pd, { format, width: w, height: h, filename });
 }
 
 // ── Export all (Phase 8) ──────────────────────────────────────────────────
@@ -25,8 +37,6 @@ function downloadPlot(format = 'png') {
 // the README); the maintainer chose individual files over a ZIP.
 
 async function exportAllPlots() {
-  const w = parseInt(document.getElementById('figW').value);
-  const h = parseInt(document.getElementById('figH').value);
   const btn  = document.getElementById('exportAllBtn');
   const orig = btn.textContent;
   btn.disabled = true;
@@ -37,6 +47,7 @@ async function exportAllPlots() {
       if (!pd || !pd.data || !pd.data.length) continue; // skip empty panels
       n++;
       btn.textContent = `${n}…`;
+      const { w, h } = exportDims(pd); // per panel — honors "Match on-screen size"
       const base = safeFilename(plot.plotConfig.title || plot.name, `plot_${n}`);
       await Plotly.downloadImage(pd, { format: 'png', width: w, height: h,
         filename: `${String(n).padStart(2, '0')}_${base}` });

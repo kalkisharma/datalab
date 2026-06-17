@@ -84,3 +84,32 @@ test('copy then paste clones a series into the active plot, original untouched',
   expect(out.cloneXY).toEqual(['x', 'y']);    // definition carried over
   expect(out.origName).toBe('Orig');          // original untouched
 });
+
+// ── #4 Export at on-screen resolution ───────────────────────────────────────
+test('"match on-screen size" exports at the panel size, else the sliders', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'x,y\n1,2\n2,3\n3,4', '_we_ex.csv');
+  const out = await page.evaluate(() => {
+    const ds = appState.datasets[0], pid = appState.plots[0].id;
+    appState.series = [{ id: 's1', name: 'A', datasetId: ds.id, plotId: pid,
+                         chartType: 'scatter', xCol: 'x', yCol: 'y' }];
+    renderPlot();
+    const pd = document.getElementById('plotDiv-' + pid);
+    const calls = [], orig = Plotly.downloadImage;
+    Plotly.downloadImage = (gd, opts) => { calls.push(opts); return Promise.resolve('data:,'); };
+    document.getElementById('matchScreen').checked = false;
+    downloadPlot('png');
+    document.getElementById('matchScreen').checked = true;
+    downloadPlot('png');
+    Plotly.downloadImage = orig;
+    return { off: calls[0], on: calls[1],
+             cw: Math.round(pd.clientWidth), ch: Math.round(pd.clientHeight),
+             figW: parseInt(document.getElementById('figW').value),
+             figH: parseInt(document.getElementById('figH').value) };
+  });
+  expect(out.off.width).toBe(out.figW);   // sliders when off
+  expect(out.off.height).toBe(out.figH);
+  expect(out.cw).toBeGreaterThan(0);       // panel is really measured
+  expect(out.on.width).toBe(out.cw);       // panel size when on
+  expect(out.on.height).toBe(out.ch);
+});

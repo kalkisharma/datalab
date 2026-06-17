@@ -197,6 +197,10 @@ function init() {
   syncSlider('gridWidth',  'gridWidthVal',  '');
   syncSliderNum('figW', 'figWNum');
   syncSliderNum('figH', 'figHNum');
+  // "Match on-screen size" greys the export-size sliders (workspace ergonomics)
+  document.getElementById('matchScreen').addEventListener('change', e => {
+    ['figW', 'figWNum', 'figH', 'figHNum'].forEach(id => { document.getElementById(id).disabled = e.target.checked; });
+  });
 
   // Re-render on style changes
   ['plotBg','cmapSelect','edgeColor','majorGrid','minorGrid','frameColor','gridColor'].forEach(id => {
