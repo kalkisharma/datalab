@@ -1,6 +1,8 @@
 // decorations.js — plot-level decorations applied by renderOnePlot:
-// right Y axis (dual-Y) and free-text notes (split from chart.js at the
-// Phase 14 exit refactor review — function extraction, suite-verified)
+// right Y axis (dual-Y), parity stats annotations, free-text notes, and log
+// interactions (right-axis/notes/log split from chart.js at the Phase 14
+// exit refactor review; parity stats joined them at the v2.10.0 §6 review —
+// all function extractions, suite-verified)
 
 // Right Y axis is meaningful only for value-over-x types (Phase 14);
 // parity (equal axes), histogram/boxplot/violin (distribution), contour/
@@ -31,6 +33,40 @@ function applyRightAxis(layout, leftSeries, rightSeries, leftColor, rightColor, 
     warnings.push({ name: 'Right axis', warning:
       `"${dupCol.yCol}" is on BOTH axes — dual axes for the same quantity mislead; consider one axis.` });
   }
+}
+
+// Parity stats annotations (split from chart.js at the v2.10.0 §6 refactor
+// review — parity-specific presentation lifted out of the generic
+// dispatcher into the decorations family): one NSE/MAE/RMSE/N box per
+// parity series, stacked; a single parity series keeps its draggable stored
+// position. Sets layout.annotations and prepends screen-reader lines.
+// Runs BEFORE appendNotes so notes append after these (see _noteOffset).
+function appendParityStats(layout, parityResults, plot, srParts) {
+  if (!parityResults.length) return;
+  const fmt = v => isNaN(v) ? 'N/A' : Number(v).toPrecision(4);
+  const th  = plotTheme();
+  const single = parityResults.length === 1;
+  const base = single ? (plot.plotConfig.annotPos ?? { x: 0.98, y: 0.04 })
+                      : { x: 0.98, y: 0.04 };
+  layout.annotations = parityResults.map((p, i) => ({
+    x: base.x, y: base.y + i * 0.24,
+    xref: 'paper', yref: 'paper',
+    xanchor: base.x > 0.5 ? 'right' : 'left',
+    yanchor: base.y < 0.5 ? 'bottom' : 'top',
+    // Series names are user data — escHtml applied (Plotly pseudo-HTML)
+    text: (single ? '' : `<b>${escHtml(p.name)}</b><br>`)
+      + `NSE = ${fmt(p.stats.nse)}<br>MAE = ${fmt(p.stats.mae)}<br>RMSE = ${fmt(p.stats.rmse)}<br>N = ${p.n}`,
+    showarrow: false,
+    bgcolor: th.annotBg,
+    bordercolor: th.annotBorder, borderwidth: 1, borderpad: 8,
+    font: { family: 'JetBrains Mono,monospace',
+            size: parseFloat(document.getElementById('fsAnnot')?.value) || 11,
+            color: th.title },
+    align: 'left',
+  }));
+  parityResults.forEach(p => srParts.unshift(
+    `${p.name} statistics: NSE=${fmt(p.stats.nse)}, MAE=${fmt(p.stats.mae)}, RMSE=${fmt(p.stats.rmse)}, N=${p.n}`
+  ));
 }
 
 // Free-text notes (Phase 14): appended AFTER the parity annotations so

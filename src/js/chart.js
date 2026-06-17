@@ -1,5 +1,8 @@
-// chart.js — renderPlot dispatcher (per-plot, Phase 7) and trace cache
-// (theme + base layout live in layout.js; PNG/ZIP export in export.js)
+// chart.js — renderPlot dispatcher (per-plot, Phase 7)
+// (theme + base layout live in layout.js; PNG/ZIP export in export.js;
+//  the per-series trace cache lives in render-cache.js — buildSeriesResult
+//  + pruneTraceCache; decoration helpers — right axis, parity stats, notes,
+//  log interactions — live in decorations.js)
 
 const RENDERERS = {
   scatter:   buildScatterTrace,
@@ -13,45 +16,12 @@ const RENDERERS = {
   heatmap:   buildHeatmapTrace,
 };
 
-// (series14RightOk / applyRightAxis / appendNotes live in decorations.js —
-// Phase 14 exit refactor review)
-
-// ── Trace cache (Phase 2, Performance) ────────────────────────────────────
-//
-// Keyed per series id; the key captures everything a trace depends on:
-// the series definition itself, the revision of every dataset it reads,
-// and the global style panel values that buildMarkerStyle consumes.
-// A style-only re-render reuses every cached trace.
-
-const _traceCache = new Map(); // series.id → { key, result }
-
-function globalStyleKey() {
-  return ['markerSize', 'markerOpacity', 'edgeColor', 'edgeWidth', 'cmapSelect']
-    .map(id => document.getElementById(id)?.value ?? '')
-    .join('|');
-}
-
-function buildSeriesResult(s, ctx) {
-  const key = JSON.stringify(s)
-    + '|' + datasetRev(s.datasetId)
-    + (s.joinDatasetId ? '|' + datasetRev(s.joinDatasetId) : '')
-    + '|' + globalStyleKey()
-    + '|x' + (ctx?.xLog ? 1 : 0); // plot context affects histogram binning (Phase 13)
-  const cached = _traceCache.get(s.id);
-  if (cached && cached.key === key) return cached.result;
-  const result = RENDERERS[s.chartType](s, appState.datasets, ctx);
-  _traceCache.set(s.id, { key, result });
-  return result;
-}
-
 // ── renderPlot — renders the whole grid ───────────────────────────────────
 
 function renderPlot() {
-  // Prune cache entries for deleted series BEFORE the empty return —
-  // deleting the last series must release its cached traces (Phase 4)
-  for (const id of [..._traceCache.keys()]) {
-    if (!appState.series.some(s => s.id === id)) _traceCache.delete(id);
-  }
+  // Release cached traces for deleted series BEFORE the empty return —
+  // deleting the last series must free its cached traces (Phase 4)
+  pruneTraceCache(appState.series);
 
   if (!appState.series.length) {
     if (appState.plotRendered) clearPlot(); // everything deleted → release all panels
@@ -233,35 +203,7 @@ function renderOnePlot(plot) {
 
   showPanelErrors(plot.id, errors, warnings);
 
-  // Stats annotations — one per parity series, stacked; single parity keeps
-  // its draggable stored position
-  if (parityResults.length) {
-    const fmt = v => isNaN(v) ? 'N/A' : Number(v).toPrecision(4);
-    const th  = plotTheme();
-    const single = parityResults.length === 1;
-    const base = single ? (plot.plotConfig.annotPos ?? { x: 0.98, y: 0.04 })
-                        : { x: 0.98, y: 0.04 };
-    layout.annotations = parityResults.map((p, i) => ({
-      x: base.x, y: base.y + i * 0.24,
-      xref: 'paper', yref: 'paper',
-      xanchor: base.x > 0.5 ? 'right' : 'left',
-      yanchor: base.y < 0.5 ? 'bottom' : 'top',
-      // Series names are user data — escHtml applied (Plotly pseudo-HTML)
-      text: (single ? '' : `<b>${escHtml(p.name)}</b><br>`)
-        + `NSE = ${fmt(p.stats.nse)}<br>MAE = ${fmt(p.stats.mae)}<br>RMSE = ${fmt(p.stats.rmse)}<br>N = ${p.n}`,
-      showarrow: false,
-      bgcolor: th.annotBg,
-      bordercolor: th.annotBorder, borderwidth: 1, borderpad: 8,
-      font: { family: 'JetBrains Mono,monospace',
-              size: parseFloat(document.getElementById('fsAnnot')?.value) || 11,
-              color: th.title },
-      align: 'left',
-    }));
-    parityResults.forEach(p => srParts.unshift(
-      `${p.name} statistics: NSE=${fmt(p.stats.nse)}, MAE=${fmt(p.stats.mae)}, RMSE=${fmt(p.stats.rmse)}, N=${p.n}`
-    ));
-  }
-
+  appendParityStats(layout, parityResults, plot, srParts);
   appendNotes(layout, plot, pd, srParts);
   applyColorbarFonts(traces); // colorbar title/ticks follow the typography sliders (Phase 16)
 

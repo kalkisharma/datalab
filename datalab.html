@@ -2266,29 +2266,16 @@ function clearPanel(pid) {
 }
 
 
-// chart.js — renderPlot dispatcher (per-plot, Phase 7) and trace cache
-// (theme + base layout live in layout.js; PNG/ZIP export in export.js)
-
-const RENDERERS = {
-  scatter:   buildScatterTrace,
-  line:      buildLineTrace,
-  bar:       buildBarTrace,
-  parity:    buildParityTrace,
-  contour:   buildContourTrace,
-  histogram: buildHistogramTrace,
-  boxplot:   buildBoxplotTrace,
-  violin:    buildViolinTrace,
-  heatmap:   buildHeatmapTrace,
-};
-
-// (series14RightOk / applyRightAxis / appendNotes live in decorations.js —
-// Phase 14 exit refactor review)
-
-// ── Trace cache (Phase 2, Performance) ────────────────────────────────────
+// render-cache.js — per-series trace memoization (Performance, Phase 2;
+// split from chart.js at the v2.10.0 §6 refactor review — function
+// extraction, suite-verified). The dispatcher (chart.js) builds traces
+// through buildSeriesResult and releases deleted series through
+// pruneTraceCache. RENDERERS lives in chart.js; both share global scope
+// after the build concatenation, so the call resolves at render time.
 //
-// Keyed per series id; the key captures everything a trace depends on:
-// the series definition itself, the revision of every dataset it reads,
-// and the global style panel values that buildMarkerStyle consumes.
+// The key captures everything a trace depends on: the series definition,
+// the revision of every dataset it reads, the global style panel values
+// buildMarkerStyle consumes, and the plot context (xLog → histogram bins).
 // A style-only re-render reuses every cached trace.
 
 const _traceCache = new Map(); // series.id → { key, result }
@@ -2297,6 +2284,14 @@ function globalStyleKey() {
   return ['markerSize', 'markerOpacity', 'edgeColor', 'edgeWidth', 'cmapSelect']
     .map(id => document.getElementById(id)?.value ?? '')
     .join('|');
+}
+
+// Drop cache entries for series no longer present so their traces are
+// released (Phase 4: deleting the last series must free its cached traces).
+function pruneTraceCache(seriesList) {
+  for (const id of [..._traceCache.keys()]) {
+    if (!seriesList.some(s => s.id === id)) _traceCache.delete(id);
+  }
 }
 
 function buildSeriesResult(s, ctx) {
@@ -2312,14 +2307,31 @@ function buildSeriesResult(s, ctx) {
   return result;
 }
 
+
+// chart.js — renderPlot dispatcher (per-plot, Phase 7)
+// (theme + base layout live in layout.js; PNG/ZIP export in export.js;
+//  the per-series trace cache lives in render-cache.js — buildSeriesResult
+//  + pruneTraceCache; decoration helpers — right axis, parity stats, notes,
+//  log interactions — live in decorations.js)
+
+const RENDERERS = {
+  scatter:   buildScatterTrace,
+  line:      buildLineTrace,
+  bar:       buildBarTrace,
+  parity:    buildParityTrace,
+  contour:   buildContourTrace,
+  histogram: buildHistogramTrace,
+  boxplot:   buildBoxplotTrace,
+  violin:    buildViolinTrace,
+  heatmap:   buildHeatmapTrace,
+};
+
 // ── renderPlot — renders the whole grid ───────────────────────────────────
 
 function renderPlot() {
-  // Prune cache entries for deleted series BEFORE the empty return —
-  // deleting the last series must release its cached traces (Phase 4)
-  for (const id of [..._traceCache.keys()]) {
-    if (!appState.series.some(s => s.id === id)) _traceCache.delete(id);
-  }
+  // Release cached traces for deleted series BEFORE the empty return —
+  // deleting the last series must free its cached traces (Phase 4)
+  pruneTraceCache(appState.series);
 
   if (!appState.series.length) {
     if (appState.plotRendered) clearPlot(); // everything deleted → release all panels
@@ -2501,35 +2513,7 @@ function renderOnePlot(plot) {
 
   showPanelErrors(plot.id, errors, warnings);
 
-  // Stats annotations — one per parity series, stacked; single parity keeps
-  // its draggable stored position
-  if (parityResults.length) {
-    const fmt = v => isNaN(v) ? 'N/A' : Number(v).toPrecision(4);
-    const th  = plotTheme();
-    const single = parityResults.length === 1;
-    const base = single ? (plot.plotConfig.annotPos ?? { x: 0.98, y: 0.04 })
-                        : { x: 0.98, y: 0.04 };
-    layout.annotations = parityResults.map((p, i) => ({
-      x: base.x, y: base.y + i * 0.24,
-      xref: 'paper', yref: 'paper',
-      xanchor: base.x > 0.5 ? 'right' : 'left',
-      yanchor: base.y < 0.5 ? 'bottom' : 'top',
-      // Series names are user data — escHtml applied (Plotly pseudo-HTML)
-      text: (single ? '' : `<b>${escHtml(p.name)}</b><br>`)
-        + `NSE = ${fmt(p.stats.nse)}<br>MAE = ${fmt(p.stats.mae)}<br>RMSE = ${fmt(p.stats.rmse)}<br>N = ${p.n}`,
-      showarrow: false,
-      bgcolor: th.annotBg,
-      bordercolor: th.annotBorder, borderwidth: 1, borderpad: 8,
-      font: { family: 'JetBrains Mono,monospace',
-              size: parseFloat(document.getElementById('fsAnnot')?.value) || 11,
-              color: th.title },
-      align: 'left',
-    }));
-    parityResults.forEach(p => srParts.unshift(
-      `${p.name} statistics: NSE=${fmt(p.stats.nse)}, MAE=${fmt(p.stats.mae)}, RMSE=${fmt(p.stats.rmse)}, N=${p.n}`
-    ));
-  }
-
+  appendParityStats(layout, parityResults, plot, srParts);
   appendNotes(layout, plot, pd, srParts);
   applyColorbarFonts(traces); // colorbar title/ticks follow the typography sliders (Phase 16)
 
@@ -2600,8 +2584,10 @@ function showPanelErrors(pid, errors, warnings = []) {
 
 
 // decorations.js — plot-level decorations applied by renderOnePlot:
-// right Y axis (dual-Y) and free-text notes (split from chart.js at the
-// Phase 14 exit refactor review — function extraction, suite-verified)
+// right Y axis (dual-Y), parity stats annotations, free-text notes, and log
+// interactions (right-axis/notes/log split from chart.js at the Phase 14
+// exit refactor review; parity stats joined them at the v2.10.0 §6 review —
+// all function extractions, suite-verified)
 
 // Right Y axis is meaningful only for value-over-x types (Phase 14);
 // parity (equal axes), histogram/boxplot/violin (distribution), contour/
@@ -2632,6 +2618,40 @@ function applyRightAxis(layout, leftSeries, rightSeries, leftColor, rightColor, 
     warnings.push({ name: 'Right axis', warning:
       `"${dupCol.yCol}" is on BOTH axes — dual axes for the same quantity mislead; consider one axis.` });
   }
+}
+
+// Parity stats annotations (split from chart.js at the v2.10.0 §6 refactor
+// review — parity-specific presentation lifted out of the generic
+// dispatcher into the decorations family): one NSE/MAE/RMSE/N box per
+// parity series, stacked; a single parity series keeps its draggable stored
+// position. Sets layout.annotations and prepends screen-reader lines.
+// Runs BEFORE appendNotes so notes append after these (see _noteOffset).
+function appendParityStats(layout, parityResults, plot, srParts) {
+  if (!parityResults.length) return;
+  const fmt = v => isNaN(v) ? 'N/A' : Number(v).toPrecision(4);
+  const th  = plotTheme();
+  const single = parityResults.length === 1;
+  const base = single ? (plot.plotConfig.annotPos ?? { x: 0.98, y: 0.04 })
+                      : { x: 0.98, y: 0.04 };
+  layout.annotations = parityResults.map((p, i) => ({
+    x: base.x, y: base.y + i * 0.24,
+    xref: 'paper', yref: 'paper',
+    xanchor: base.x > 0.5 ? 'right' : 'left',
+    yanchor: base.y < 0.5 ? 'bottom' : 'top',
+    // Series names are user data — escHtml applied (Plotly pseudo-HTML)
+    text: (single ? '' : `<b>${escHtml(p.name)}</b><br>`)
+      + `NSE = ${fmt(p.stats.nse)}<br>MAE = ${fmt(p.stats.mae)}<br>RMSE = ${fmt(p.stats.rmse)}<br>N = ${p.n}`,
+    showarrow: false,
+    bgcolor: th.annotBg,
+    bordercolor: th.annotBorder, borderwidth: 1, borderpad: 8,
+    font: { family: 'JetBrains Mono,monospace',
+            size: parseFloat(document.getElementById('fsAnnot')?.value) || 11,
+            color: th.title },
+    align: 'left',
+  }));
+  parityResults.forEach(p => srParts.unshift(
+    `${p.name} statistics: NSE=${fmt(p.stats.nse)}, MAE=${fmt(p.stats.mae)}, RMSE=${fmt(p.stats.rmse)}, N=${p.n}`
+  ));
 }
 
 // Free-text notes (Phase 14): appended AFTER the parity annotations so

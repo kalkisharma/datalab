@@ -58,6 +58,7 @@ const appJs = [
   'src/js/modal-chart-fields.js',
   'src/js/modal-fields.js',
   'src/js/grid.js',
+  'src/js/render-cache.js',
   'src/js/chart.js',
   'src/js/decorations.js',
   'src/js/layout.js',

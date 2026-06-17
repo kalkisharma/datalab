@@ -170,7 +170,8 @@ datalab/
       modal-chart-fields.js — per-chart-type Columns/setup HTML (split from modal-fields, Phase 16)
       filters.js        — filter row UI
       grid.js           — multi-plot live grid, active plot (Phase 7)
-      chart.js          — renderPlot dispatcher, trace cache
+      chart.js          — renderPlot dispatcher (per-plot assembly)
+      render-cache.js   — per-series trace cache (split from chart.js, v2.10.0 §6 review)
       layout.js         — plot theme + base layout (split Phase 6 exit)
       export.js         — PNG/SVG download, ZIP, style presets
       sessions.js       — session export/import + state migrations
@@ -180,7 +181,7 @@ datalab/
       hypothesis.js     — Welch t, ANOVA, MWU, Kruskal–Wallis, paired t, Wilcoxon (split Phase 15)
       expr.js           — safe expression engine for computed columns (Phase 12, §8)
       compare.js        — Compare groups: parametric/rank/paired UI (Phase 13, extended Phase 15)
-      decorations.js    — dual-Y, notes, log interactions (split from chart.js, Phase 14)
+      decorations.js    — dual-Y, parity stats, notes, log interactions (split from chart.js, Phase 14 + v2.10.0)
       dt-preview.js     — paginated Data Tools preview (split from datatools.js, Phase 14)
       datatools.js      — Data Tools modal (Phase 5; preview Phase 9; computed columns Phase 12)
       saves.js          — saved plot snapshots strip
@@ -738,6 +739,8 @@ Exit criteria: parity points color/size correctly and stay aligned through the j
 - **The pre-gridded path is untouched and stays the default.** Interpolation is an explicit opt-in on the contour series ("Interpolate scattered data"), with the method named in the legend/hover — an interpolated surface that doesn't announce itself is a §20 violation, same family as silent aggregation.
 - **Reference test (§20):** grid a known analytic field from scattered samples and compare against the field's true values at data cells (binned mean of samples) and the bounded property at filled cells.
 - **Plotly 3.x API-delta spike (docs-only, §16):** the breaking-change review for Phase 18 runs during Phase 17 — removals/renames affecting the 9 renderers, decorations.js, and the export paths; render parity eyeballed on the bench scenes. Output scopes Phase 18.
+
+**Pre-branch §6 resolution (v2.9.1 review, done on `master` under §2 — suite green, isolated refactor):** the full-team review measured `chart.js` at **331** — the largest source file, and it had been *omitted* from the recorded v2.9.0 §6 sweep (the same enforce-from-memory miss as wiring.js at Phase 14, which the §6 history flags twice). Rather than carry an over-trigger file *into* a phase that adds interpolation-dispatch wiring to it, two seams were extracted ahead of the branch: the per-series trace cache → new `render-cache.js` (40; `buildSeriesResult` + `pruneTraceCache`, a self-contained Performance concern), and the parity stats annotation block → `decorations.js` `appendParityStats` (parity-specific presentation lifted out of the generic dispatcher into the decorations family). `chart.js` 331 → **273**, comfortably under-trigger with Phase-17 headroom; suite 163 green before and after (behavior-preserving). The Phase 17 exit sweep still runs per §4.
 
 Exit criteria (provisional): the interpolated surface matches an independently-computed reference on a known analytic field (§20); nothing renders outside the hull; the gridded path behaves identically to v2.8.0; method always visible; all prior tests green.
 
