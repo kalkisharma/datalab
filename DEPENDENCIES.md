@@ -66,6 +66,11 @@ not the URL, is authoritative** — a CDN can change; the bytes cannot.
     Plotly 3.x API-delta spike ran this phase (LOW RISK — DataLab's surface
     is clean against every 3.0.0 removal; target 3.6.0; see PLANNING Phase
     18); the migration itself remains Phase 18. Pins stand.
+  - v2.11.0 exit: no changes — the Workspace & Encoding Ergonomics features
+    (copy/paste series, legend/stats/plot visibility toggles, on-screen export
+    sizing, subplot shared encoding, optional scatter join) use Plotly 2.32.0
+    natives and reuse the existing parity `innerJoinRows`; zero new bundled
+    dependencies. Pins stand.
 
 ## Updating a library
 

@@ -1,5 +1,33 @@
 # Changelog
 
+## v2.11.0 — Workspace & Encoding Ergonomics
+
+### Features
+- **Copy/paste series** — copy a series and paste it into the active plot, to
+  reuse it across plots without rebuilding it.
+- **Hide a series from the legend** — a per-series toggle drops its legend
+  entry while keeping it plotted.
+- **Hide the parity stats box** — a "Stats box" toggle hides the NSE/MAE/RMSE
+  annotation, the same way the legend can be hidden.
+- **Show / hide plots** — each panel gains a hide toggle that collapses the
+  plot to a restorable chip (previously a plot could only be deleted); the last
+  visible plot can't be hidden.
+- **Export at on-screen size** — a "Match on-screen size" option exports
+  PNG/SVG at the panel's displayed size instead of the Export-size sliders.
+- **Subplot shared encoding** — one Color-by / Size-by applied to every cell of
+  a subplot grid, instead of setting it on each series.
+- **Cross-dataset scatter join (optional)** — a scatter series can inner-join a
+  second dataset on a shared key (X from the primary dataset, Y from the joined
+  one); only matched rows are plotted. Off by default — scatter plots all rows
+  as before.
+
+## Schema
+### v2.11.0 (state version unchanged at 2 — all additive)
+- `series.legendHide`; `plot.hidden`; `plotConfig.statsShow`,
+  `plotConfig.sharedColorCol`, `plotConfig.sharedSizeCol` (all optional).
+  Scatter series may now also carry the existing `joinDatasetId`/`joinKey`
+  (no new field). v2.0–v2.10 session files load unchanged.
+
 ## v2.10.0 — Interpolated Contours
 
 ### Features
