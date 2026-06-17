@@ -227,7 +227,11 @@ function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
       <div class="modal-field">
         <label class="modal-label" for="mZCol">Z column (numeric) <span class="required">*</span></label>
         <select id="mZCol">${colOptions(existing?.zCol, false)}</select>
-        <div class="field-hint">Contour needs pre-gridded data: every combination of the unique X and Y values exactly once (e.g. a parameter sweep). Scattered points need gridding first.</div>
+        <div class="field-hint">By default contour needs pre-gridded data: every combination of the unique X and Y values exactly once (e.g. a parameter sweep). To plot scattered points, tick Interpolate below.</div>
+      </div>
+      <div class="check-row">
+        <label><input type="checkbox" id="mInterpolate" ${existing?.interpolate ? 'checked' : ''} />
+          Interpolate scattered data <span class="field-hint" style="margin:0">(grids scattered X, Y, Z; no values outside the data's support; method named on hover)</span></label>
       </div>`;
   }
   return html;

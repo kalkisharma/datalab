@@ -215,6 +215,7 @@ function saveModalSeries() {
     xCol,
     yCol,
     zCol:      zCol || null,                                  // contour only
+    interpolate: document.getElementById('mInterpolate')?.checked ?? false,  // contour only (Phase 17)
     binCount:  Number(document.getElementById('mBinCount')?.value) || null, // histogram only
     // fitDist supersedes the Phase 5 fitNormal boolean; old sessions are
     // read via the renderer's fitDist ?? fitNormal fallback

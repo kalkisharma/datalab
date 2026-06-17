@@ -1,6 +1,6 @@
-// contour-interp.spec.js — gridScattered numerics for interpolated contours
-// (Phase 17, v2.10.0). Tests the gridding core in isolation, before the
-// renderer/modal wiring is built (deliverable order per §18).
+// contour-interp.spec.js — interpolated contours (Phase 17, v2.10.0): the
+// gridScattered numerics core (in isolation) plus the buildContourTrace
+// opt-in renderer wiring.
 //
 // Reference policy (STANDARDS §20 — derived from the definition, not the code):
 // - Exactness: a LINEAR field f = a·x + b·y + c is harmonic, and the discrete
@@ -100,4 +100,71 @@ test('concave void stays empty: an annulus centre is a gap, not filled', async (
   });
   expect(Math.hypot(out.cx, out.cy)).toBeLessThan(0.1); // genuinely the centre
   expect(out.center).toBeNull();                        // far from data → gap
+});
+
+// ── Renderer wiring (buildContourTrace opt-in) ──────────────────────────────
+
+// Disk of scattered points centred at (5,5); the bounding-box corners fall
+// outside the convex hull, guaranteeing gap cells in the gridded surface.
+function diskRows() {
+  const rows = [];
+  for (let k = 0; k < 600; k++) {
+    const t = 2 * Math.PI * k / 50, r = 4 * Math.sqrt((k % 50) / 50);
+    const x = 5 + r * Math.cos(t), y = 5 + r * Math.sin(t);
+    rows.push({ x, y, z: x + y });
+  }
+  return rows;
+}
+
+test('interpolate:true builds a contour trace from scattered data and names the method', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const out = await page.evaluate((rows) => {
+    const ds = { id: 'd1', name: 'D', rows, headers: ['x', 'y', 'z'] };
+    const series = { datasetId: 'd1', name: 'Surf', chartType: 'contour', xCol: 'x', yCol: 'y', zCol: 'z', interpolate: true };
+    const res = buildContourTrace(series, [ds]);
+    const tr = res.traces[0] || {};
+    let hasNull = false;
+    if (Array.isArray(tr.z)) for (const row of tr.z) if (row.includes(null)) { hasNull = true; break; }
+    return { error: res.error, type: tr.type, name: tr.name, connectgaps: tr.connectgaps, hover: tr.hovertemplate,
+             is2d: Array.isArray(tr.z) && Array.isArray(tr.z[0]), hasNull };
+  }, diskRows());
+  expect(out.error).toBeNull();
+  expect(out.type).toBe('contour');
+  expect(out.is2d).toBe(true);
+  expect(out.name).toMatch(/interpolat/i);   // announces itself (§20)
+  expect(out.hover).toMatch(/interpolated/i);
+  expect(out.connectgaps).toBe(false);
+  expect(out.hasNull).toBe(true);            // corners outside the hull are gaps
+});
+
+test('scattered data WITHOUT interpolate still errors — the opt-in never changes the default', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const out = await page.evaluate((rows) => {
+    const ds = { id: 'd1', name: 'D', rows, headers: ['x', 'y', 'z'] };
+    const series = { datasetId: 'd1', name: 'Surf', chartType: 'contour', xCol: 'x', yCol: 'y', zCol: 'z' };
+    const res = buildContourTrace(series, [ds]);
+    return { error: res.error, traces: res.traces.length };
+  }, diskRows());
+  expect(out.error).toMatch(/pre-gridded/i);
+  expect(out.traces).toBe(0);
+});
+
+test('pre-gridded data renders unchanged under the default path', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const out = await page.evaluate(() => {
+    const rows = [];
+    for (let xi = 0; xi < 5; xi++) for (let yi = 0; yi < 4; yi++) rows.push({ x: xi, y: yi, z: xi + yi });
+    const ds = { id: 'd1', name: 'D', rows, headers: ['x', 'y', 'z'] };
+    const series = { datasetId: 'd1', name: 'Surf', chartType: 'contour', xCol: 'x', yCol: 'y', zCol: 'z' };
+    const res = buildContourTrace(series, [ds]);
+    const tr = res.traces[0] || {};
+    return { error: res.error, type: tr.type, name: tr.name,
+             rows: Array.isArray(tr.z) ? tr.z.length : -1,
+             cols: Array.isArray(tr.z) && tr.z[0] ? tr.z[0].length : -1 };
+  });
+  expect(out.error).toBeNull();
+  expect(out.type).toBe('contour');
+  expect(out.rows).toBe(4);  // unique Y
+  expect(out.cols).toBe(5);  // unique X
+  expect(out.name).not.toMatch(/interpolat/i); // default path carries no method tag
 });

@@ -1,15 +1,17 @@
-// contour.js — contour plot renderer (requires pre-gridded x, y, z columns)
+// contour.js — contour plot renderer
+//
+// Two paths. The DEFAULT requires pre-gridded x, y, z: a complete rectangular
+// grid — every combination of the unique X and unique Y values exactly once,
+// as produced by parameter sweeps and structured simulations (Data Scientist
+// guidance, Phase 3). The OPT-IN "Interpolate scattered data" path (Phase 17,
+// series.interpolate) grids scattered points through gridScattered
+// (grid-interp.js): binned mean + convex-hull mask + data-support mask +
+// harmonic fill — no values are invented outside the data's support, and the
+// method is named on hover (§20, same family as silent-aggregation).
 //
 // Log scale guidance: contour axes are usually linear; log axes only when
 // the grid itself was generated logarithmically (the grid check below is
 // spacing-agnostic, so log-spaced grids validate fine).
-//
-// Data requirement (Data Scientist guidance, Phase 3): the three columns
-// must form a complete rectangular grid — every combination of the unique
-// X values and unique Y values appears exactly once, as produced by
-// parameter sweeps and structured simulations. Scattered (x, y, z) points
-// would need interpolation onto a grid first; interpolated contour support
-// is explicitly deferred to Phase 5+.
 
 /**
  * @param {object}   series
@@ -37,6 +39,29 @@ function buildContourTrace(series, datasets) {
     if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) pts.push([x, y, z]);
   }
   if (!pts.length) return { traces: [], error: 'No complete numeric (X, Y, Z) rows found.' };
+
+  // Interpolated path (Phase 17, opt-in): grid scattered (x, y, z) through
+  // gridScattered. Cells with no data support render as gaps (connectgaps
+  // false), never invented; the method is named on hover. The pre-gridded
+  // path below stays the default when the box is unchecked.
+  if (series.interpolate) {
+    const g = gridScattered(pts);
+    if (!g) return { traces: [], error: 'Interpolation needs at least 3 (X, Y) points that are not all collinear.' };
+    return {
+      traces: [{
+        type: 'contour',
+        x: g.x, y: g.y, z: g.z,
+        name: (series.name || 'Contour') + ' (interpolated)',
+        colorscale: document.getElementById('cmapSelect')?.value ?? 'Viridis',
+        contours: { coloring: 'heatmap' },
+        connectgaps: false, // unsupported cells (outside hull / beyond R) stay empty
+        colorbar: { title: { text: series.zCol } },
+        // An interpolated surface must announce itself (§20) — method on hover
+        hovertemplate: `${series.xCol}: %{x}<br>${series.yCol}: %{y}<br>${series.zCol}: %{z}<extra>interpolated · binned mean + Laplace fill</extra>`,
+      }],
+      error: null,
+    };
+  }
 
   // Grid validation: unique X × unique Y must cover the points exactly once
   const ux = [...new Set(pts.map(p => p[0]))].sort((a, b) => a - b);
