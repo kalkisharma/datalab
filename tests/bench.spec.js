@@ -73,6 +73,25 @@ test.describe('release benchmarks', () => {
     expect(ms).toBeGreaterThan(0);
   });
 
+  // Informational (added at the v2.10.0 doc review, measured at the Phase 18
+  // re-baseline): scattered-data gridding for interpolated contours at 100k
+  // points (gridScattered — binned-mean + convex-hull mask + harmonic fill).
+  // No binding target; logs the real number. (Spike baseline: ~120 ms.)
+  test('interpolated contour gridding: 100k points (informational)', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.goto(FILE_URL);
+    const ms = await page.evaluate(() => {
+      const pts = [];
+      for (let i = 0; i < 100000; i++) {
+        const x = Math.random() * 100, y = Math.random() * 100;
+        pts.push([x, y, Math.sin(x / 10) * Math.cos(y / 10)]);
+      }
+      const t0 = performance.now(); gridScattered(pts); return performance.now() - t0;
+    });
+    console.log(`interpolated contour gridding 100k points: ${ms.toFixed(0)} ms (informational, no gate)`);
+    expect(ms).toBeGreaterThan(0);
+  });
+
   test('warm render: 10 series × 50k rows < 2s (median of 3)', async ({ page }) => {
     test.setTimeout(300_000);
     await page.goto(FILE_URL);
