@@ -249,6 +249,12 @@ function init() {
   };
   ['gridRows', 'gridCols', 'gridShareX', 'gridShareY'].forEach(id =>
     g(id).addEventListener('change', syncGridControls));
+  // Subplot-wide color/size-by (workspace ergonomics)
+  ['sharedColorCol', 'sharedSizeCol'].forEach(id =>
+    g(id).addEventListener('change', () => {
+      activePlot().plotConfig[id] = g(id).value || null;
+      if (appState.plotRendered) renderPlot();
+    }));
 
   // beforeunload guard — warn if there are unsaved series or unsaved plot changes
   window.addEventListener('beforeunload', e => {

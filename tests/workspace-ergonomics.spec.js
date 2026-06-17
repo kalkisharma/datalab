@@ -154,3 +154,23 @@ test('hide a plot to a restorable chip; last visible cannot be hidden', async ({
   expect(out.p2shown).toBe(true);          // chip restores it
   expect(out.barEmpty).toBe(true);         // bar empties when nothing hidden
 });
+
+// ── #7 Subplot shared color-by / size-by ────────────────────────────────────
+test('subplot shared color-by applies one encoding across all cells', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'x,y,site\n1,2,A\n2,3,B\n3,4,A\n4,5,B', '_we_se.csv');
+  const out = await page.evaluate(() => {
+    const ds = appState.datasets[0], plot = appState.plots[0];
+    plot.grid = { rows: 1, cols: 2, shareX: false, shareY: false };
+    plot.plotConfig.sharedColorCol = 'site';      // shared, neither series sets colorCol
+    appState.series = [
+      { id: 's1', name: 'L', datasetId: ds.id, plotId: plot.id, chartType: 'scatter', xCol: 'x', yCol: 'y', cell: { row: 1, col: 1 } },
+      { id: 's2', name: 'R', datasetId: ds.id, plotId: plot.id, chartType: 'scatter', xCol: 'x', yCol: 'y', cell: { row: 1, col: 2 } },
+    ];
+    renderPlot();
+    const names = (document.getElementById('plotDiv-' + plot.id)._fullData || []).map(t => t.name);
+    return { a: names.filter(n => n === 'A').length, b: names.filter(n => n === 'B').length, names };
+  });
+  expect(out.a).toBe(2);  // a category-"A" trace in each of the two cells
+  expect(out.b).toBe(2);  // a category-"B" trace in each cell — shared encoding took effect
+});

@@ -104,7 +104,18 @@ function renderOnePlot(plot) {
       continue;
     }
 
-    const result = buildSeriesResult(s, { xLog: !!plot.plotConfig.xLog });
+    // Subplot-wide encoding override (workspace ergonomics): in a grid, a
+    // shared color/size-by column replaces the per-series one when present in
+    // this series' dataset. Clone so the trace-cache key reflects the override.
+    let eff = s;
+    if (grid) {
+      const cfg = plot.plotConfig, ov = {};
+      const dsH = appState.datasets.find(d => d.id === s.datasetId)?.headers || [];
+      if (cfg.sharedColorCol && dsH.includes(cfg.sharedColorCol)) ov.colorCol = cfg.sharedColorCol;
+      if (cfg.sharedSizeCol  && dsH.includes(cfg.sharedSizeCol))  ov.sizeCol  = cfg.sharedSizeCol;
+      if (ov.colorCol || ov.sizeCol) eff = { ...s, ...ov };
+    }
+    const result = buildSeriesResult(eff, { xLog: !!plot.plotConfig.xLog });
     if (result.error) { errors.push({ name: label, error: result.error }); continue; }
     if (result.warning) warnings.push({ name: label, warning: result.warning });
 

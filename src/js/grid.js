@@ -156,6 +156,26 @@ function syncActivePlotInputs() {
   g('gridCols').value = String(gr?.cols ?? 1);
   g('gridShareX').checked = gr?.shareX ?? false;
   g('gridShareY').checked = gr?.shareY ?? false;
+  // Subplot-wide encoding (workspace ergonomics): shown only with a grid;
+  // options = union of columns across the plot's series' datasets
+  const seWrap = g('sharedEncodeWrap');
+  if (seWrap) {
+    const hasGrid = (gr?.rows ?? 1) * (gr?.cols ?? 1) > 1;
+    seWrap.style.display = hasGrid ? '' : 'none';
+    if (hasGrid) {
+      const cols = new Set();
+      appState.series
+        .filter(s => (s.plotId ?? appState.plots[0].id) === activePlot().id)
+        .forEach(s => (appState.datasets.find(d => d.id === s.datasetId)?.headers || []).forEach(c => cols.add(c)));
+      const fill = (id, val) => {
+        // innerHTML: option labels are column names — escHtml applied
+        g(id).innerHTML = '<option value="">Per series</option>' +
+          [...cols].map(c => `<option value="${escHtml(c)}" ${val === c ? 'selected' : ''}>${escHtml(c)}</option>`).join('');
+      };
+      fill('sharedColorCol', cfg.sharedColorCol);
+      fill('sharedSizeCol', cfg.sharedSizeCol);
+    }
+  }
   updateLockBtn('titleLock',  cfg.titleLocked);
   updateLockBtn('xLabelLock', cfg.xLabelLocked);
   updateLockBtn('yLabelLock', cfg.yLabelLocked);

@@ -345,6 +345,15 @@ input[type=color].edge-color::-webkit-color-swatch{border:none;border-radius:4px
             <label><input type="checkbox" id="gridShareY" /> share Y</label>
           </div>
         </label>
+        <!-- Shared color/size-by across subplot cells (workspace ergonomics) -->
+        <div id="sharedEncodeWrap" style="display:none;">
+          <label class="ctrl-label">Color by — all cells
+            <select id="sharedColorCol"><option value="">Per series</option></select>
+          </label>
+          <label class="ctrl-label">Size by — all cells
+            <select id="sharedSizeCol"><option value="">Per series</option></select>
+          </label>
+        </div>
       </div>
     </details>
 
@@ -731,6 +740,10 @@ function makeDefaultPlotConfig() {
     xLog: false, yLog: false,
     // Free-text notes (Phase 14): [{ id, text, x, y }] in paper coords
     notes: [],
+    // Subplot-wide encoding (workspace ergonomics): one color-by / size-by
+    // applied to every cell, overriding per-series; null = per-series
+    sharedColorCol: null,
+    sharedSizeCol:  null,
   };
 }
 
@@ -2299,6 +2312,26 @@ function syncActivePlotInputs() {
   g('gridCols').value = String(gr?.cols ?? 1);
   g('gridShareX').checked = gr?.shareX ?? false;
   g('gridShareY').checked = gr?.shareY ?? false;
+  // Subplot-wide encoding (workspace ergonomics): shown only with a grid;
+  // options = union of columns across the plot's series' datasets
+  const seWrap = g('sharedEncodeWrap');
+  if (seWrap) {
+    const hasGrid = (gr?.rows ?? 1) * (gr?.cols ?? 1) > 1;
+    seWrap.style.display = hasGrid ? '' : 'none';
+    if (hasGrid) {
+      const cols = new Set();
+      appState.series
+        .filter(s => (s.plotId ?? appState.plots[0].id) === activePlot().id)
+        .forEach(s => (appState.datasets.find(d => d.id === s.datasetId)?.headers || []).forEach(c => cols.add(c)));
+      const fill = (id, val) => {
+        // innerHTML: option labels are column names — escHtml applied
+        g(id).innerHTML = '<option value="">Per series</option>' +
+          [...cols].map(c => `<option value="${escHtml(c)}" ${val === c ? 'selected' : ''}>${escHtml(c)}</option>`).join('');
+      };
+      fill('sharedColorCol', cfg.sharedColorCol);
+      fill('sharedSizeCol', cfg.sharedSizeCol);
+    }
+  }
   updateLockBtn('titleLock',  cfg.titleLocked);
   updateLockBtn('xLabelLock', cfg.xLabelLocked);
   updateLockBtn('yLabelLock', cfg.yLabelLocked);
@@ -2514,7 +2547,18 @@ function renderOnePlot(plot) {
       continue;
     }
 
-    const result = buildSeriesResult(s, { xLog: !!plot.plotConfig.xLog });
+    // Subplot-wide encoding override (workspace ergonomics): in a grid, a
+    // shared color/size-by column replaces the per-series one when present in
+    // this series' dataset. Clone so the trace-cache key reflects the override.
+    let eff = s;
+    if (grid) {
+      const cfg = plot.plotConfig, ov = {};
+      const dsH = appState.datasets.find(d => d.id === s.datasetId)?.headers || [];
+      if (cfg.sharedColorCol && dsH.includes(cfg.sharedColorCol)) ov.colorCol = cfg.sharedColorCol;
+      if (cfg.sharedSizeCol  && dsH.includes(cfg.sharedSizeCol))  ov.sizeCol  = cfg.sharedSizeCol;
+      if (ov.colorCol || ov.sizeCol) eff = { ...s, ...ov };
+    }
+    const result = buildSeriesResult(eff, { xLog: !!plot.plotConfig.xLog });
     if (result.error) { errors.push({ name: label, error: result.error }); continue; }
     if (result.warning) warnings.push({ name: label, warning: result.warning });
 
@@ -5193,6 +5237,12 @@ function init() {
   };
   ['gridRows', 'gridCols', 'gridShareX', 'gridShareY'].forEach(id =>
     g(id).addEventListener('change', syncGridControls));
+  // Subplot-wide color/size-by (workspace ergonomics)
+  ['sharedColorCol', 'sharedSizeCol'].forEach(id =>
+    g(id).addEventListener('change', () => {
+      activePlot().plotConfig[id] = g(id).value || null;
+      if (appState.plotRendered) renderPlot();
+    }));
 
   // beforeunload guard — warn if there are unsaved series or unsaved plot changes
   window.addEventListener('beforeunload', e => {

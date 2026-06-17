@@ -62,6 +62,10 @@ function makeDefaultPlotConfig() {
     xLog: false, yLog: false,
     // Free-text notes (Phase 14): [{ id, text, x, y }] in paper coords
     notes: [],
+    // Subplot-wide encoding (workspace ergonomics): one color-by / size-by
+    // applied to every cell, overriding per-series; null = per-series
+    sharedColorCol: null,
+    sharedSizeCol:  null,
   };
 }
 
