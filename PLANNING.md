@@ -788,6 +788,18 @@ Deliverables (dependency order per §18; pre-impl review + §12 UX flows precede
 
 Exit criteria: probit/t-quantile match references; Q–Q separates normal from skewed; residual plot zeroes on an exact fit and shows structure on a bad one; CI is inside PI and both flare at the extremes; bands name themselves; new types round-trip sessions; all prior tests green.
 
+### Workspace & Encoding Ergonomics `(SCOPED — unscheduled; maintainer orders vs Phase 18/19)`
+Seven maintainer feature requests from real use, reviewed full-team during the Phase 17 build (design recorded in the team plan; sequencing decision: ship Phase 17 first, then this as its own phase). All **additive — state stays v2, no migration, MINOR (§3)**; each new optional field gets a `## Schema` line. Theme = workspace and encoding ergonomics. The features:
+1. **Copy/Paste series** (Copy stores it, Paste clones into the active plot) — `ui.js` clipboard + series-panel header button; no schema change.
+2. **Hide the parity stats annotation box** — `plotConfig.statsShow` (default true), gated at the `appendParityStats` caller; "Stats box" checkbox mirroring the `legendShow` wiring. (The only auto box without an off-switch; free-text notes already delete per-item.)
+3. **Optional cross-dataset join for scatter** — opt-in second-dataset inner join (reuses parity's `innerJoinRows` + the existing `joinDatasetId`/`joinKey` fields): X from A, Y from B on a shared key; **no join = today's plot-all-data path, unchanged**. Carries the Phase-1 pairing-bug risk → mandatory finite-pair alignment test (DS).
+4. **Export at on-screen resolution** — "Match on-screen size" toggle so PNG/SVG/All use the live panel dims instead of the figW/figH sliders; UI-only (not session state).
+5. **Explicit per-plot show/hide** — additive `plot.hidden`; eye toggle on the panel header, hidden plots collapse to restorable chips; cannot hide the last visible plot. (Today only close/delete exists.)
+6. **Hide a series from the legend** — additive `series.legendHide`; centralized `showlegend:false` in the `renderOnePlot` loop (no per-renderer edits).
+7. **Subplot shared color-by / size-by** — additive `plotConfig.sharedColorCol`/`sharedSizeCol` (grid-only); applied by cloning each series with the overridden encoding field before `buildSeriesResult`, so the renderer contract is untouched (no §7 change). Stops the per-series tedium in grids.
+
+**§6 watch:** `chart.js` (273 after the v2.10.0 parity-stats split) grows with #2/#5/#6/#7; the subplot-grid machinery in `renderOnePlot` is the pre-identified split seam if it re-crosses ~300 at this phase's exit.
+
 ### Phase 20+ — Future `(not scoped)`
 - Surfaced by the v2.9.1 landscape review, awaiting a maintainer pick: **data reshaping & pivot** (group-by tables, long↔wide, general join builder), **faceting / small multiples** (auto-subplot by category), **time-series toolkit** (resampling, rolling stats).
 - Demonstrated-demand parked items remain parked: per-cell plotConfig (Phase 10), dual-Y inside subplot grids (Phase 14), `.xlsx` import (rejected — revisit only on sustained maintainer demand).
