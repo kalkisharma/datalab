@@ -233,6 +233,7 @@ DataLab is used by private organisations loading sensitive data. The tool must g
 - No Phase N+1 work begins until Phase N is tagged and closed. **Exception (added at landscape review): docs-only design spikes** for a future phase — producing planning text, schema drafts, and measurements, touching nothing under `src/` — may run during the current phase at EL discretion. The spike's output lands in PLANNING.md; its approval is a deliverable of the phase it runs in. A docs-only spike **cannot perform verification that requires swapping a dependency or running new code** — e.g. eyeballing render parity on a not-yet-adopted library version; that verification belongs to the implementing phase's re-baseline, not the spike (clarified v2.10.0 review: the Phase 17 Plotly-3.x spike delivered the static API-delta analysis and explicitly deferred render-parity eyeballing to the Phase 18 migration, since a library swap is code).
 - Phase exit sequence: refactor review → security checklist → accessibility pass → Data Scientist sign-off → release checklist → tag.
 - QA and Performance Engineer jointly confirm performance targets are met before tagging. Disagreements go to Engineering Lead.
+- **Control-effect check (added the pre-Phase-19 review):** when a phase adds or modifies the controls a chart type exposes in the series modal, QA and the owning role (Data Viz / UX) confirm at exit that **every control offered for that type produces a visible effect on the render** — a control wired into the modal but ignored by the renderer is a defect, not a cosmetic issue. Removing the control or wiring it both resolve it. (Trigger: line-plot "Color by" shipped as a no-op at Phase 1 — `buildLineTrace` never read `colorCol` — and survived eleven exits because exit testing checked statistical correctness, not control coverage. A lightweight walkthrough, not a new gate.)
 - Data Scientist signs off on statistical correctness and exploratory test findings before tagging.
 
 ## 17. Document Ownership
@@ -268,7 +269,7 @@ DataLab is used by private organisations loading sensitive data. The tool must g
 
 - Comment the **why**, not the **what**. Function and variable names describe what code does — comments explain why it does it that way: hidden constraints, non-obvious invariants, workarounds for specific bugs, behavior that would surprise a reader.
 - If removing a comment wouldn't confuse a future reader, don't write it.
-- No commented-out code on `master` — delete it. Code review must reject it before merge.
+- No commented-out code on `master` — delete it. Code review must reject it before merge. **This extends to unreferenced functions and exports** (added the pre-Phase-19 review): a helper with zero call sites is dead code — wire it or delete it, and the §6 refactor review flags it. Intentional retention of an unwired helper is allowed **only** when its planned use is a tracked item (the current instance is `makeDD`, a searchable-dropdown helper copied from parity-plotting and never wired — retained pending the searchable-column-picker work scoped in the pre-Phase-19 stabilization review).
 
 ### File headers
 
