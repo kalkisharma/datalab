@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.13.0 — Stabilization A (correctness & honesty)
+
+### Features
+- **Parity within one dataset** — a parity series no longer requires a second
+  dataset: pick two columns of the same file (observed vs predicted), the
+  common case. The cross-dataset join stays available via "Compare against".
+- **Line color-by** — colouring a line by a categorical column now draws one
+  line per category. It was previously offered in the modal but silently
+  ignored.
+
+### Fixes
+- **Legend** stays within the figure — a dragged legend is clamped to the plot
+  bounds instead of drifting off to the right.
+- **Parity stats box** — dragging the NSE/MAE/RMSE box now persists, so it
+  survives re-render and exports exactly where you placed it.
+- **SVG export** warns when a large (>10k-point) scatter layer will rasterize
+  inside the SVG (axes and text stay vector).
+
+### Internal
+- The ambiguous-date-format prompt moved to its own file (`date-prompt.js`, §6
+  refactor) — no behavior change.
+
 ## v2.12.0 — Plotly 3.x
 
 ### Changed
