@@ -35,3 +35,22 @@ test('parity compares two columns of one dataset with no join', async ({ page })
   expect(out.x).toEqual([1, 2, 3, 4]);   // X = observed column
   expect(out.y).toEqual([1.1, 1.9, 3.2, 3.8]); // Y = modelled column, same rows
 });
+
+// ── Line color-by (was a silent no-op) ──────────────────────────────────────
+test('line color-by splits into one line per category; no color-by = single line', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'x,y,grp\n1,2,A\n2,3,B\n3,4,A\n4,5,B', '_ln_cb.csv');
+  const out = await page.evaluate(() => {
+    const ds = appState.datasets[0];
+    const cb = buildLineTrace({ id: 'l1', name: 'L', datasetId: ds.id, chartType: 'line',
+      xCol: 'x', yCol: 'y', colorCol: 'grp' }, appState.datasets);
+    const plain = buildLineTrace({ id: 'l2', name: 'L', datasetId: ds.id, chartType: 'line',
+      xCol: 'x', yCol: 'y' }, appState.datasets);
+    return { cbN: cb.traces.length, cbNames: cb.traces.map(t => t.name).sort(),
+             cbModes: cb.traces.map(t => t.mode), plainN: plain.traces.length };
+  });
+  expect(out.cbN).toBe(2);                                  // one line per category
+  expect(out.cbNames).toEqual(['A', 'B']);
+  expect(out.cbModes.every(m => m === 'lines+markers')).toBe(true); // still lines, not a no-op
+  expect(out.plainN).toBe(1);                               // no color-by → single line (unchanged)
+});
