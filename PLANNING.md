@@ -778,6 +778,23 @@ The Phase 8 review is eleven phases old; this re-survey (matplotlib/seaborn, Plo
 - **Faceting / small multiples** — auto-grid split by a categorical column, on the Phase 10 subplot engine. → Phase 20+ pool.
 - **Time-series toolkit** — resampling, rolling mean/std, decomposition. Useful for monitoring data but the narrowest audience. → Phase 20+ pool.
 
+## Pre-Phase-19 Stabilization — Triage & Scoping `(scoped; not yet implemented)`
+
+A maintainer-commissioned full-team review of the scatter/line/parity renderers + plot settings, walked from upload to export, surfaced 13 issues. This is the triage (complexity / dependencies / approach); **no implementation has begun.** All items except HTML export are **additive — state stays v2, no migration, MINOR**. Each group ships as a **named phase** under the version-at-ship-time rule (§3); versions assigned at each exit.
+
+**Grouping (team consensus):**
+
+| Group | Theme | Items | Notes |
+|-------|-------|-------|-------|
+| **Stab A** *(before Phase 19)* | Correctness & honesty | parity single-dataset compare (M); line color-by **wire vs remove** — recommend wire, reuse `categoryGroups` (S/M, decision); legend in-bounds clamp (S); SVG-rasterizes-WebGL notice (S); annotation-position-in-export fix (S/M); **date-format-prompt §6 split out of modal.js** (S, folds in here as the first modal-touching work) | the two 🔴 blockers + cheap no-surprise fixes; one MINOR |
+| **Stab B** | Upload & data ergonomics | upload error messages + progress + abort + disable-during-load (M); reload-by-filename robustness — decouple identity from editable name, confirm on collision (S/M); searchable column pickers — wire `makeDD` into the modal X/Y/color/size selects (M); CSV column filtering at upload via `dataset.hiddenCols` (M) | `makeDD` ⇄ column-filtering overlap — decide combination before building either |
+| **Stab C** | Styling model & controls | three-tier hierarchy discoverability (S/M, design-led); per-plot marker controls + symbol picker + "use global" toggle (M/L); line marker-toggle / line-style / width (M) | **#6 ⇄ #7 hard couple** — per-plot markers add a tier; must ship with the hierarchy explainer |
+| **HTML export** *(own phase, later)* | Interactive standalone HTML | embed figure JSON + Plotly bundle (~5 MB/file) for offline hover/zoom/pan (L) | **Security-gated** (new artifact carrying user data + its own CSP; must keep the no-network guarantee); interacts with the export-path fixes in Stab A |
+
+**Cross-cutting dependencies/conflicts:** #6⇄#7 (hierarchy + per-plot markers co-design); line color-by ⇄ line controls (same modal/renderer); `makeDD` ⇄ column-filtering (overlapping goal); export trio (HTML export ⇄ SVG notice ⇄ annotation persistence). Root causes confirmed in code: `makeDD` zero call sites; `buildLineTrace` never reads `colorCol`; parity join picker excludes the primary dataset; the `plotly_relayout` hook persists legend + notes positions but **not** the parity stats box (`annotPos`) — the likely annotation-export root cause.
+
+**Recommended sequence (EL):** **Stab A → Phase 19 → Stab B → Stab C → HTML export.** Stab A clears the genuine blockers and is independent of Phase 19, so it shouldn't delay it; B/C are larger UX investments better done after Diagnostics; HTML export is its own security-reviewed phase. Minimum viable pre-Phase-19 cut if no delay is wanted: the two 🔴 (parity single-dataset, line color-by) + the SVG notice.
+
 ### Phase 19 — Statistical Diagnostics `(next MINOR when scheduled — v2.11.0 was taken by Workspace & Encoding Ergonomics)`
 **Goal:** let the user check the assumptions behind the fits and tests already shipped — residuals, normality, and fit uncertainty. **Data Scientist is primary owner** (Phase 5+ statistical-feature ownership); every reference hand-derived or published per §20. **A docs-only pre-impl review precedes the branch** (Phase 14/15 precedent) to lock UI placement and the numerics plan before any `src/` work.
 
