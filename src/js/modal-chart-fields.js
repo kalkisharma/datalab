@@ -147,27 +147,33 @@ function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
         <select id="mZCol" ${agg === 'count' ? 'disabled' : ''}>${colOptions(existing?.zCol, false)}</select>
       </div>`;
   } else if (chartType === 'parity') {
-    const joinDsOptions = appState.datasets.filter(d => d.id !== dsId).map(d =>
-      `<option value="${escHtml(d.id)}" ${existing?.joinDatasetId===d.id?'selected':''}>${escHtml(d.name)}</option>`
+    // Parity has two modes (Stab A): same-dataset (X and Y are two columns of
+    // THIS dataset — the common case) or cross-dataset join (Y from a second
+    // file). The "Compare against" select drives it; the mJoinDataset change
+    // handler (modal-fields.js) repopulates Y + key live. When joined, Y reads
+    // from the JOIN dataset (Phase-9 lesson); otherwise from this dataset.
+    const joinDs = existing?.joinDatasetId ? appState.datasets.find(d => d.id === existing.joinDatasetId) : null;
+    const otherDsOptions = appState.datasets.filter(d => d.id !== dsId).map(d =>
+      `<option value="${escHtml(d.id)}" ${existing?.joinDatasetId === d.id ? 'selected' : ''}>${escHtml(d.name)}</option>`
     ).join('');
-    const joinDs = appState.datasets.find(d => d.id === (existing?.joinDatasetId || appState.datasets.find(d2=>d2.id!==dsId)?.id));
-    const joinCols = joinDs ? joinDs.headers : [];
-    const sharedKeys = cols.filter(c => joinCols.includes(c));
-    // Y (modelled) reads from the JOIN dataset at render time — its options
-    // must come from the join dataset too. (Bug found Phase 9: they came
-    // from the primary dataset, so differing headers made Y unselectable.)
-    const joinNumeric = joinDs ? joinCols.filter(c => classifyColumn(joinDs.rows, c) === 'numeric') : [];
-    const yJoinOptions = joinNumeric.map(c =>
-      `<option value="${escHtml(c)}" ${existing?.yCol === c ? 'selected' : ''}>${escHtml(c)}</option>`).join('');
+    const yColHtml = joinDs
+      ? joinDs.headers.filter(c => classifyColumn(joinDs.rows, c) === 'numeric')
+          .map(c => `<option value="${escHtml(c)}" ${existing?.yCol === c ? 'selected' : ''}>${escHtml(c)}</option>`).join('')
+      : colOptions(existing?.yCol, false);
+    const sharedKeys = joinDs ? cols.filter(c => joinDs.headers.includes(c)) : [];
 
     html = `
       <div class="modal-section-title">Parity setup</div>
       <div class="modal-field">
-        <label class="modal-label" for="mJoinDataset">Join dataset (Y / modelled) <span class="required">*</span></label>
-        <select id="mJoinDataset">${joinDsOptions || '<option value="">— load a second CSV —</option>'}</select>
+        <label class="modal-label" for="mJoinDataset">Compare against</label>
+        <select id="mJoinDataset">
+          <option value="" ${existing?.joinDatasetId ? '' : 'selected'}>This dataset (two columns)</option>
+          ${otherDsOptions}
+        </select>
+        <div class="field-hint">Same dataset: X and Y are two columns here. Or join a second dataset — observed vs modelled in separate files, matched on a key.</div>
       </div>
       <div class="modal-field">
-        <label class="modal-label" for="mJoinKey">Join key <span class="required">*</span></label>
+        <label class="modal-label" for="mJoinKey">Join key <span class="field-hint" style="margin:0">(only when comparing against another dataset)</span></label>
         <select id="mJoinKey">
           <option value="">Select key…</option>
           ${sharedKeys.map(c=>`<option value="${escHtml(c)}" ${existing?.joinKey===c?'selected':''}>${escHtml(c)}</option>`).join('')}
@@ -180,7 +186,7 @@ function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
       </div>
       <div class="modal-field">
         <label class="modal-label" for="mYCol">Y column — modelled <span class="required">*</span></label>
-        <select id="mYCol">${yJoinOptions}</select>
+        <select id="mYCol">${yColHtml}</select>
       </div>
       <div class="modal-section-title">Error bands</div>
       <div class="check-row">

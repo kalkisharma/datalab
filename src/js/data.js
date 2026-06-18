@@ -159,13 +159,18 @@ function validateSeriesColumns(s, datasets) {
   };
   check(s.xCol, 'X column', ds.headers);
   if (s.chartType === 'parity') {
-    const jds = datasets.find(d => d.id === s.joinDatasetId);
-    if (!jds) {
-      missing.push('its join dataset (removed)');
+    if (s.joinDatasetId) {
+      const jds = datasets.find(d => d.id === s.joinDatasetId);
+      if (!jds) {
+        missing.push('its join dataset (removed)');
+      } else {
+        check(s.yCol, 'Y column', jds.headers, jds.name);
+        check(s.joinKey, 'join key', ds.headers, ds.name);
+        check(s.joinKey, 'join key', jds.headers, jds.name);
+      }
     } else {
-      check(s.yCol, 'Y column', jds.headers, jds.name);
-      check(s.joinKey, 'join key', ds.headers, ds.name);
-      check(s.joinKey, 'join key', jds.headers, jds.name);
+      // Same-dataset parity: Y is a column of this dataset
+      check(s.yCol, 'Y column', ds.headers);
     }
   } else {
     check(s.yCol, 'Y column', ds.headers);

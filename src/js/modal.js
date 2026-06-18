@@ -253,14 +253,14 @@ function saveModalSeries() {
     enabled:   existing?.enabled ?? true, // preserve visibility toggle across edits
   };
 
-  // Parity-specific fields
+  // Parity-specific fields. The join is OPTIONAL (Stab A): no join dataset =
+  // same-dataset parity (X and Y are two columns here); a join dataset needs a key.
   if (chartType === 'parity') {
     series.joinDatasetId = document.getElementById('mJoinDataset')?.value || null;
-    series.joinKey       = document.getElementById('mJoinKey')?.value     || null;
+    series.joinKey       = series.joinDatasetId ? (document.getElementById('mJoinKey')?.value || null) : null;
     series.band5         = document.getElementById('mBand5')?.checked  ?? false;
     series.band10        = document.getElementById('mBand10')?.checked ?? true;
-    if (!series.joinDatasetId) { err.textContent = 'Please select a join dataset.'; return false; }
-    if (!series.joinKey)       { err.textContent = 'Please select a join key.';     return false; }
+    if (series.joinDatasetId && !series.joinKey) { err.textContent = 'Select a join key, or switch "Compare against" to this dataset.'; return false; }
   }
 
   // Scatter optional cross-dataset join (workspace ergonomics)

@@ -19,19 +19,27 @@ function buildParityTrace(series, datasets) {
   const ds = datasets.find(d => d.id === series.datasetId);
   if (!ds) return { traces: [], error: 'Dataset not found.', layout: null };
 
-  // Parity requires two datasets joined on a key
-  const joinDs = datasets.find(d => d.id === series.joinDatasetId);
-  if (!joinDs) return { traces: [], error: 'Join dataset not found. Select a second dataset for parity.', layout: null };
-
-  if (!series.joinKey) return { traces: [], error: 'Join key column is required for parity.', layout: null };
   if (!series.xCol || !series.yCol) return { traces: [], error: 'X (observed) and Y (modelled) columns are required.', layout: null };
 
-  // Inner join on the key
-  const { mA, mB } = innerJoinRows(ds.rows, joinDs.rows, series.joinKey);
-  if (!mA.length) return { traces: [], error: 'No rows matched on the join key. Check key column values.', layout: null };
-
-  const rowsA = applyFilters(mA, series.filters || [], series.filterLogic || 'and');
-  const rowsB = applyFilters(mB, series.filters || [], series.filterLogic || 'and');
+  // Parity compares an observed vs a modelled value. Two modes (Stab A):
+  //   • Cross-dataset: X from this dataset, Y from a JOIN dataset, matched on a
+  //     key — for observed and predicted living in separate files.
+  //   • Same-dataset (no join): X and Y are two columns of THIS dataset — the
+  //     common case. Both sides are the same filtered rows, so pairs are
+  //     row-aligned by construction.
+  let rowsA, rowsB;
+  if (series.joinDatasetId) {
+    const joinDs = datasets.find(d => d.id === series.joinDatasetId);
+    if (!joinDs) return { traces: [], error: 'Join dataset not found. Select a second dataset, or clear the join for a same-dataset parity.', layout: null };
+    if (!series.joinKey) return { traces: [], error: 'Join key column is required for a cross-dataset parity.', layout: null };
+    // Inner join on the key
+    const { mA, mB } = innerJoinRows(ds.rows, joinDs.rows, series.joinKey);
+    if (!mA.length) return { traces: [], error: 'No rows matched on the join key. Check key column values.', layout: null };
+    rowsA = applyFilters(mA, series.filters || [], series.filterLogic || 'and');
+    rowsB = applyFilters(mB, series.filters || [], series.filterLogic || 'and');
+  } else {
+    rowsA = rowsB = applyFilters(ds.rows, series.filters || [], series.filterLogic || 'and');
+  }
   if (!rowsA.length) return { traces: [], error: 'No rows pass the active filters.', layout: null };
 
   // Pairs must be filtered TOGETHER — independent filtering would misalign
