@@ -234,18 +234,33 @@ function renderOnePlot(plot) {
   if (!pd._legendHooked) {
     pd.on('plotly_relayout', e => {
       if (e['legend.x'] !== undefined || e['legend.y'] !== undefined) {
-        plot.plotConfig.legendPos = {
-          x: e['legend.x'] ?? plot.plotConfig.legendPos?.x ?? 0.01,
-          y: e['legend.y'] ?? plot.plotConfig.legendPos?.y ?? 0.99,
-        };
+        // Clamp to the figure (Stab A): a dragged legend could drift far off to
+        // the right with no bound. Persist the clamped position and snap the
+        // live legend back if it was dragged outside [0,1] paper coords.
+        const clamp = v => Math.max(0, Math.min(1, v));
+        const lx = clamp(e['legend.x'] ?? plot.plotConfig.legendPos?.x ?? 0.01);
+        const ly = clamp(e['legend.y'] ?? plot.plotConfig.legendPos?.y ?? 0.99);
+        plot.plotConfig.legendPos = { x: lx, y: ly };
+        const outX = e['legend.x'] !== undefined && (e['legend.x'] < 0 || e['legend.x'] > 1);
+        const outY = e['legend.y'] !== undefined && (e['legend.y'] < 0 || e['legend.y'] > 1);
+        if (outX || outY) { try { Plotly.relayout(pd, { 'legend.x': lx, 'legend.y': ly }); } catch (err) {} }
       }
-      // Dragged notes persist (Phase 14): indices past _noteOffset are notes
+      // Dragged annotations persist: indices past _noteOffset are notes
+      // (Phase 14); indices before it are the parity stats box — persist its
+      // position too (Stab A) so a dragged stats box survives re-render and
+      // export (single-parity reads plotConfig.annotPos).
       for (const k of Object.keys(e)) {
         const m = /^annotations\[(\d+)\]\.(x|y)$/.exec(k);
         if (!m) continue;
-        const idx = parseInt(m[1]) - (pd._noteOffset ?? 0);
+        const ai = parseInt(m[1]);
+        const noteIdx = ai - (pd._noteOffset ?? 0);
         const ns = plot.plotConfig.notes ?? [];
-        if (idx >= 0 && idx < ns.length) ns[idx][m[2]] = e[k];
+        if (noteIdx >= 0 && noteIdx < ns.length) {
+          ns[noteIdx][m[2]] = e[k];
+        } else if (ai < (pd._noteOffset ?? 0)) {
+          plot.plotConfig.annotPos = plot.plotConfig.annotPos || { x: 0.98, y: 0.04 };
+          plot.plotConfig.annotPos[m[2]] = e[k];
+        }
       }
     });
     pd._legendHooked = true;

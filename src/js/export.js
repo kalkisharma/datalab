@@ -26,8 +26,14 @@ function downloadPlot(format = 'png') {
   const filename = safeFilename(activePlot().plotConfig.title || activePlot().name, 'datalab_plot');
   const pd = activePlotDiv();
   const { w, h } = exportDims(pd);
-  // Note: scattergl traces (WebGL, >10k points) are rasterized inside the
-  // SVG by Plotly — vector output applies to axes/text and SVG traces
+  // SVG notice (Stab A): scattergl traces (WebGL, >10k points) rasterize inside
+  // the SVG — axes/text and non-GL traces stay vector. Tell the user rather
+  // than let them discover blurry markers in a "vector" file.
+  if (format === 'svg' && (pd?._fullData || []).some(t => t.type === 'scattergl')) {
+    const box = document.getElementById('dataAlerts');
+    // innerHTML: static notice — no user data
+    if (box) box.innerHTML = '<div class="alert warn" role="alert">SVG export: large scatter layers (&gt;10k points) use WebGL and rasterize inside the SVG — axes, text, and other traces stay vector.</div>';
+  }
   Plotly.downloadImage(pd, { format, width: w, height: h, filename });
 }
 
