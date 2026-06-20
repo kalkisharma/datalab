@@ -123,7 +123,7 @@ test('parity falls back to linear unless log-log with positive data', async ({ p
   await loadCSV(page, 'k,mod\n1,12\n2,90\n3,1100', '_log_parB.csv');
   await page.click('#addSeriesBtn');
   await page.click('.ct-btn[data-ct="parity"]');
-  await page.selectOption('#mJoinDataset', { index: 0 });
+  await page.selectOption('#mJoinDataset', { index: 1 }); // index 0 is single-dataset compare since Stab A; the join dataset is index 1
   await page.selectOption('#mJoinKey', 'k');
   await page.selectOption('#mXCol', 'obs');
   await page.selectOption('#mYCol', 'mod');

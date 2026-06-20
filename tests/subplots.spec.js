@@ -114,7 +114,7 @@ test('parity cell is excluded from sharing with a warning; keeps equal axes', as
   await addSeries(page, 'scatter', { '#mXCol': 'k', '#mYCol': 'obs' }, 'plain', '1,1');
   await page.click('#addSeriesBtn');
   await page.click('.ct-btn[data-ct="parity"]');
-  await page.selectOption('#mJoinDataset', { index: 0 });
+  await page.selectOption('#mJoinDataset', { index: 1 }); // index 0 is single-dataset compare since Stab A; the join dataset is index 1
   await page.selectOption('#mJoinKey', 'k');
   await page.selectOption('#mXCol', 'obs');
   await page.selectOption('#mYCol', 'mod');
