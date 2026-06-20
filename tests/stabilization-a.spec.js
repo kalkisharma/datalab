@@ -107,3 +107,51 @@ test('SVG export of a WebGL (>10k pt) scatter shows a rasterization notice; PNG 
   expect(out.svg).toMatch(/rasterize/i);  // notice on SVG
   expect(out.png).toBe('');               // silent on PNG
 });
+
+// ── Post-v2.13.0 review follow-ups: honesty warnings ────────────────────────
+
+// Item 6: same-column self-comparison guard.
+test('parity warns when X and Y are the same column; not when they differ', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'a,b\n1,2\n2,4\n3,5', '_pa_self.csv');
+  const out = await page.evaluate(() => {
+    const ds = appState.datasets[0];
+    const base = { id: 'p', name: 'P', datasetId: ds.id, chartType: 'parity' };
+    const same = buildParityTrace({ ...base, xCol: 'a', yCol: 'a' }, appState.datasets);
+    const diff = buildParityTrace({ ...base, xCol: 'a', yCol: 'b' }, appState.datasets);
+    return { sameErr: same.error, sameWarn: same.warning, diffWarn: diff.warning };
+  });
+  expect(out.sameErr).toBeNull();              // still renders — warn, don't block
+  expect(out.sameWarn).toMatch(/same column/i);
+  expect(out.diffWarn).toBeNull();             // different columns: no warning
+});
+
+// Item 4: missing color values fold into one labelled "(blank)" group + warn.
+test('line color-by groups missing color values as "(blank)" and warns', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'x,y,grp\n1,2,A\n2,3,\n3,4,A\n4,5,B', '_ln_blank.csv');
+  const out = await page.evaluate(() => {
+    const ds = appState.datasets[0];
+    const r = buildLineTrace({ id: 'l', name: 'L', datasetId: ds.id, chartType: 'line',
+      xCol: 'x', yCol: 'y', colorCol: 'grp' }, appState.datasets);
+    return { warn: r.warning, names: r.traces.map(t => t.name).sort() };
+  });
+  expect(out.names).toContain('(blank)');      // missing value → one labelled group
+  expect(out.warn).toMatch(/no "grp" value/i); // and the user is told
+});
+
+// Item 5: high-cardinality cap (mirrors the boxplot/heatmap >50 guard).
+test('line color-by warns when a column has too many categories (>50)', async ({ page }) => {
+  await page.goto(FILE_URL);
+  let csv = 'x,y,id\n';
+  for (let i = 0; i < 60; i++) csv += `${i},${i},c${i}\n`;
+  await loadCSV(page, csv, '_ln_hicard.csv');
+  const out = await page.evaluate(() => {
+    const ds = appState.datasets[0];
+    const r = buildLineTrace({ id: 'l', name: 'L', datasetId: ds.id, chartType: 'line',
+      xCol: 'x', yCol: 'y', colorCol: 'id' }, appState.datasets);
+    return { warn: r.warning, n: r.traces.length };
+  });
+  expect(out.n).toBe(60);                       // still drawn
+  expect(out.warn).toMatch(/too many to read/i);
+});

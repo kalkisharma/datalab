@@ -53,10 +53,27 @@ function buildLineTrace(series, datasets) {
     if (colorMapping(rows, series.colorCol).isNumeric) {
       warning = 'Color-by needs a categorical column for line plots — drew one line.';
     } else {
-      const groups = categoryGroups(rows, series.colorCol);
-      if (groups.length > PALETTE.length) {
-        warning = `"${series.colorCol}" has ${groups.length} categories — only ${PALETTE.length} palette colours, so colours repeat.`;
+      // Normalize missing values (null/undefined/empty/whitespace) to one
+      // clearly-labelled "(blank)" group rather than letting empty strings form
+      // an unlabelled category — and surface the count so a "(blank)" line in
+      // the legend isn't mistaken for a real category (§20 honesty).
+      const colorVals = rows.map(r => {
+        const v = r[series.colorCol];
+        return (v == null || String(v).trim() === '') ? '(blank)' : v;
+      });
+      const groups = categoryGroupsFromValues(colorVals);
+      const warnings = [];
+      const blankCount = (groups.find(g => g.cat === '(blank)') || {}).idx?.length || 0;
+      if (blankCount) warnings.push(`${blankCount} row${blankCount === 1 ? '' : 's'} have no "${series.colorCol}" value — grouped as "(blank)".`);
+      // High-cardinality guard (Stab A follow-up, mirrors the boxplot/heatmap
+      // >50 rule): one line per category becomes unreadable and slow well
+      // before the palette runs out, so warn on count, not just colour reuse.
+      if (groups.length > 50) {
+        warnings.push(`"${series.colorCol}" has ${groups.length} categories — too many to read as separate lines; filter the data or pick a column with fewer groups.`);
+      } else if (groups.length > PALETTE.length) {
+        warnings.push(`"${series.colorCol}" has ${groups.length} categories — only ${PALETTE.length} palette colours, so colours repeat.`);
       }
+      warning = warnings.length ? warnings.join(' ') : null;
       const traces = groups.map((g, gi) => {
         const idx = [...g.idx].sort((a, b) => xV[a] - xV[b]); // X order within the group
         const tr = {

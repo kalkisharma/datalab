@@ -78,7 +78,13 @@ function buildParityTrace(series, datasets) {
   // → one trace per category; else solid. Size-by reuses the shared area
   // mapping. Both encodings are decided before slicing so the marker base
   // (edge/opacity) is shared. Numeric-ness mirrors colorMapping (>50% finite).
-  let warning = null;
+  // Same-column self-comparison guard (Stab A follow-up): in same-dataset mode
+  // nothing stops X and Y being the same column — that yields a perfect y=x
+  // line with NSE=1 by construction, which looks like a flawless model but is
+  // meaningless. Warn rather than block (§20 honesty); the plot is still valid.
+  let warning = (!series.joinDatasetId && series.xCol === series.yCol)
+    ? `X and Y are the same column ("${series.xCol}") — every point lies on y = x and NSE = 1 by construction. Pick a different modelled column for a meaningful comparison.`
+    : null;
   let colorMode = 'solid';
   if (series.colorCol) {
     const finiteFrac = catV.filter(v => Number.isFinite(Number(v))).length / (catV.length || 1);
@@ -100,7 +106,8 @@ function buildParityTrace(series, datasets) {
   if (colorMode === 'categorical') {
     const groups = categoryGroupsFromValues(catV);
     if (groups.length > PALETTE.length) {
-      warning = `"${series.colorCol}" has ${groups.length} categories — only ${PALETTE.length} palette colors, so colors repeat.`;
+      const repeatMsg = `"${series.colorCol}" has ${groups.length} categories — only ${PALETTE.length} palette colors, so colors repeat.`;
+      warning = warning ? `${warning} ${repeatMsg}` : repeatMsg;
     }
     groups.forEach((g, gi) => {
       const gm = { ...marker, color: g.color };
