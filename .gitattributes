@@ -4,7 +4,7 @@
 # from the build output that printed the hash.
 datalab.html -text
 
-# Bundled libraries are hash-pinned in DEPENDENCIES.md and verified by
+# Bundled libraries are hash-pinned in docs/DEPENDENCIES.md and verified by
 # build.js against the working tree — eol conversion on a fresh clone would
 # abort every build.
 lib/*.js -text

@@ -155,6 +155,9 @@ Datetime columns are shown in column pickers but disabled with tooltip: "datetim
 ## File Structure
 
 > Refreshed at Phase 8 scoping — the block had drifted (missing the Phase 3–7 file splits).
+> Refreshed again post-v2.13.0: added `date-prompt.js` (split in Stab A), and the
+> documentation set moved into `docs/` (README stays at repo root as the entry point;
+> `REVIEW_GUIDE.md` + `CODE_WALKTHROUGH.md` added).
 
 ```
 datalab/
@@ -165,7 +168,8 @@ datalab/
       state.js          — appState schema, VERSION, escHtml
       data.js           — parseCSV + ingestion (dropzone/handleFile, Phase 15), applyFilters, classifyColumn, datetime detection
       ui.js             — makeDD, dataset panel, series list
-      modal.js          — series editor modal + date format prompt
+      modal.js          — series editor modal: open/close/save
+      date-prompt.js    — ambiguous-date format prompt (split from modal.js, Stab A / v2.13.0)
       modal-fields.js   — modal field assembly: Style + Filters + wiring (split Phase 3)
       modal-chart-fields.js — per-chart-type Columns/setup HTML (split from modal-fields, Phase 16)
       filters.js        — filter row UI
@@ -205,12 +209,15 @@ datalab/
   build.js
   .gitattributes      — artifact + lib eol exemptions (release integrity, §9)
   .githooks/          — version-controlled pre-commit hook (core.hooksPath, §8)
-  PLANNING.md
-  STANDARDS.md
-  ARIA_CHECKLIST.md
-  DEPENDENCIES.md     — pinned versions + verified source URLs + SHA-256; build.js verifies before bundling
-  README.md
-  CHANGELOG.md
+  README.md           — user-facing front page (kept at root as the entry point)
+  docs/               — all project documentation
+    REVIEW_GUIDE.md     — plain-language orientation for first-time/non-technical reviewers
+    CODE_WALKTHROUGH.md — full file-by-file technical walkthrough (owned EL + Data Viz; updated every phase exit, §4/§17)
+    PLANNING.md
+    STANDARDS.md
+    ARIA_CHECKLIST.md
+    DEPENDENCIES.md     — pinned versions + verified source URLs + SHA-256; build.js verifies before bundling
+    CHANGELOG.md
 ```
 
 ---

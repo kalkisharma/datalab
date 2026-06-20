@@ -63,7 +63,7 @@ Maintainer: Kalki Sharma <kalkijsharma@gmail.com>
   presets with selectable categories (style / export size / typography /
   frame & grid)
 - **Working with Excel data:** DataLab reads CSV only (a deliberate
-  security decision — see PLANNING.md). In Excel: File → Save As →
+  security decision — see `docs/PLANNING.md`). In Excel: File → Save As →
   CSV UTF-8, then drop the file in
 - **Performance:** WebGL rendering above 10k points; 10 series × 50k rows
   renders in well under a second
@@ -82,7 +82,7 @@ machine**:
   everything except files you explicitly exported
 - Every release publishes the artifact's SHA-256 hash; bundled libraries
   (Plotly 3.6.0, PapaParse 5.4.1, JSZip 3.10.1) are pinned by hash in
-  `DEPENDENCIES.md` and verified at build time
+  `docs/DEPENDENCIES.md` and verified at build time
 - The source is intentionally unobfuscated — security teams are encouraged
   to audit `src/` before approving use
 
@@ -107,10 +107,23 @@ BENCH=1 npx playwright test tests/bench.spec.js   # release benchmarks
 
 ## Project documentation
 
-- `PLANNING.md` — roadmap, team roles, phase history
-- `STANDARDS.md` — engineering standards (security, testing, accessibility)
-- `CHANGELOG.md` — release history with state-schema notes
-- `DEPENDENCIES.md` — pinned library versions and hashes
+All project documentation lives in [`docs/`](docs/):
+
+- [`docs/REVIEW_GUIDE.md`](docs/REVIEW_GUIDE.md) — **start here if you're
+  reviewing the project** — a plain-language orientation for security
+  approvers, auditors, new engineers, and non-technical stakeholders
+- [`docs/CODE_WALKTHROUGH.md`](docs/CODE_WALKTHROUGH.md) — a full,
+  file-by-file technical walkthrough of the codebase (for engineers and
+  security auditors)
+- [`docs/PLANNING.md`](docs/PLANNING.md) — roadmap, team roles, phase history
+- [`docs/STANDARDS.md`](docs/STANDARDS.md) — engineering standards (security,
+  testing, accessibility)
+- [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — release history with
+  state-schema notes
+- [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md) — pinned library versions
+  and hashes
+- [`docs/ARIA_CHECKLIST.md`](docs/ARIA_CHECKLIST.md) — per-phase accessibility
+  checklist
 
 ## License
 

@@ -60,6 +60,7 @@
   - [ ] QA verifies downloaded release file hash matches published hash
   - [ ] `DEPENDENCIES.md` reassessment log appended for this release (even when the entry is "no changes") — added Phase 13 review after the log was created at one review and missed at the very next exit
   - [ ] PLANNING.md file tree reflects files added/removed this phase — added Phase 13 review for the same reason (the schema sketch it accompanied was removed outright; `state.js` is the schema documentation)
+  - [ ] `CODE_WALKTHROUGH.md` updated for any `src/js/` file added/removed/split/repurposed this phase — its File Index must match the tree, and any architecture section the change touched (build order, renderer contract, data flow) re-read (added post-v2.13.0; §17). `REVIEW_GUIDE.md` reviewed if the feature set or security posture changed
   - [ ] Stale branches cleaned
 - Tag format: `v0.1.0`, `v1.0.0`, etc.
 
@@ -238,8 +239,12 @@ DataLab is used by private organisations loading sensitive data. The tool must g
 
 ## 17. Document Ownership
 
+All documentation lives in `docs/` except `README.md`, which stays at the repo root as the project's entry point (post-v2.13.0 reorganization). Doc cross-references and the `README.md` documentation list use `docs/` paths; the bare-name `STANDARDS.md §N` / `PLANNING.md` citations in source-code comments are section pointers and intentionally keep the short form.
+
 - `PLANNING.md` — owned by the Engineering Lead. Updated at every phase exit to reflect closed deliverables, new phase scope, and any architectural decisions made during the phase.
 - `STANDARDS.md` — owned by the Engineering Lead. Reviewed and updated at every phase exit.
+- `CODE_WALKTHROUGH.md` — owned by the Engineering Lead, with the Data Visualization Engineer for the renderer sections. **Updated at every phase exit** (release-checklist item, §4): when a `src/js/` file is added, removed, split, or changes responsibility, its File-Index entry and any affected architecture section change in the same commit. The build-order and renderer-contract sections are re-read whenever either changes.
+- `REVIEW_GUIDE.md` — owned by the Engineering Lead. Reviewed at every phase exit; updated when the feature set, security posture, or the reviewer-facing "where to start" guidance changes (it is the non-technical companion to `CODE_WALKTHROUGH.md`).
 - `ARIA_CHECKLIST.md` — owned by the Accessibility Specialist. Changes require sign-off from any two other roles.
 - `CHANGELOG.md` — updated by whoever makes the change; `## Schema` section owned by the Data Engineer.
 - `DEPENDENCIES.md` — owned by the Security Engineer. Updates require Engineering Lead sign-off.

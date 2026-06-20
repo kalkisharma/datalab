@@ -19,7 +19,7 @@ if (!versionMatch) {
 }
 const VERSION = versionMatch[1];
 
-// ── Library hash verification (DEPENDENCIES.md) ───────────────────────────
+// ── Library hash verification (docs/DEPENDENCIES.md) ──────────────────────
 const DEPS = {
   'lib/plotly.min.js':     '41a395c2d558d13d3655a1ebafaa67a072c2c1ac8c269e0ee67e18c9a137ac99',
   'lib/papaparse.min.js':  'b8e870c5d2b29772f10c9fa9a693c8b896aac8540ed6701e3cc6304c683febdb',
@@ -32,7 +32,7 @@ Object.entries(DEPS).forEach(([file, expected]) => {
     console.error(`\nHash mismatch: ${file}`);
     console.error(`  expected: ${expected}`);
     console.error(`  actual:   ${actual}`);
-    console.error('\nUpdate DEPENDENCIES.md and get Security + EL sign-off before proceeding.');
+    console.error('\nUpdate docs/DEPENDENCIES.md and get Security + EL sign-off before proceeding.');
     process.exit(1);
   }
 });
