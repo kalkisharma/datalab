@@ -804,7 +804,7 @@ A maintainer-commissioned full-team review of the scatter/line/parity renderers 
 
 **Stab A exit — shipped `v2.13.0`** (ahead of Phase 19). Delivered: parity single-dataset compare + line color-by wired to per-category lines (the two 🔴); legend in-bounds clamp; parity-stats drag persistence (the annotation-in-export gap, root-caused to the relayout hook); SVG-rasterizes-WebGL notice; and the date-format prompt split to `date-prompt.js` (§6 — `modal.js` 323 → 286). Suite **183 + 7 BENCH** green (warm 15 ms, cold 627 ms, filter 45 ms, heap → baseline). **§6 sweep:** `index.html` 418 / `datatools.js` 304 (untouched) / `chart.js` **300** tolerated — chart.js is at the trigger after the relayout-hook growth; the relayout-persistence hook is named as the next split seam (→ `decorations.js`). New §16 **control-effect check satisfied** (line Color-by now renders). Additive — state v2, no migration, MINOR. **Stab B and Stab C remain queued** after Phase 19.
 
-### Phase 19 — Statistical Diagnostics `(next MINOR when scheduled — v2.11.0 was taken by Workspace & Encoding Ergonomics)`
+### Phase 19 — Statistical Diagnostics `(next MINOR when scheduled — version assigned at exit per §3; v2.11.0/v2.12.0/v2.13.0 already shipped)`
 **Goal:** let the user check the assumptions behind the fits and tests already shipped — residuals, normality, and fit uncertainty. **Data Scientist is primary owner** (Phase 5+ statistical-feature ownership); every reference hand-derived or published per §20. **A docs-only pre-impl review precedes the branch** (Phase 14/15 precedent) to lock UI placement and the numerics plan before any `src/` work.
 
 **Design decisions (team scoping session — provisional, pre-impl review confirms):**
@@ -817,7 +817,7 @@ A maintainer-commissioned full-team review of the scatter/line/parity renderers 
 
 Deliverables (dependency order per §18; pre-impl review + §12 UX flows precede the branch):
 - [ ] Pre-impl review: confirm UI placement (new chart types vs a Data Tools "Diagnostics" view), the plotting-position convention, and the numerics plan (Data Scientist + EL + Data Viz)
-- [ ] Chore (§6): split the date-format prompt out of `modal.js` (323 at the v2.11.0 exit — the named seam). This phase adds qq/residual modal fields, so the modal changes; do the split with that change rather than tolerating again (the modal-fields.js 357 deferral-creep lesson, recorded at the v2.11.0 doc review)
+- [x] Chore (§6): split the date-format prompt out of `modal.js` — **done early in Stab A / v2.13.0** (`date-prompt.js`; `modal.js` 323 → 286). Pulled forward because Stab A's parity work touched the modal first; no longer a Phase 19 prerequisite.
 - [ ] `normalInv` (probit) + `tQuantile` (bisection on the t CDF) in `specfun.js`; published/hand-derived references per §20 (Data Scientist)
 - [ ] `renderers/qq.js` (10th type) + modal fields + log-scale guidance; §6/§7 review (Data Viz + DS)
 - [ ] `renderers/residual.js` (11th type) — residuals vs fitted, fit-degree field, zero line (Data Viz + DS)

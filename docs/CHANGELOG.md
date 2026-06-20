@@ -22,6 +22,13 @@
 - The ambiguous-date-format prompt moved to its own file (`date-prompt.js`, §6
   refactor) — no behavior change.
 
+## Schema
+### v2.13.0 (state version unchanged at 2 — no new fields)
+- Same-dataset parity reuses the **absence** of the existing
+  `series.joinDatasetId` (no join selected) instead of adding a field; line
+  color-by uses the existing `series.colorCol`. No migration; v2.0–v2.12
+  session files load unchanged.
+
 ## v2.12.0 — Plotly 3.x
 
 ### Changed
