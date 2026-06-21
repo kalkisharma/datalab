@@ -206,8 +206,10 @@ function saveModalSeries() {
   const style = { color: document.getElementById('mStyleColor')?.value || undefined };
   const ms = document.getElementById('mStyleMarkerSize')?.value;
   const lw = document.getElementById('mStyleLineWidth')?.value;
+  const sym = document.getElementById('mStyleMarkerSymbol')?.value;
   if (ms !== '' && ms != null) style.markerSize = Number(ms);
   if (lw !== '' && lw != null) style.lineWidth  = Number(lw);
+  if (sym) style.symbol = sym; // blank = inherit the global/default shape
 
   const existing = _editingSeriesId ? appState.series.find(s => s.id === _editingSeriesId) : null;
 

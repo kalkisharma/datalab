@@ -30,6 +30,10 @@ function renderDynamicFields(existing) {
   // global Style panel values; color defaults to the series/dataset color
   const curColor = existing?.style?.color ?? ds.color ?? '#5b8dee';
   const showLineWidth = chartType === 'line'; // parity's main trace is markers — no line width
+  // Marker shape applies only to the marker-drawing chart types (Phase 19+)
+  const showSymbol = chartType === 'scatter' || chartType === 'parity' || chartType === 'line';
+  const SYMBOLS = ['circle', 'square', 'diamond', 'triangle-up', 'triangle-down', 'cross', 'x', 'star', 'hexagon', 'pentagon'];
+  const curSymbol = existing?.style?.symbol || '';
   html += `
     <div class="modal-section-title">Style</div>
     <div class="modal-field">
@@ -41,6 +45,14 @@ function renderDynamicFields(existing) {
       <input type="number" class="ctrl-input" id="mStyleMarkerSize" min="1" max="30"
              value="${existing?.style?.markerSize ?? ''}" placeholder="global" />
     </div>
+    ${showSymbol ? `
+    <div class="modal-field">
+      <label class="modal-label" for="mStyleMarkerSymbol">Marker shape</label>
+      <select id="mStyleMarkerSymbol">
+        <option value="">Global default (circle)</option>
+        ${SYMBOLS.map(sym => `<option value="${sym}" ${curSymbol === sym ? 'selected' : ''}>${sym}</option>`).join('')}
+      </select>
+    </div>` : ''}
     ${showLineWidth ? `
     <div class="modal-field">
       <label class="modal-label" for="mStyleLineWidth">Line width <span class="field-hint" style="margin:0">(blank = global)</span></label>

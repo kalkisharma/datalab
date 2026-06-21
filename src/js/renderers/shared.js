@@ -140,6 +140,10 @@ function buildMarkerStyle(seriesStyle, colorOverride) {
   const marker = {
     size:    s.markerSize    ?? Number(document.getElementById('markerSize')?.value  ?? 6),
     opacity: s.opacity       ?? (Number(document.getElementById('markerOpacity')?.value ?? 80) / 100),
+    // Marker shape (Phase 19+): per-series override, else the (future) global
+    // control, else Plotly's circle. The #markerSymbol lookup is intentionally
+    // left in place so a Stab-C global control needs no renderer change.
+    symbol:  s.symbol        ?? document.getElementById('markerSymbol')?.value ?? 'circle',
     line: {
       color: s.edgeColor ?? document.getElementById('edgeColor')?.value ?? '#333333',
       // edgeWidth, not lineWidth — lineWidth is the line-trace width (schema, state.js)

@@ -38,6 +38,7 @@ function buildLineTrace(series, datasets) {
 
   const color = series.style?.color ?? (ds.color ?? '#5b8dee');
   const lineWidth = series.style?.lineWidth ?? 2;
+  const symbol = series.style?.symbol ?? 'circle'; // line builds markers by hand (no buildMarkerStyle)
   // Error bars: name carries "± column" — semantics always visible (§20).
   // legendLabel (Phase 16) overrides the auto label incl. the suffix.
   const baseName = series.legendLabel || ((series.name || 'Line') + (series.errCol ? ` (± ${series.errCol})` : ''));
@@ -79,7 +80,7 @@ function buildLineTrace(series, datasets) {
         const tr = {
           type: 'scatter', mode: 'lines+markers',
           x: idx.map(i => xV[i]), y: idx.map(i => yV[i]),
-          name: g.cat, line: { color: g.color, width: lineWidth }, marker: { color: g.color, size: 4 },
+          name: g.cat, line: { color: g.color, width: lineWidth }, marker: { color: g.color, size: 4, symbol },
           legendgroup: series.id, hovertemplate: hover,
         };
         if (gi === 0) tr.legendgrouptitle = { text: baseName };
@@ -96,7 +97,7 @@ function buildLineTrace(series, datasets) {
     type: 'scatter', mode: 'lines+markers', x: xV, y: yV,
     name: baseName,
     line: { color, width: lineWidth },
-    marker: { color, size: 4 },
+    marker: { color, size: 4, symbol },
     hovertemplate: hover,
   };
   if (eV) trace.error_y = errorBarsFromCol(eV);

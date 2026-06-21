@@ -36,7 +36,9 @@ const VERSION = '2.13.0';
 //   // subplots (Phase 10): cell { row, col } 1-based, optional (default 1·1)
 //   // all series: legendHide (bool) — suppress this series' legend entries (workspace ergonomics)
 //   filters: [{ col, op, value, enabled }],
-//   style:   { color, markerSize, opacity, lineWidth }
+//   style:   { color, markerSize, opacity, lineWidth, symbol? }
+//   //   symbol (Phase 19+): per-series marker shape (scatter/parity/line);
+//   //   absent = global/default 'circle'. Plotly marker-symbol name.
 // }
 //
 // Plot shape (entries in appState.plots):
