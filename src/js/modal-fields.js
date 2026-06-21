@@ -34,10 +34,15 @@ function renderDynamicFields(existing) {
   const showSymbol = chartType === 'scatter' || chartType === 'parity' || chartType === 'line';
   const SYMBOLS = ['circle', 'square', 'diamond', 'triangle-up', 'triangle-down', 'cross', 'x', 'star', 'hexagon', 'pentagon'];
   const curSymbol = existing?.style?.symbol || '';
+  // Line-only controls (Phase 19+): markers toggle, separate marker colour, dash
+  const DASHES = [['', 'Solid'], ['dash', 'Dash'], ['dot', 'Dot'], ['dashdot', 'Dash-dot']];
+  const curDash = existing?.style?.lineDash || '';
+  const markersOn = existing?.style?.showMarkers !== false; // default ON
+  const curMarkerColor = existing?.style?.markerColor || curColor; // pre-fill to the line colour
   html += `
     <div class="modal-section-title">Style</div>
     <div class="modal-field">
-      <label class="modal-label" for="mStyleColor">Color</label>
+      <label class="modal-label" for="mStyleColor">${chartType === 'line' ? 'Line color' : 'Color'}</label>
       <input type="color" class="edge-color" id="mStyleColor" value="${escHtml(curColor)}" />
     </div>
     <div class="modal-field">
@@ -58,6 +63,19 @@ function renderDynamicFields(existing) {
       <label class="modal-label" for="mStyleLineWidth">Line width <span class="field-hint" style="margin:0">(blank = global)</span></label>
       <input type="number" class="ctrl-input" id="mStyleLineWidth" min="0.5" max="10" step="0.5"
              value="${existing?.style?.lineWidth ?? ''}" placeholder="global" />
+    </div>
+    <div class="modal-field">
+      <label class="modal-label" for="mStyleLineDash">Line style</label>
+      <select id="mStyleLineDash">
+        ${DASHES.map(([v, lbl]) => `<option value="${v}" ${curDash === v ? 'selected' : ''}>${lbl}</option>`).join('')}
+      </select>
+    </div>
+    <div class="check-row">
+      <label><input type="checkbox" id="mStyleShowMarkers" ${markersOn ? 'checked' : ''} /> Show markers</label>
+    </div>
+    <div class="modal-field">
+      <label class="modal-label" for="mStyleMarkerColor">Marker color <span class="field-hint" style="margin:0">(defaults to line color)</span></label>
+      <input type="color" class="edge-color" id="mStyleMarkerColor" value="${escHtml(curMarkerColor)}" />
     </div>` : ''}`;
 
   // Filters (all chart types)

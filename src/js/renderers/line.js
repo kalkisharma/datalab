@@ -39,6 +39,14 @@ function buildLineTrace(series, datasets) {
   const color = series.style?.color ?? (ds.color ?? '#5b8dee');
   const lineWidth = series.style?.lineWidth ?? 2;
   const symbol = series.style?.symbol ?? 'circle'; // line builds markers by hand (no buildMarkerStyle)
+  // Marker SIZE goes through buildMarkerStyle so line markers honor the global
+  // #markerSize slider + per-series style.markerSize (previously hardcoded 4,
+  // which is why the global sizing "did nothing" on line plots). Size only —
+  // opacity/edge stay as today's Plotly defaults.
+  const markerSize = buildMarkerStyle(series.style).size;
+  const mode = (series.style?.showMarkers ?? true) ? 'lines+markers' : 'lines'; // toggle markers
+  const dash = series.style?.lineDash || undefined; // undefined = Plotly solid
+  const markerColor = series.style?.markerColor ?? color; // overrides marker fill (single line only)
   // Error bars: name carries "± column" — semantics always visible (§20).
   // legendLabel (Phase 16) overrides the auto label incl. the suffix.
   const baseName = series.legendLabel || ((series.name || 'Line') + (series.errCol ? ` (± ${series.errCol})` : ''));
@@ -78,9 +86,11 @@ function buildLineTrace(series, datasets) {
       const traces = groups.map((g, gi) => {
         const idx = [...g.idx].sort((a, b) => xV[a] - xV[b]); // X order within the group
         const tr = {
-          type: 'scatter', mode: 'lines+markers',
+          type: 'scatter', mode,
           x: idx.map(i => xV[i]), y: idx.map(i => yV[i]),
-          name: g.cat, line: { color: g.color, width: lineWidth }, marker: { color: g.color, size: 4, symbol },
+          // markerColor intentionally NOT applied here — the per-category colours
+          // are the encoding and must win over a single marker-colour override.
+          name: g.cat, line: { color: g.color, width: lineWidth, dash }, marker: { color: g.color, size: markerSize, symbol },
           legendgroup: series.id, hovertemplate: hover,
         };
         if (gi === 0) tr.legendgrouptitle = { text: baseName };
@@ -94,10 +104,10 @@ function buildLineTrace(series, datasets) {
   }
 
   const trace = {
-    type: 'scatter', mode: 'lines+markers', x: xV, y: yV,
+    type: 'scatter', mode, x: xV, y: yV,
     name: baseName,
-    line: { color, width: lineWidth },
-    marker: { color, size: 4, symbol },
+    line: { color, width: lineWidth, dash },
+    marker: { color: markerColor, size: markerSize, symbol },
     hovertemplate: hover,
   };
   if (eV) trace.error_y = errorBarsFromCol(eV);

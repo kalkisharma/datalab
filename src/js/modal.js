@@ -210,6 +210,14 @@ function saveModalSeries() {
   if (ms !== '' && ms != null) style.markerSize = Number(ms);
   if (lw !== '' && lw != null) style.lineWidth  = Number(lw);
   if (sym) style.symbol = sym; // blank = inherit the global/default shape
+  // Line-only controls: store showMarkers only when OFF (absent = default true);
+  // store markerColor only when it differs from the line colour (else it inherits
+  // and follows future line-colour edits); lineDash blank = solid.
+  if (document.getElementById('mStyleShowMarkers')?.checked === false) style.showMarkers = false;
+  const mkC = document.getElementById('mStyleMarkerColor')?.value;
+  if (mkC && mkC.toLowerCase() !== (style.color || '').toLowerCase()) style.markerColor = mkC;
+  const dash = document.getElementById('mStyleLineDash')?.value;
+  if (dash) style.lineDash = dash;
 
   const existing = _editingSeriesId ? appState.series.find(s => s.id === _editingSeriesId) : null;
 

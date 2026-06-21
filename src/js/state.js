@@ -36,9 +36,12 @@ const VERSION = '2.13.0';
 //   // subplots (Phase 10): cell { row, col } 1-based, optional (default 1·1)
 //   // all series: legendHide (bool) — suppress this series' legend entries (workspace ergonomics)
 //   filters: [{ col, op, value, enabled }],
-//   style:   { color, markerSize, opacity, lineWidth, symbol? }
+//   style:   { color, markerSize, opacity, lineWidth, symbol?, showMarkers?, markerColor?, lineDash? }
 //   //   symbol (Phase 19+): per-series marker shape (scatter/parity/line);
 //   //   absent = global/default 'circle'. Plotly marker-symbol name.
+//   //   LINE-only (Phase 19+): showMarkers (bool, absent = true — toggle markers);
+//   //   markerColor (hex, absent = inherit the line colour, single-line path);
+//   //   lineDash ('dash'|'dot'|'dashdot', absent = solid). color = LINE colour.
 // }
 //
 // Plot shape (entries in appState.plots):
