@@ -158,22 +158,32 @@ function buildMarkerStyle(seriesStyle, colorOverride) {
 }
 
 /**
- * Area-proportional marker sizes (Phase 14 mapping; shared by scatter and
- * parity since Phase 16). Marker AREA is linear in the value, so diameter
- * ∝ √v — radius-proportional mapping exaggerates large values quadratically
- * (DS ruling). 4 px → 28 px diameter; non-finite values get the minimum;
- * all-equal values get a mid size.
+ * Marker sizes for a size-by series (Phase 14 mapping; shared by scatter and
+ * parity since Phase 16). Two laws:
+ *   'area'     — marker AREA is linear in the value, so diameter ∝ √v. The
+ *                honest default: radius/diameter-proportional mapping
+ *                exaggerates large values quadratically (DS ruling, §20).
+ *   'diameter' — marker DIAMETER is linear in the value (the user opts in;
+ *                the renderer warns that it exaggerates).
+ * dMin/dMax are the px diameter endpoints (default 4 → 28). Non-finite values
+ * get dMin; all-equal values get the midpoint (dMin+dMax)/2.
+ *
+ * Defaults reproduce the pre-Phase-19 output exactly (dMin=4, dMax=28, area).
  * @param {number[]} values
+ * @param {{law?:'area'|'diameter', dMin?:number, dMax?:number}} [opts]
  * @returns {number[]} px diameters, aligned to values
  */
-function areaSizes(values) {
+function areaSizes(values, opts = {}) {
+  const law = opts.law === 'diameter' ? 'diameter' : 'area';
+  const dMin = Number.isFinite(opts.dMin) ? opts.dMin : 4;
+  const dMax = Number.isFinite(opts.dMax) ? opts.dMax : 28;
+  const dMin2 = dMin * dMin, dMax2 = dMax * dMax; // area endpoints
   let mn = Infinity, mx = -Infinity;
   for (const v of values) if (Number.isFinite(v)) { if (v < mn) mn = v; if (v > mx) mx = v; }
-  const DMIN2 = 16, DMAX2 = 784; // 4² and 28² — areas interpolate linearly
   return values.map(v => {
-    if (!Number.isFinite(v) || mx === mn) return (mx === mn && Number.isFinite(v)) ? 16 : 4;
+    if (!Number.isFinite(v) || mx === mn) return (mx === mn && Number.isFinite(v)) ? (dMin + dMax) / 2 : dMin;
     const f = (v - mn) / (mx - mn);
-    return Math.sqrt(DMIN2 + f * (DMAX2 - DMIN2));
+    return law === 'diameter' ? dMin + f * (dMax - dMin) : Math.sqrt(dMin2 + f * (dMax2 - dMin2));
   });
 }
 
@@ -204,32 +214,41 @@ function categoryGroups(rows, col) {
 
 /**
  * Legend-only "size key" traces for a bubble (size-by) series — Plotly has
- * no native size legend (Phase 16). Three swatches at the size column's min,
- * median, and max (DS: median is the robust center; true min/max are the
- * endpoints), marker AREAS matching the real mapping via areaSizes so the
- * key reads in the same units as the data; grey so it reads as size, not a
- * data color. Plotted at (null, null) so they add no points to the axes.
+ * no native size legend (Phase 16). Swatches at evenly-spaced quantiles of
+ * the size column (count=3 → min/median/max, the default; DS: median is the
+ * robust center, true min/max the endpoints). Marker sizes go through the
+ * SAME areaSizes(opts) mapping as the data so the key never lies about the
+ * bubbles (the load-bearing coupling — §12/§20); grey so it reads as size,
+ * not a data color. Plotted at (null, null) so they add no points to the axes.
  * @param {number[]} values - finite-or-NaN size values (post pairing/filter)
- * @param {string}   col    - size column name (legend group title)
+ * @param {string}   col    - size column name (default legend title)
  * @param {string}   group  - unique legendgroup id (per series)
+ * @param {{law?:string, dMin?:number, dMax?:number, label?:string,
+ *          count?:number, separate?:boolean}} [opts] - law/dMin/dMax MUST match
+ *          the data call; label overrides the title; count sets swatch count;
+ *          separate routes the key to a second legend (legend2).
  * @returns {object[]}
  */
-function sizeKeyTraces(values, col, group) {
+function sizeKeyTraces(values, col, group, opts = {}) {
   const finite = values.filter(Number.isFinite);
   if (finite.length < 2) return [];
   const sorted = [...finite].sort((a, b) => a - b);
   const lo = sorted[0], hi = sorted[sorted.length - 1];
   if (lo === hi) return []; // all values equal — no meaningful range to key
-  // Dedupe: the median can coincide with an endpoint on small/skewed data
-  const reps = [...new Set([lo, quantile(sorted, 0.5), hi])];
-  const px = areaSizes(reps); // reps include min & max, so the mapping matches
+  const n = Math.max(2, Math.round(Number.isFinite(opts.count) ? opts.count : 3));
+  // Evenly-spaced quantiles (n=3 → 0, 0.5, 1 = min/median/max, today's set).
+  // Dedupe: adjacent quantiles can coincide on small/skewed data.
+  const reps = [...new Set(Array.from({ length: n }, (_, i) => quantile(sorted, i / (n - 1))))];
+  const px = areaSizes(reps, opts); // same opts → swatch sizes match the bubbles
+  const title = opts.label || `Size: ${col}`;
   const f = v => Number(v).toPrecision(3);
   return reps.map((v, i) => ({
     type: 'scatter', mode: 'markers', x: [null], y: [null],
     name: f(v),
     marker: { size: px[i], color: '#9e9e9e', line: { width: 0.5, color: '#666' } },
     legendgroup: group, showlegend: true, hoverinfo: 'skip',
-    ...(i === 0 ? { legendgrouptitle: { text: `Size: ${col}` } } : {}),
+    ...(opts.separate ? { legend: 'legend2' } : {}),
+    ...(i === 0 ? { legendgrouptitle: { text: title } } : {}),
   }));
 }
 

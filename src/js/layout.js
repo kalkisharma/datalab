@@ -125,6 +125,17 @@ function buildBaseLayout(plot) {
   // default is top-left
   const legendPos = cfg.legendPos ?? { x: 0.01, y: 0.99 };
 
+  // Second legend (Phase 19): emitted only when a visible size-by series on
+  // THIS plot opts its size key into a separate legend — otherwise Plotly
+  // draws an empty floating box. One shared legend2 per plot; position
+  // persists in cfg.legend2Pos (top-right default, opposite the main legend).
+  const legend2Pos = cfg.legend2Pos ?? { x: 0.99, y: 0.99 };
+  const sizeSep = (appState.series || []).some(s =>
+    (s.plotId ?? appState.plots[0]?.id) === plot.id &&
+    s.sizeKeySeparate && !s.legendHide && !s.sizeKeyHide &&
+    (s.chartType === 'scatter' || s.chartType === 'parity') &&
+    (s.sizeCol || cfg.sharedSizeCol));
+
   return {
     paper_bgcolor: th.bg, plot_bgcolor: th.bg,
     autosize: true, // panels fill their grid cell; Export size sliders only affect downloads
@@ -158,6 +169,11 @@ function buildBaseLayout(plot) {
       bgcolor: th.legendBg, bordercolor: th.legendBorder, borderwidth: 1,
       x: legendPos.x, y: legendPos.y, xanchor: 'left', yanchor: 'top',
     },
+    ...(sizeSep ? { legend2: {
+      font: { size: fsL, color: th.text },
+      bgcolor: th.legendBg, bordercolor: th.legendBorder, borderwidth: 1,
+      x: legend2Pos.x, y: legend2Pos.y, xanchor: 'right', yanchor: 'top',
+    } } : {}),
     // Margins scale with the fonts so large labels are not clipped on export
     margin: {
       l: Math.round(28 + fsA + fsTk * 2.4), r: 30,

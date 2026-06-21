@@ -78,6 +78,16 @@ function renderDynamicFields(existing) {
     syncColorbar();
   }
 
+  // Scatter/parity: the size-by detail controls (law, min/max, size-key
+  // overrides) only apply once a Size-by column is chosen (Phase 19)
+  const mSizeCol = document.getElementById('mSizeCol');
+  const mSizeOptsField = document.getElementById('mSizeOptsField');
+  if (mSizeCol && mSizeOptsField) {
+    const syncSizeOpts = () => { mSizeOptsField.style.display = mSizeCol.value ? '' : 'none'; };
+    mSizeCol.addEventListener('change', syncSizeOpts);
+    syncSizeOpts();
+  }
+
   // Scatter: the degree select only means something with the trendline on
   const mTrend = document.getElementById('mTrend');
   if (mTrend) {

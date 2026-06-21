@@ -93,6 +93,17 @@ test('axe: series modal with numeric color-by (colorbar label visible) has no vi
   expect(await audit(page, 'modal-colorbar')).toHaveLength(0);
 });
 
+test('axe: series modal with size-by detail controls visible has no violations', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'x,y,m\n1,2,10\n3,4,20\n5,6,30', '_a11y_size.csv');
+  await page.click('#addSeriesBtn');
+  await page.click('.ct-btn[data-ct="scatter"]');
+  await page.waitForTimeout(200);
+  await page.selectOption('#mSizeCol', 'm'); // reveals the size-by detail controls (Phase 19)
+  await page.waitForTimeout(150);
+  expect(await audit(page, 'modal-size')).toHaveLength(0);
+});
+
 test('axe: help dialog open has no violations', async ({ page }) => {
   await page.goto(FILE_URL);
   await page.click('#helpBtn');

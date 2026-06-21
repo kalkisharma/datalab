@@ -245,6 +245,17 @@ function renderOnePlot(plot) {
         const outY = e['legend.y'] !== undefined && (e['legend.y'] < 0 || e['legend.y'] > 1);
         if (outX || outY) { try { Plotly.relayout(pd, { 'legend.x': lx, 'legend.y': ly }); } catch (err) {} }
       }
+      // Second legend (Phase 19): the optional size-key legend persists and
+      // clamps the same way as the main legend.
+      if (e['legend2.x'] !== undefined || e['legend2.y'] !== undefined) {
+        const clamp = v => Math.max(0, Math.min(1, v));
+        const lx = clamp(e['legend2.x'] ?? plot.plotConfig.legend2Pos?.x ?? 0.99);
+        const ly = clamp(e['legend2.y'] ?? plot.plotConfig.legend2Pos?.y ?? 0.99);
+        plot.plotConfig.legend2Pos = { x: lx, y: ly };
+        const outX = e['legend2.x'] !== undefined && (e['legend2.x'] < 0 || e['legend2.x'] > 1);
+        const outY = e['legend2.y'] !== undefined && (e['legend2.y'] < 0 || e['legend2.y'] > 1);
+        if (outX || outY) { try { Plotly.relayout(pd, { 'legend2.x': lx, 'legend2.y': ly }); } catch (err) {} }
+      }
       // Dragged annotations persist: indices past _noteOffset are notes
       // (Phase 14); indices before it are the parity stats box — persist its
       // position too (Stab A) so a dragged stats box survives re-render and

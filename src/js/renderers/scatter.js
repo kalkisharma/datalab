@@ -68,17 +68,22 @@ function buildScatterTrace(series, datasets) {
   const marker = buildMarkerStyle(series.style, colorMode === 'numeric' ? colorInfo.colorVals : undefined);
   if (colorMode !== 'numeric') marker.color = series.style?.color ?? (ds.color ?? '#5b8dee');
 
-  // Bubble size (Phase 14): area-proportional, via the shared areaSizes
-  // mapping (one source of truth with parity since Phase 16).
+  // Bubble size (Phase 14): via the shared areaSizes mapping (one source of
+  // truth with parity since Phase 16). Law/min/max are per-series (Phase 19);
+  // the same opts thread into the size key so the legend matches the bubbles.
   let sizeNote = '';
   let sizeRaw = null;
+  let sizeOpts = null;
+  let sizeWarn = null; // honesty warning kept separate so a later warning can't clobber it
   if (series.sizeCol) {
     if (isDatetime) {
       warning = 'Size-by is not supported with a datetime X axis yet.';
     } else {
+      sizeOpts = { law: series.sizeLaw, dMin: series.sizeMin, dMax: series.sizeMax };
       sizeRaw = colVals(rows, series.sizeCol);
-      marker.size = areaSizes(sizeRaw);
+      marker.size = areaSizes(sizeRaw, sizeOpts);
       sizeNote = ` (size: ${series.sizeCol})`;
+      if (series.sizeLaw === 'diameter') sizeWarn = 'Diameter-proportional sizing exaggerates large values — a 2× value reads as ~4× the area; area-proportional is the honest default.';
     }
   }
 
@@ -127,8 +132,12 @@ function buildScatterTrace(series, datasets) {
     if (eV) tr.error_y = errorBarsFromCol(eV);
     traces.push(tr);
   }
-  // Size key (Phase 16): legend swatches at min/median/max of the size column
-  if (sizeRaw) traces.push(...sizeKeyTraces(sizeRaw, series.sizeCol, '__size_' + series.id));
+  // Size key (Phase 16): legend swatches matching the bubble mapping. Phase 19:
+  // optional hide, custom label/count, and routing to a separate legend.
+  if (sizeRaw && !series.sizeKeyHide) {
+    traces.push(...sizeKeyTraces(sizeRaw, series.sizeCol, '__size_' + series.id,
+      { ...sizeOpts, label: series.sizeKeyLabel, count: series.sizeKeyCount, separate: series.sizeKeySeparate }));
+  }
 
   // Linear trendline (Phase 9): least squares on the finite pairs; the
   // legend entry IS the annotation — equation + R² (linearFit in stats.js).
@@ -244,5 +253,5 @@ function buildScatterTrace(series, datasets) {
     }
   }
 
-  return { traces, error: null, warning, fitAnnot };
+  return { traces, error: null, warning: [warning, sizeWarn].filter(Boolean).join(' ') || null, fitAnnot };
 }

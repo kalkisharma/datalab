@@ -93,8 +93,16 @@ function buildParityTrace(series, datasets) {
   const marker = buildMarkerStyle(series.style, colorMode === 'numeric' ? catV.map(Number) : undefined);
   if (colorMode !== 'numeric') marker.color = series.style?.color ?? (ds.color ?? '#5b8dee');
   if (colorMode === 'numeric') marker.colorbar = { title: { text: series.colorbarLabel || series.colorCol } };
-  let sizeNote = '';
-  if (sizeObs) { marker.size = areaSizes(szV); sizeNote = ` (size: ${series.sizeCol})`; }
+  let sizeNote = '', sizeOpts = null;
+  if (sizeObs) {
+    sizeOpts = { law: series.sizeLaw, dMin: series.sizeMin, dMax: series.sizeMax };
+    marker.size = areaSizes(szV, sizeOpts);
+    sizeNote = ` (size: ${series.sizeCol})`;
+    if (series.sizeLaw === 'diameter') {
+      const dWarn = 'Diameter-proportional sizing exaggerates large values — a 2× value reads as ~4× the area; area-proportional is the honest default.';
+      warning = warning ? `${warning} ${dWarn}` : dWarn;
+    }
+  }
 
   const baseName = series.legendLabel || (series.name || 'Parity'); // legendLabel overrides (Phase 16)
   const hover = `${series.xCol}: %{x:.4g}<br>${series.yCol}: %{y:.4g}`
@@ -129,8 +137,12 @@ function buildParityTrace(series, datasets) {
     if (sizeObs) tr.customdata = szV;
     traces.push(tr);
   }
-  // Size key (Phase 16): legend swatches at min/median/max of the size column
-  if (sizeObs) traces.push(...sizeKeyTraces(szV, series.sizeCol, '__size_' + series.id));
+  // Size key (Phase 16): legend swatches matching the bubble mapping. Phase 19:
+  // optional hide, custom label/count, and routing to a separate legend.
+  if (sizeObs && !series.sizeKeyHide) {
+    traces.push(...sizeKeyTraces(szV, series.sizeCol, '__size_' + series.id,
+      { ...sizeOpts, label: series.sizeKeyLabel, count: series.sizeKeyCount, separate: series.sizeKeySeparate }));
+  }
 
   // y=x parity line
   traces.push({

@@ -29,6 +29,10 @@ const VERSION = '2.13.0';
 //   // bar (Phase 9): agg ('none'|'count'|'sum'|'mean'|'median'),
 //   //                errMode ('sd'|'sem'|null — mean only)
 //   // scatter/line (Phase 9): errCol (± column), trendline (scatter only)
+//   // scatter/parity size-by (Phase 14 + 19): sizeCol; sizeLaw ('area' default
+//   //   | 'diameter' — exaggerates, warns); sizeMin/sizeMax (px, default 4/28);
+//   //   sizeKeyLabel (size-legend title); sizeKeyCount (swatches, default 3);
+//   //   sizeKeyHide (bool); sizeKeySeparate (bool — route size key to legend2)
 //   // subplots (Phase 10): cell { row, col } 1-based, optional (default 1·1)
 //   // all series: legendHide (bool) — suppress this series' legend entries (workspace ergonomics)
 //   filters: [{ col, op, value, enabled }],
@@ -57,6 +61,7 @@ function makeDefaultPlotConfig() {
     legendShow:   true,
     statsShow:    true,   // parity NSE/MAE/RMSE box — toggle like the legend (workspace ergonomics)
     legendPos:    null,   // { x, y }; null = default corner
+    legend2Pos:   null,   // { x, y }; second legend for opt-in size keys (Phase 19), null = default corner
     xMin: '', xMax: '', yMin: '', yMax: '', // manual axis ranges ('' = auto)
     // Log axis toggles (Phase 9 — additive with defaults, no migration §3)
     xLog: false, yLog: false,

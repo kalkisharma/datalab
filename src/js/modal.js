@@ -238,7 +238,16 @@ function saveModalSeries() {
     agg:       document.getElementById('mBarAgg')?.value || null,           // bar only
     errMode:   document.getElementById('mBarErr')?.value || null,           // bar only (sd|sem)
     errCol:    document.getElementById('mErrCol')?.value || null,           // scatter/line ± column
-    sizeCol:   document.getElementById('mSizeCol')?.value || null,          // scatter bubble size (Phase 14)
+    sizeCol:   document.getElementById('mSizeCol')?.value || null,          // scatter/parity bubble size (Phase 14)
+    // Size-by detail (Phase 19, scatter/parity): law/min/max thread into BOTH
+    // the bubbles and the size key; the rest customize the size legend.
+    sizeLaw:        document.getElementById('mSizeLaw')?.value === 'diameter' ? 'diameter' : null, // null = area (honest default)
+    sizeMin:        (v => Number.isFinite(v) ? v : null)(parseFloat(document.getElementById('mSizeMin')?.value)),
+    sizeMax:        (v => Number.isFinite(v) ? v : null)(parseFloat(document.getElementById('mSizeMax')?.value)),
+    sizeKeyLabel:   document.getElementById('mSizeKeyLabel')?.value.trim() || null,
+    sizeKeyCount:   (v => Number.isFinite(v) ? v : null)(parseInt(document.getElementById('mSizeKeyCount')?.value)),
+    sizeKeyHide:    document.getElementById('mSizeKeyHide')?.checked ?? false,
+    sizeKeySeparate: document.getElementById('mSizeKeySeparate')?.checked ?? false,
     rightAxis: document.getElementById('mRightAxis')?.checked ?? false,     // scatter/line/bar (Phase 14)
     trendline: document.getElementById('mTrend')?.checked ?? false,         // scatter only
     trendDegree: parseInt(document.getElementById('mTrendDeg')?.value) || 1, // scatter only (Phase 13)

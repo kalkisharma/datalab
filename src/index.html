@@ -124,6 +124,7 @@
     <details class="section">
       <summary>Style</summary>
       <div class="details-body">
+        <div class="field-hint" style="margin:0 0 8px;">Applies to all plots.</div>
         <label class="ctrl-label">Plot background
           <div class="edge-row">
             <input type="color" class="edge-color" id="plotBg" value="#ffffff" />
@@ -158,20 +159,6 @@
       </div>
     </details>
 
-    <!-- Style presets (Phase 16: always-visible row, not a collapsible
-         section — two buttons whose reach spans Style, Export size, Plot
-         typography, and Frame & grid; hiding them behind a disclosure saved
-         no space and cost a click) -->
-    <div class="section">
-      <div class="section-title">Style presets</div>
-      <div class="field-hint" style="margin:0 0 8px;">Captures Style, Export size, Plot typography, and Frame &amp; grid — choose which when saving.</div>
-      <div class="check-row" style="gap:8px">
-        <button class="btn btn-sm" id="presetSaveBtn" title="Save current style settings to a JSON file">Save preset</button>
-        <button class="btn btn-sm" id="presetLoadBtn" title="Load a style preset">Load preset</button>
-        <input type="file" id="presetFileInput" accept=".json" class="sr-only" aria-label="Load style preset file" />
-      </div>
-    </div>
-
     <!-- Export size (Phase 7: panels autosize to the grid on screen;
          these sliders set the PNG/SVG export dimensions only) -->
     <details class="section">
@@ -200,6 +187,7 @@
     <details class="section">
       <summary>Plot typography</summary>
       <div class="details-body">
+        <div class="field-hint" style="margin:0 0 8px;">Applies to all plots.</div>
         <label class="ctrl-label">Title size
           <div class="slider-row">
             <input type="range" id="fsTitle" min="10" max="40" value="14" />
@@ -237,6 +225,7 @@
     <details class="section">
       <summary>Plot frame</summary>
       <div class="details-body">
+        <div class="field-hint" style="margin:0 0 8px;">Applies to all plots.</div>
         <label class="ctrl-label">Axis lines
           <div class="edge-row">
             <label class="check-row" style="margin:0"><input type="checkbox" id="frameAuto" checked /> auto</label>
@@ -274,6 +263,20 @@
         <button class="btn btn-sm" id="resetRangesBtn" style="margin-top:6px;">Reset</button>
       </div>
     </details>
+
+    <!-- Style presets (Phase 16; moved to the panel bottom in Phase 19 so it
+         sits right after the global appearance sections it captures — Style,
+         Export size, Plot typography, Frame & grid). Always-visible row, not a
+         collapsible section. -->
+    <div class="section">
+      <div class="section-title">Style presets</div>
+      <div class="field-hint" style="margin:0 0 8px;">Captures Style, Export size, Plot typography, and Frame &amp; grid — choose which when saving.</div>
+      <div class="check-row" style="gap:8px">
+        <button class="btn btn-sm" id="presetSaveBtn" title="Save current style settings to a JSON file">Save preset</button>
+        <button class="btn btn-sm" id="presetLoadBtn" title="Load a style preset">Load preset</button>
+        <input type="file" id="presetFileInput" accept=".json" class="sr-only" aria-label="Load style preset file" />
+      </div>
+    </div>
 
   </div><!-- /left-panel -->
 

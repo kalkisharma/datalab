@@ -5,6 +5,37 @@
 // shared Style + Filters sections and wires everything.
 //
 // colOptions is passed in (it closes over the dataset's numeric/all columns).
+
+// Size-by detail controls (Phase 19): sizing law, min/max px, and the size-key
+// overrides (label, swatch count, hide, separate legend). Shared by scatter and
+// parity (the only size-by renderers); hidden until a Size-by column is picked
+// (modal-fields.js toggles #mSizeOptsField on #mSizeCol change). Defaults match
+// the historical area-proportional 4–28 px mapping.
+function sizeByExtraControls(existing) {
+  return `
+      <div class="modal-field" id="mSizeOptsField" style="display:${existing?.sizeCol ? '' : 'none'}">
+        <label class="modal-label" for="mSizeLaw">Sizing law</label>
+        <select id="mSizeLaw">
+          <option value="area" ${existing?.sizeLaw !== 'diameter' ? 'selected' : ''}>Area-proportional (recommended)</option>
+          <option value="diameter" ${existing?.sizeLaw === 'diameter' ? 'selected' : ''}>Diameter-proportional (exaggerates large values)</option>
+        </select>
+        <div class="edge-row" style="margin-top:6px">
+          <label class="modal-label" for="mSizeMin" style="margin:0">Min px <input type="number" class="ctrl-input" id="mSizeMin" value="${existing?.sizeMin ?? 4}" min="1" max="80" step="1" style="width:64px" /></label>
+          <label class="modal-label" for="mSizeMax" style="margin:0">Max px <input type="number" class="ctrl-input" id="mSizeMax" value="${existing?.sizeMax ?? 28}" min="1" max="120" step="1" style="width:64px" /></label>
+        </div>
+        <label class="modal-label" for="mSizeKeyLabel" style="margin-top:8px">Size legend label</label>
+        <input type="text" class="ctrl-input" id="mSizeKeyLabel" value="${escHtml(existing?.sizeKeyLabel || '')}" placeholder="defaults to the column name" />
+        <label class="modal-label" for="mSizeKeyCount" style="margin-top:6px">Swatches in size key</label>
+        <input type="number" class="ctrl-input" id="mSizeKeyCount" value="${existing?.sizeKeyCount ?? 3}" min="2" max="8" step="1" style="width:64px" />
+        <div class="check-row" style="margin-top:8px">
+          <label><input type="checkbox" id="mSizeKeyHide" ${existing?.sizeKeyHide ? 'checked' : ''} /> Hide size key from the legend</label>
+        </div>
+        <div class="check-row">
+          <label><input type="checkbox" id="mSizeKeySeparate" ${existing?.sizeKeySeparate ? 'checked' : ''} /> Size key in its own legend</label>
+        </div>
+      </div>`;
+}
+
 function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
   let html = '';
 
@@ -58,8 +89,8 @@ function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
       <div class="modal-field">
         <label class="modal-label" for="mSizeCol">Size by (optional, numeric)</label>
         <select id="mSizeCol"><option value="">None</option>${colOptions(existing?.sizeCol, false)}</select>
-        <div class="field-hint">Marker AREA is proportional to the value (4–28 px diameter); hover shows the raw value.</div>
-      </div>` : ''}
+        <div class="field-hint">Marker size encodes the value; hover shows the raw value. Tune the law, range, and legend below.</div>
+      </div>${sizeByExtraControls(existing)}` : ''}
       <div class="check-row">
         <label><input type="checkbox" id="mRightAxis" ${existing?.rightAxis ? 'checked' : ''} />
           Right Y axis <span class="field-hint" style="margin:0">(unavailable in subplot grids)</span></label>
@@ -206,8 +237,8 @@ function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
       <div class="modal-field">
         <label class="modal-label" for="mSizeCol">Size by (optional, numeric)</label>
         <select id="mSizeCol"><option value="">None</option>${colOptions(existing?.sizeCol, false)}</select>
-        <div class="field-hint">Marker AREA is proportional to the value (4–28 px); hover shows the raw value.</div>
-      </div>`;
+        <div class="field-hint">Marker size encodes the value; hover shows the raw value. Tune the law, range, and legend below.</div>
+      </div>${sizeByExtraControls(existing)}`;
   } else if (chartType === 'histogram') {
     html = `
       <div class="modal-section-title">Columns</div>
