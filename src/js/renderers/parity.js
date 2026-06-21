@@ -93,11 +93,10 @@ function buildParityTrace(series, datasets) {
   const marker = buildMarkerStyle(series.style, colorMode === 'numeric' ? catV.map(Number) : undefined);
   if (colorMode !== 'numeric') marker.color = series.style?.color ?? (ds.color ?? '#5b8dee');
   if (colorMode === 'numeric') marker.colorbar = { title: { text: series.colorbarLabel || series.colorCol } };
-  let sizeNote = '', sizeOpts = null;
+  let sizeOpts = null;
   if (sizeObs) {
     sizeOpts = { law: series.sizeLaw, dMin: series.sizeMin, dMax: series.sizeMax };
     marker.size = areaSizes(szV, sizeOpts);
-    sizeNote = ` (size: ${series.sizeCol})`;
     if (series.sizeLaw === 'diameter') {
       const dWarn = 'Diameter-proportional sizing exaggerates large values — a 2× value reads as ~4× the area; area-proportional is the honest default.';
       warning = warning ? `${warning} ${dWarn}` : dWarn;

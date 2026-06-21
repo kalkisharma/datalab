@@ -137,3 +137,24 @@ test('separate size legend yields a layout legend2 whose dragged position persis
   expect(out.hasL2).toBe(true);
   expect(out.pos).toEqual({ x: 0.2, y: 0.6 });
 });
+
+// 8 — the "(size: …)" label suffix drops when the key has its own legend,
+// but stays when the key is hidden (then it's the only size cue)
+test('the "(size: …)" series-label suffix drops only when the size key is in its own legend', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, SIZE_CSV, '_sb_suffix.csv');
+  const out = await page.evaluate(() => {
+    const ds = appState.datasets[0];
+    const mk = extra => buildScatterTrace({ id: 's', name: 'Bub', datasetId: ds.id, chartType: 'scatter',
+      xCol: 'x', yCol: 'y', sizeCol: 'm', ...extra }, appState.datasets)
+      .traces.find(t => !/^__size_/.test(t.legendgroup || '') && t.name).name;
+    return {
+      inMainLegend: mk({}),                                    // key shares the main legend
+      separate:     mk({ sizeKeySeparate: true }),             // key has its own legend
+      hidden:       mk({ sizeKeySeparate: true, sizeKeyHide: true }), // no key at all
+    };
+  });
+  expect(out.inMainLegend).toContain('(size: m)'); // suffix present by default
+  expect(out.separate).not.toContain('(size:');    // dropped — the 2nd legend names it
+  expect(out.hidden).toContain('(size: m)');        // kept — it's the only size cue
+});

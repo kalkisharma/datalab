@@ -82,7 +82,10 @@ function buildScatterTrace(series, datasets) {
       sizeOpts = { law: series.sizeLaw, dMin: series.sizeMin, dMax: series.sizeMax };
       sizeRaw = colVals(rows, series.sizeCol);
       marker.size = areaSizes(sizeRaw, sizeOpts);
-      sizeNote = ` (size: ${series.sizeCol})`;
+      // The "(size: …)" suffix names the size encoding in the series label. It's
+      // redundant when a separate size legend already titles it (Phase 19), so
+      // drop it then — but keep it when the key is hidden (the only size cue).
+      sizeNote = (series.sizeKeySeparate && !series.sizeKeyHide) ? '' : ` (size: ${series.sizeCol})`;
       if (series.sizeLaw === 'diameter') sizeWarn = 'Diameter-proportional sizing exaggerates large values — a 2× value reads as ~4× the area; area-proportional is the honest default.';
     }
   }
