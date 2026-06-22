@@ -32,8 +32,12 @@ Maintainer: Kalki Sharma <kalkijsharma@gmail.com>
   category with explicit aggregation)
 - **Self-describing encodings:** color a series by a column — categories
   get a named legend, numbers a labeled colorbar (editable label) — and
-  size markers by a column with a min/median/max size key in the legend;
-  override any series' legend text directly
+  size markers by a column, area- or diameter-proportional, with a
+  configurable size key (label, swatch count, hide, or its own separate
+  legend); override any series' legend text directly
+- **Per-series styling:** marker shape (scatter/parity/line), line style
+  (solid/dash/dot), an optional-markers toggle and separate marker color on
+  lines, plus per-series colors, marker size, and edges
 - **Analysis on the plot:** distribution fits on histograms (normal,
   lognormal, Weibull MLE) with KDE overlay; trendlines with R² (linear,
   quadratic, cubic) — overall or one linear fit per color group; error

@@ -7,7 +7,7 @@ A standalone HTML file for data science work — starting with visualization and
 **Workflow vision:** Load CSVs → explore with plots → clean/filter data → run stats → export results.
 
 **Phase 1–4:** Visualization (multiple chart types, N datasets, N series, filters) — shipped.
-**Phase 5–16:** Data cleaning UI, summary statistics, correlation matrices, distribution fits/KDE, hypothesis tests with effect sizes, computed columns, subplot grids, legend/colorbar polish — shipped. **Phase 17:** interpolated contours — shipped (v2.10.0). The tool is now a full visualization + cleaning + statistics workbench; later phases extend it (Plotly 3.x, statistical diagnostics, workspace ergonomics — see the phase sections below). *(This line read "designed in but not built yet" until the v2.10.0 doc review corrected the drift.)*
+**Phase 5–16:** Data cleaning UI, summary statistics, correlation matrices, distribution fits/KDE, hypothesis tests with effect sizes, computed columns, subplot grids, legend/colorbar polish — shipped. **Phase 17:** interpolated contours — shipped (v2.10.0). **Phase 18:** Plotly 3.x — shipped (v2.12.0). Workspace ergonomics shipped (v2.11.0); encoding & style controls shipped (v2.14.0). The tool is now a full visualization + cleaning + statistics workbench; the remaining scoped extension is **statistical diagnostics** (Phase 19) — see the phase sections below. *(This line read "designed in but not built yet" until the v2.10.0 doc review corrected the drift; the "later phases" list re-drifted as those phases shipped and was corrected again at the post-v2.14.0 review.)*
 
 ---
 
@@ -212,7 +212,7 @@ datalab/
   README.md           — user-facing front page (kept at root as the entry point)
   docs/               — all project documentation
     REVIEW_GUIDE.md     — plain-language orientation for first-time/non-technical reviewers
-    CODE_WALKTHROUGH.md — full file-by-file technical walkthrough (owned EL + Data Viz; updated every phase exit, §4/§17)
+    CODE_WALKTHROUGH.md — full file-by-file technical walkthrough (owned EL + Data Viz; updated every release, §4/§17)
     PLANNING.md
     STANDARDS.md
     ARIA_CHECKLIST.md

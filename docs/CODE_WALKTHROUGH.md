@@ -8,8 +8,9 @@ in plain language.
 
 > **Keeping this document current (STANDARDS §17 + §4).** This walkthrough
 > is owned by the Engineering Lead (with the Data Visualization Engineer for
-> the renderer sections) and is **updated at every phase exit**, as part of
-> the release checklist, alongside `PLANNING.md` and `STANDARDS.md`. When a
+> the renderer sections) and is **updated at every release** (phase exit or
+> pulled-forward), as part of the release checklist, alongside `PLANNING.md`
+> and `STANDARDS.md`. When a
 > file is added, removed, split, or changes responsibility, its entry here
 > changes in the same commit. The [File Index](#file-index) is the quick
 > check: if a file in `src/js/` isn't listed there, this document is stale.
@@ -234,11 +235,18 @@ Shared helpers every renderer leans on:
 - **`colorMapping`** — decide categorical-vs-numeric color encoding and build
   the mapping (the `isNumeric` heuristic: >50% finite → numeric colorbar,
   else discrete categories).
-- **`buildMarkerStyle`** — marker color/size/opacity/edge from series style.
+- **`buildMarkerStyle`** — marker color/size/opacity/edge **and symbol (shape)**
+  from series style, each with a global Style-panel fallback (`#markerSize`,
+  `#markerSymbol`, …).
+- **`areaSizes` / `sizeKeyTraces`** — the size-by mapping and its legend
+  swatches; both take an options object (law area/diameter, min/max px, label,
+  count, separate-legend) so the key always matches the bubbles (§12/§20).
 - **`categoryGroups` / `categoryGroupsFromValues`** — split rows into named
-  category groups for discrete color encoding. *Note: a missing/empty group
-  value maps to a category literally named `(blank)`; the post-v2.13.0 review
-  flagged that this should warn the user — a known §20 honesty item.*
+  category groups for discrete color encoding. A missing/empty group value maps
+  to a category named `(blank)`. The **line** renderer's color-by surfaces a
+  row-count warning for that group (and folds empty/whitespace values into it),
+  so it isn't mistaken for a real category (§20 — shipped post-v2.13.0); scatter
+  and parity build the `(blank)` group without that warning.
 
 ### The renderers (one file per chart type)
 Each renderer's header documents its **log-scale guidance** and the **Data
@@ -246,8 +254,8 @@ Scientist sign-off** for its statistical conventions. Summary:
 
 | Renderer | Chart type | Notes for a reviewer |
 |---|---|---|
-| `scatter.js` | scatter | Bubble size-by (area-proportional), color-by, error bars, trendlines (linear/quadratic/cubic), optional cross-dataset join. The richest renderer. |
-| `line.js` | line | Per-category lines when color-by is set (reuses `categoryGroups`); error bars; datetime X. |
+| `scatter.js` | scatter | Bubble size-by — configurable law (area default / diameter, which warns), min/max px (default 4→28), and a size key with custom label/count, optional hide, or routing to a second legend — plus color-by, error bars, trendlines (linear/quadratic/cubic), per-series marker shape, optional cross-dataset join. The richest renderer. |
+| `line.js` | line | Per-category lines when color-by is set (reuses `categoryGroups`, with a `(blank)` + high-cardinality warning); error bars; datetime X; per-series marker shape; **markers toggle, line dash, separate marker color (single-line), and markers that now honor the global marker-size slider** (v2.14.0 — previously a hardcoded 4 px). |
 | `bar.js` | bar | **Explicit aggregation** (none/count/sum/mean/median). `agg='none'` *errors* on repeated categories — silent aggregation is forbidden (§20). |
 | `parity.js` | parity | Observed-vs-modelled: y=x line, ±5%/±10% bands, equal axes (always explicitly set), and NSE/MAE/RMSE stats. Works cross-dataset (join) **or** single-dataset (two columns, since v2.13.0). `SS_tot` is variance around **mean(observed)** — the correct NSE denominator. |
 | `contour.js` | contour | Default path needs **pre-gridded** data (validated at creation). Opt-in "interpolate scattered data" path routes through `grid-interp.js`. |

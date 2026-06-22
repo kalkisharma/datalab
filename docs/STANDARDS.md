@@ -40,13 +40,13 @@
 ## 4. Releases
 
 - A release = a tagged git commit + a built `datalab.html` artifact.
-- Releases happen **at phase exits only** — except hotfixes (see §5).
+- Releases happen **at phase exits** — or as a **pulled-forward feature release**: a named, additive batch shipped outside a scoped phase under the §3 version-at-ship-time rule (it tags a MINOR, walks the full release checklist below, and is neither a hotfix nor bound to a phase boundary). Hotfixes are the third path (see §5). v2.11.0 / v2.13.0 / v2.14.0 were pulled-forward releases.
 - Phase 0 is internal only — no release tag.
 - Phase exit sequence: refactor review → security checklist → accessibility pass → Data Scientist sign-off → release checklist → tag.
 - Release checklist (all must be green before tagging):
   - [ ] All phase exit criteria checked off in the plan
   - [ ] Build passes
-  - [ ] Full Playwright suite is green
+  - [ ] Full Playwright suite is green — **paste the pass/fail tally from a live run into the exit note (e.g. "205 pass / 0 fail + 7 BENCH"); do not recall it.** A count read off the file is not evidence: twice the suite was called green while 2 tests were red (the v2.13.0 Stab A exit note, caught only at the post-v2.13.0 review by actually running it). Same measure-don't-recall rule as the §6 sweep below.
   - [ ] `bench.spec.js` full benchmark run passes (Phase 2 onward)
   - [ ] Security checklist reviewed
   - [ ] `CHANGELOG.md` updated including `## Schema` section if applicable
@@ -239,12 +239,12 @@ DataLab is used by private organisations loading sensitive data. The tool must g
 
 ## 17. Document Ownership
 
-All documentation lives in `docs/` except `README.md`, which stays at the repo root as the project's entry point (post-v2.13.0 reorganization). Doc cross-references and the `README.md` documentation list use `docs/` paths; the bare-name `STANDARDS.md §N` / `PLANNING.md` citations in source-code comments are section pointers and intentionally keep the short form.
+All documentation lives in `docs/` except `README.md`, which stays at the repo root as the project's entry point (post-v2.13.0 reorganization). Within `docs/`, sibling documents cite each other by **bare name** (`STANDARDS.md §N`, `CHANGELOG.md`, …) — they share a folder, so this is unambiguous. Only the **`README.md` documentation list** and Markdown links that cross the folder boundary use `docs/` paths (or `../README.md`). Bare-name citations in source-code comments are section pointers and likewise keep the short form.
 
 - `PLANNING.md` — owned by the Engineering Lead. Updated at every phase exit to reflect closed deliverables, new phase scope, and any architectural decisions made during the phase.
 - `STANDARDS.md` — owned by the Engineering Lead. Reviewed and updated at every phase exit.
-- `CODE_WALKTHROUGH.md` — owned by the Engineering Lead, with the Data Visualization Engineer for the renderer sections. **Updated at every phase exit** (release-checklist item, §4): when a `src/js/` file is added, removed, split, or changes responsibility, its File-Index entry and any affected architecture section change in the same commit. The build-order and renderer-contract sections are re-read whenever either changes.
-- `REVIEW_GUIDE.md` — owned by the Engineering Lead. Reviewed at every phase exit; updated when the feature set, security posture, or the reviewer-facing "where to start" guidance changes (it is the non-technical companion to `CODE_WALKTHROUGH.md`).
+- `CODE_WALKTHROUGH.md` — owned by the Engineering Lead, with the Data Visualization Engineer for the renderer sections. **Updated at every release** (phase exit or pulled-forward — release-checklist item, §4): when a `src/js/` file is added, removed, split, or changes responsibility, its File-Index entry and any affected architecture section change in the same commit. The build-order and renderer-contract sections are re-read whenever either changes.
+- `REVIEW_GUIDE.md` — owned by the Engineering Lead. Reviewed at every release; updated when the feature set, security posture, or the reviewer-facing "where to start" guidance changes (it is the non-technical companion to `CODE_WALKTHROUGH.md`).
 - `ARIA_CHECKLIST.md` — owned by the Accessibility Specialist. Changes require sign-off from any two other roles.
 - `CHANGELOG.md` — updated by whoever makes the change; `## Schema` section owned by the Data Engineer.
 - `DEPENDENCIES.md` — owned by the Security Engineer. Updates require Engineering Lead sign-off.
