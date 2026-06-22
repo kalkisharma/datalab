@@ -78,6 +78,14 @@ not the URL, is authoritative** — a CDN can change; the bytes cannot.
     verification updated and green; full re-baseline (suite + axe + benchmarks,
     WebGL under the CSP) clean. PapaParse and JSZip unchanged. Security + EL
     signed off on the new pin (§9).
+  - v2.13.0 exit: no changes — Stabilization A (correctness/honesty fixes,
+    same-dataset parity, line color-by) added no bundled dependencies. Pins
+    stand. *(Recorded at the v2.14.0 release — this line was missed at the
+    v2.13.0 tag; the §4 checklist item caught the gap on the next pass.)*
+  - v2.14.0 exit: no changes — the encoding & style controls (size-by law/
+    range/legend, marker shape, line marker-toggle/colour/style) are all
+    client-side Plotly rendering options; zero new bundled dependencies.
+    Pins stand.
 
 ## Updating a library
 

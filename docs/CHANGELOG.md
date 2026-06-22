@@ -1,5 +1,49 @@
 # Changelog
 
+## v2.14.0 — Encoding & Style Controls
+
+### Features
+- **Size-by controls (scatter, parity)** — choose the sizing law (area-proportional,
+  the honest default, or diameter-proportional with a warning), set the min/max
+  marker size, and customise the size legend: a label, the swatch count, hide it,
+  or move it to its **own second legend** (draggable, position persisted).
+- **Marker shape (scatter, parity, line)** — pick a per-series marker symbol
+  (circle, square, diamond, triangle, cross, x, star, …); blank inherits circle.
+- **Line series controls** — toggle markers on/off, set a marker colour separate
+  from the line colour, and choose a line style (solid / dash / dot / dash-dot).
+
+### Fixes
+- **Global marker size now works on line plots** — line markers were a hardcoded
+  4 px that ignored the Marker-size slider and per-series size; they now honour
+  both (default 6 px, matching scatter).
+- **Honesty (§20)** — line colour-by warns when missing values form a "(blank)"
+  group or when a column has too many categories (>50); parity warns when X and Y
+  are the same column (a trivial NSE = 1).
+- The series legend label drops the redundant "(size: …)" suffix when the size
+  key has its own legend.
+- Two parity tests that broke on Stabilization A's new join-dataset option were
+  fixed (the suite was 183 pass / 2 fail at the v2.13.0 tag; now green).
+
+### Internal / Docs
+- New reviewer docs — `docs/REVIEW_GUIDE.md` (plain-language orientation) and
+  `docs/CODE_WALKTHROUGH.md` (full file-by-file walkthrough). All documentation
+  moved into `docs/`; `README.md` stays at the repo root.
+- Left panel: "Style presets" moved to the bottom; "Applies to all plots" scope
+  captions added to the global Style/Typography/Frame sections.
+- §6: `chart.js` (311), `modal-chart-fields.js` (306), and `modal.js` (305) are
+  over the ~300 trigger — tolerated this release with named split seams
+  (chart.js's `plotly_relayout` hook → `decorations.js`; the modal save/field
+  assembly at the next modal change).
+
+## Schema
+### v2.14.0 (state version unchanged at 2 — all additive, no migration)
+- New optional `series.style` fields: `symbol` (scatter/parity/line marker shape);
+  `showMarkers`, `markerColor`, `lineDash` (line only; `color` is the line colour).
+- New optional `series` fields (scatter/parity size-by): `sizeLaw`, `sizeMin`,
+  `sizeMax`, `sizeKeyLabel`, `sizeKeyCount`, `sizeKeyHide`, `sizeKeySeparate`.
+- New optional `plotConfig.legend2Pos` (the second legend's persisted position).
+- v2.0–v2.13 session files load unchanged.
+
 ## v2.13.0 — Stabilization A (correctness & honesty)
 
 ### Features
