@@ -92,6 +92,7 @@ function init() {
   g('downloadBtn')   .addEventListener('click', () => downloadPlot('png'));
   g('downloadSvgBtn').addEventListener('click', () => downloadPlot('svg'));
   g('exportAllBtn')  .addEventListener('click', exportAllPlots);
+  g('exportDataBtn') .addEventListener('click', exportPlotData);
   g('zipBtn')        .addEventListener('click', downloadZip);
   g('saveBtn')       .addEventListener('click', savePlot);
 
@@ -254,6 +255,15 @@ function init() {
     g(id).addEventListener('change', () => {
       activePlot().plotConfig[id] = g(id).value || null;
       if (appState.plotRendered) renderPlot();
+    }));
+
+  // Bulk axis retarget: one-shot — set the column on all series, then reset
+  // the select (it's an action trigger, not a persistent value)
+  [['bulkXCol', 'x'], ['bulkYCol', 'y']].forEach(([id, axis]) =>
+    g(id).addEventListener('change', () => {
+      const col = g(id).value;
+      g(id).value = '';
+      bulkSetAxis(axis, col);
     }));
 
   // beforeunload guard — warn if there are unsaved series or unsaved plot changes

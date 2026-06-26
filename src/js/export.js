@@ -37,6 +37,57 @@ function downloadPlot(format = 'png') {
   Plotly.downloadImage(pd, { format, width: w, height: h, filename });
 }
 
+// ── Export plot data as CSV ───────────────────────────────────────────────
+// The active plot's plotted points, long format: dataset, series, x, y (+ color
+// / size when used). Rebuilt from each series' FILTERED rows via the same
+// helpers the renderers use (applyFilters, innerJoinRows), so the CSV matches
+// what's on screen. v1 covers the x/y series (scatter/line/parity); other
+// chart types on the plot are skipped with a notice.
+function exportPlotData() {
+  const plot = activePlot();
+  const pid  = plot.id;
+  const XY   = new Set(['scatter', 'line', 'parity']);
+  const series = appState.series.filter(s =>
+    (s.plotId ?? appState.plots[0].id) === pid && s.enabled !== false);
+  const out = [];
+  let skipped = 0, usesColor = false, usesSize = false;
+
+  for (const s of series) {
+    const ds = appState.datasets.find(d => d.id === s.datasetId);
+    if (!XY.has(s.chartType) || !ds || !s.xCol || !s.yCol) { skipped++; continue; }
+    const sName = s.name || s.chartType;
+    const filt  = rows => applyFilters(rows, s.filters || [], s.filterLogic || 'and');
+    // A cross-dataset join (parity always-optional; scatter optional): X from
+    // this dataset, Y from the joined one, matched + filtered together.
+    let xRows, yRows;
+    if (s.joinDatasetId && (s.chartType === 'parity' || s.chartType === 'scatter')) {
+      const jds = appState.datasets.find(d => d.id === s.joinDatasetId);
+      if (!jds || !s.joinKey) { skipped++; continue; }
+      const { mA, mB } = innerJoinRows(ds.rows, jds.rows, s.joinKey);
+      xRows = filt(mA); yRows = filt(mB);
+    } else {
+      xRows = yRows = filt(ds.rows);
+    }
+    const n = Math.min(xRows.length, yRows.length);
+    for (let i = 0; i < n; i++) {
+      const row = { dataset: ds.name, series: sName, x: xRows[i][s.xCol], y: yRows[i][s.yCol] };
+      if (s.colorCol) { row.color = xRows[i][s.colorCol]; usesColor = true; }
+      if (s.sizeCol)  { row.size  = xRows[i][s.sizeCol];  usesSize  = true; }
+      out.push(row);
+    }
+  }
+
+  if (!out.length) { flashNotice('No x/y series data on this plot to export.', 'warn'); return; }
+  const columns = ['dataset', 'series', 'x', 'y', ...(usesColor ? ['color'] : []), ...(usesSize ? ['size'] : [])];
+  const csv  = Papa.unparse(out, { columns });
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `${safeFilename(plot.plotConfig.title || plot.name, 'plot')}_data.csv`; a.click();
+  URL.revokeObjectURL(url); // download is async; safe to revoke immediately
+  if (skipped) flashNotice(`Exported ${out.length} points; ${skipped} non-x/y series not included.`, 'warn');
+}
+
 // ── Export all (Phase 8) ──────────────────────────────────────────────────
 // One PNG per visible plot panel, sequential downloads at the Export size.
 // The browser may ask once for multiple-download permission (documented in

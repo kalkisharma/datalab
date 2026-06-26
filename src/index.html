@@ -22,6 +22,8 @@
   <button class="btn btn-sm" id="downloadSvgBtn" style="display:none">↓ SVG</button>
   <button class="btn btn-sm" id="exportAllBtn" style="display:none"
           title="Export every visible plot as its own PNG at the Export size">↓ All</button>
+  <button class="btn btn-sm" id="exportDataBtn" style="display:none"
+          title="Export this plot's data (the plotted points) as CSV">↓ Data</button>
   <button class="btn btn-sm" id="helpBtn" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button>
 </header>
 
@@ -115,6 +117,16 @@
           </label>
           <label class="ctrl-label">Size by — all cells
             <select id="sharedSizeCol"><option value="">Per series</option></select>
+          </label>
+        </div>
+        <!-- Bulk axis retarget: set X/Y for every series in this plot at once -->
+        <div id="bulkAxisWrap" style="display:none;">
+          <div class="field-hint" style="margin:0 0 4px;">Set an axis column for all series in this plot:</div>
+          <label class="ctrl-label">X for all series
+            <select id="bulkXCol"><option value="">— pick a column —</option></select>
+          </label>
+          <label class="ctrl-label">Y for all series
+            <select id="bulkYCol"><option value="">— pick a column —</option></select>
           </label>
         </div>
       </div>

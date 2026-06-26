@@ -136,6 +136,55 @@ function setActivePlot(pid) {
   appState.activePlotId = pid;
   syncActivePlotInputs();
   renderPlotGrid();
+  renderSeriesList(); // re-highlight the active plot's series in the list
+}
+
+// Show/populate the bulk-axis control: visible when the active plot has 2+ x/y
+// series; options = union of their datasets' columns (incl. join datasets, since
+// Y can come from one). Called from renderSeriesList so it tracks every series
+// add/delete/edit AND the active-plot switch — not just plot config syncs.
+function syncBulkAxisControl() {
+  const baWrap = document.getElementById('bulkAxisWrap');
+  if (!baWrap) return;
+  const XY = new Set(['scatter', 'line', 'parity', 'bar']);
+  const xySeries = appState.series.filter(s =>
+    (s.plotId ?? appState.plots[0].id) === activePlot().id && XY.has(s.chartType));
+  baWrap.style.display = xySeries.length >= 2 ? '' : 'none';
+  if (xySeries.length < 2) return;
+  const cols = new Set();
+  xySeries.forEach(s => [s.datasetId, s.joinDatasetId].forEach(id =>
+    (appState.datasets.find(d => d.id === id)?.headers || []).forEach(c => cols.add(c))));
+  const opts = '<option value="">— pick a column —</option>' +
+    [...cols].map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+  // innerHTML: option labels are column names, escHtml'd above. The selects are
+  // one-shot action triggers, reset to the placeholder on every render.
+  ['bulkXCol', 'bulkYCol'].forEach(id => { document.getElementById(id).innerHTML = opts; });
+}
+
+// Bulk-retarget an axis column for every x/y series in the active plot at once
+// (saves editing each one). Apply-where-possible: series whose relevant dataset
+// lacks the column are skipped, reported in a non-blocking notice. Mutates the
+// series directly (no hidden state) — individuals stay editable.
+function bulkSetAxis(axis, col) {
+  if (!col) return;
+  const field = axis === 'x' ? 'xCol' : 'yCol';
+  const pid = activePlot().id;
+  const XY = new Set(['scatter', 'line', 'parity', 'bar']);
+  const series = appState.series.filter(s =>
+    (s.plotId ?? appState.plots[0].id) === pid && XY.has(s.chartType));
+  let applied = 0;
+  for (const s of series) {
+    // Y of a joined series comes from the JOIN dataset; X (and the default) from
+    // the series' own dataset — check the column against the right one.
+    const dsId = (field === 'yCol' && s.joinDatasetId) ? s.joinDatasetId : s.datasetId;
+    const ds = appState.datasets.find(d => d.id === dsId);
+    if (ds && ds.headers.includes(col)) { s[field] = col; applied++; }
+  }
+  const skipped = series.length - applied;
+  renderSeriesList();
+  scheduleRender();
+  flashNotice(`Set ${axis.toUpperCase()} to "${col}" for ${applied} of ${series.length} series`
+    + (skipped ? ` — ${skipped} skipped (no "${col}" column)` : '') + '.', skipped ? 'warn' : 'success');
 }
 
 function syncActivePlotInputs() {

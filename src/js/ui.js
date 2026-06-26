@@ -63,6 +63,15 @@ function showDataAlerts(reloadedDs, problems) {
   box.innerHTML = html;
 }
 
+// Transient one-line notice in the data-alerts box (export / bulk-axis feedback).
+// Text-only; escHtml'd because messages can carry user column names.
+function flashNotice(text, cls) {
+  const box = document.getElementById('dataAlerts');
+  if (!box) return;
+  // innerHTML: message escaped via escHtml (may contain user column names)
+  box.innerHTML = `<div class="alert ${cls === 'warn' ? 'warn' : 'success'}" role="alert">${escHtml(text)}</div>`;
+}
+
 function renderDatasetList() {
   const list = document.getElementById('datasetList');
   // innerHTML: empty string — no user data
@@ -190,6 +199,9 @@ function renderSeriesList() {
     const dsName = ds ? ds.name : '?';
     const item = document.createElement('div');
     item.className = 'series-item';
+    // Highlight the rows belonging to the active plot (so selecting a plot
+    // surfaces its series). Single-plot case: every series is "active".
+    if ((s.plotId ?? appState.plots[0].id) === appState.activePlotId) item.classList.add('active-plot-series');
     item.setAttribute('role', 'listitem');
     item.dataset.sid = s.id;
     const plotName = appState.plots.find(p => p.id === s.plotId)?.name ?? '';
@@ -248,6 +260,7 @@ function renderSeriesList() {
     });
     list.appendChild(item); // seriesEmpty hint lives outside the role=list container
   });
+  syncBulkAxisControl(); // show/populate the bulk axis retarget for the active plot
 }
 
 // Swap a series with its neighbor; row order = trace draw order on the plot
