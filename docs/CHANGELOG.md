@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.16.0 — Best-fit line styling
+
+### Features
+- **Parity best-fit line styling** — the best-fit line now takes a colour, a
+  width, and a style (solid / dash / dot / dash-dot). Defaults are unchanged
+  (series colour, width 2, solid), so existing plots look the same.
+
+## Schema
+### v2.16.0 (state version unchanged at 2 — all additive, no migration)
+- New optional `series` fields (parity): `parityFitColor` (hex), `parityFitWidth`
+  (px), `parityFitStyle` (`solid`|`dash`|`dot`|`dashdot`).
+- v2.0–v2.15 session files load unchanged.
+
 ## v2.15.0 — Parity fits & faithful exports
 
 ### Features

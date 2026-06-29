@@ -235,6 +235,16 @@ function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
       <div class="check-row">
         <label><input type="checkbox" id="mParityFit" ${existing?.parityFit ? 'checked' : ''} /> Best-fit line (least squares; legend shows equation and R²)</label>
       </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mParityFitColor" style="margin:0">Fit line color
+          <input type="color" class="edge-color" id="mParityFitColor" value="${existing?.parityFitColor ?? existing?.style?.color ?? '#5b8dee'}" /></label>
+        <label class="modal-label" for="mParityFitWidth" style="margin:0">Width
+          <input type="number" class="ctrl-input" id="mParityFitWidth" min="0.5" max="10" step="0.5" value="${existing?.parityFitWidth ?? 2}" style="width:64px" /></label>
+        <label class="modal-label" for="mParityFitStyle" style="margin:0">Style
+          <select id="mParityFitStyle">
+            ${['solid','dash','dot','dashdot'].map(d => `<option value="${d}" ${(existing?.parityFitStyle ?? 'solid') === d ? 'selected' : ''}>${d === 'dashdot' ? 'dash-dot' : d}</option>`).join('')}
+          </select></label>
+      </div>
       <div class="modal-section-title">Encoding</div>
       <div class="modal-field">
         <label class="modal-label" for="mColorCol">Color by (optional)</label>

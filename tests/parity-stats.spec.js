@@ -128,6 +128,38 @@ test('parity best-fit line is absent unless parityFit is set', async ({ page }) 
   expect(has.fitAnnot).toBeNull();
 });
 
+// Best-fit line styling (v2.16.0): custom colour, width, and dash; defaults
+// reproduce the prior look (series colour, width 2, solid).
+test('parity best-fit line honors custom color, width, and style', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const line = await page.evaluate(() => {
+    const ds = { id:'a', name:'A', color:'#000', headers:['obs','mod'],
+      rows:[{obs:1,mod:3},{obs:2,mod:5},{obs:3,mod:7}] };
+    const series = { id:'s1', name:'p', chartType:'parity', datasetId:'a',
+      xCol:'obs', yCol:'mod', parityFit:true,
+      parityFitColor:'#ff0000', parityFitWidth:4, parityFitStyle:'dash',
+      filters:[], style:{} };
+    return buildParityTrace(series, [ds]).traces.find(t => (t.name||'').startsWith('Best fit:')).line;
+  });
+  expect(line.color).toBe('#ff0000');
+  expect(line.width).toBe(4);
+  expect(line.dash).toBe('dash');
+});
+
+test('parity best-fit line defaults: series color, width 2, solid', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const line = await page.evaluate(() => {
+    const ds = { id:'a', name:'A', color:'#123456', headers:['obs','mod'],
+      rows:[{obs:1,mod:3},{obs:2,mod:5},{obs:3,mod:7}] };
+    const series = { id:'s1', name:'p', chartType:'parity', datasetId:'a',
+      xCol:'obs', yCol:'mod', parityFit:true, filters:[], style:{ color:'#abcdef' } };
+    return buildParityTrace(series, [ds]).traces.find(t => (t.name||'').startsWith('Best fit:')).line;
+  });
+  expect(line.color).toBe('#abcdef'); // falls back to the series style color
+  expect(line.width).toBe(2);
+  expect(line.dash).toBe('solid');
+});
+
 // ── Band styling (v2.15.0) ──────────────────────────────────────────────────
 // A shared colour + opacity drive BOTH the ±5% and ±10% bands; the fill stays
 // at the original ~0.24 fill:line opacity ratio.

@@ -281,7 +281,10 @@ function saveModalSeries() {
     series.band10        = document.getElementById('mBand10')?.checked ?? true;
     series.bandColor     = document.getElementById('mBandColor')?.value || null;          // shared ±5%/±10% color
     series.bandOpacity   = (v => Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : null)(parseFloat(document.getElementById('mBandOpacity')?.value));
-    series.parityFit     = document.getElementById('mParityFit')?.checked ?? false;        // linear best-fit line + R²
+    series.parityFit      = document.getElementById('mParityFit')?.checked ?? false;       // linear best-fit line + R²
+    series.parityFitColor = document.getElementById('mParityFitColor')?.value || null;     // fit-line color (absent = series color)
+    series.parityFitWidth = (v => Number.isFinite(v) && v > 0 ? v : null)(parseFloat(document.getElementById('mParityFitWidth')?.value));
+    series.parityFitStyle = document.getElementById('mParityFitStyle')?.value || null;     // solid|dash|dot|dashdot
     if (series.joinDatasetId && !series.joinKey) { err.textContent = 'Select a join key, or switch "Compare against" to this dataset.'; return false; }
   }
 

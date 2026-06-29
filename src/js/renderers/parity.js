@@ -163,12 +163,17 @@ function buildParityTrace(series, datasets) {
   if (series.parityFit) {
     const fit = linearFit(xs, ys);
     if (fit) {
-      const fitColor = series.style?.color ?? (ds.color ?? '#5b8dee');
+      // Fit-line style is user-controllable; defaults reproduce the prior look
+      // (series colour, width 2, solid — distinct from the grey dashed y=x).
+      const fitColor = series.parityFitColor || series.style?.color || (ds.color ?? '#5b8dee');
+      const fitWidth = Number.isFinite(series.parityFitWidth) ? series.parityFitWidth : 2;
+      const dashMap = { solid: 'solid', dash: 'dash', dot: 'dot', dashdot: 'dashdot' };
+      const fitDash = dashMap[series.parityFitStyle] || 'solid';
       traces.push({
         type: 'scatter', mode: 'lines',
         x: [axMin, axMax], y: [fit.a * axMin + fit.b, fit.a * axMax + fit.b],
         name: `Best fit: y = ${fmt(fit.a)}x ${fit.b < 0 ? '−' : '+'} ${fmt(Math.abs(fit.b))} (R² = ${fmt(fit.r2)})`,
-        line: { color: fitColor, width: 2 }, // solid — distinct from the grey dashed y=x
+        line: { color: fitColor, width: fitWidth, dash: fitDash },
         hoverinfo: 'skip', showlegend: true,
       });
       fitAnnot = { sr: `${baseName} best fit: slope=${fmt(fit.a)}, intercept=${fmt(fit.b)}, R2=${fmt(fit.r2)}, n=${n}` };
