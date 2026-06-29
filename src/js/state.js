@@ -2,7 +2,7 @@
 
 // Single source of truth for the app version (STANDARDS.md §3).
 // build.js parses the declaration below — do not rename or reformat it.
-const VERSION = '2.16.0';
+const VERSION = '2.17.0';
 
 // ── appState ──────────────────────────────────────────────────────────────
 //
@@ -28,7 +28,11 @@ const VERSION = '2.16.0';
 //   //   = solid) — best-fit line styling; bandColor (hex) / bandOpacity (0–1) —
 //   //   shared ±5%/±10% band styling, absent = default blue #5b8dee
 //   // contour (Phase 17): interpolate (bool) — grid scattered (x,y,z) when true;
-//   //                      showPoints (bool) — overlay sample locations
+//   //                      showPoints (bool) — overlay sample locations;
+//   //                      contourSmooth (bool, absent = true) — false renders
+//   //                      discrete bands with straight edges (no Plotly smoothing);
+//   //                      colorbarLabel (str, absent = Z column) — colorbar title
+//   //   // colorbarLabel also styles scatter/parity numeric color-by colorbars
 
 //   // bar (Phase 9): agg ('none'|'count'|'sum'|'mean'|'median'),
 //   //                errMode ('sd'|'sem'|null — mean only)

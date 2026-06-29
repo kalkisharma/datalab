@@ -314,6 +314,14 @@ function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
         <select id="mZCol">${colOptions(existing?.zCol, false)}</select>
         <div class="field-hint">By default contour needs pre-gridded data: every combination of the unique X and Y values exactly once (e.g. a parameter sweep). To plot scattered points, tick Interpolate below.</div>
       </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mColorbarLabel">Colorbar title <span class="field-hint" style="margin:0">(blank = Z column name)</span></label>
+        <input type="text" class="ctrl-input" id="mColorbarLabel" value="${escHtml(existing?.colorbarLabel || '')}" placeholder="defaults to the Z column name" />
+      </div>
+      <div class="check-row">
+        <label><input type="checkbox" id="mContourSmooth" ${existing?.contourSmooth !== false ? 'checked' : ''} />
+          Smooth shading <span class="field-hint" style="margin:0">(off → discrete bands with straight edges, faithful to the grid)</span></label>
+      </div>
       <div class="check-row">
         <label><input type="checkbox" id="mInterpolate" ${existing?.interpolate ? 'checked' : ''} />
           Interpolate scattered data <span class="field-hint" style="margin:0">(grids scattered X, Y, Z; no values outside the data's support; method named on hover)</span></label>

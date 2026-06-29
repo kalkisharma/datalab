@@ -18,6 +18,38 @@ const path = require('path');
 
 const FILE_URL = `file://${path.resolve(__dirname, '..', 'datalab.html')}`;
 
+// ── Shading control + colorbar title (v2.17.0) ─────────────────────────────
+const GRID2x2 = {
+  id: 'a', name: 'A', color: '#000', headers: ['x', 'y', 'z'],
+  rows: [{ x: 1, y: 1, z: 10 }, { x: 1, y: 2, z: 20 }, { x: 2, y: 1, z: 30 }, { x: 2, y: 2, z: 40 }],
+};
+const CONTOUR_BASE = { id: 's', name: 'c', chartType: 'contour', datasetId: 'a',
+  xCol: 'x', yCol: 'y', zCol: 'z', filters: [], style: {} };
+
+test('contour Smooth-shading toggle switches coloring + line smoothing', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const out = await page.evaluate(({ ds, base }) => {
+    const smooth = buildContourTrace({ ...base }, [ds]).traces[0];                  // default = on
+    const banded = buildContourTrace({ ...base, contourSmooth: false }, [ds]).traces[0];
+    return {
+      smoothColoring: smooth.contours.coloring, smoothLine: smooth.line.smoothing,
+      bandedColoring: banded.contours.coloring, bandedLine: banded.line.smoothing,
+    };
+  }, { ds: GRID2x2, base: CONTOUR_BASE });
+  expect(out.smoothColoring).toBe('heatmap'); expect(out.smoothLine).toBe(1);  // unchanged default
+  expect(out.bandedColoring).toBe('fill');    expect(out.bandedLine).toBe(0);  // discrete bands, straight edges
+});
+
+test('contour colorbar title uses colorbarLabel, falls back to the Z column', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const out = await page.evaluate(({ ds, base }) => ({
+    dflt:   buildContourTrace({ ...base }, [ds]).traces[0].colorbar.title.text,
+    custom: buildContourTrace({ ...base, colorbarLabel: 'Pressure (kPa)' }, [ds]).traces[0].colorbar.title.text,
+  }), { ds: GRID2x2, base: CONTOUR_BASE });
+  expect(out.dflt).toBe('z');
+  expect(out.custom).toBe('Pressure (kPa)');
+});
+
 test('linear field is recovered exactly, including a filled interior hole', async ({ page }) => {
   await page.goto(FILE_URL);
   const out = await page.evaluate(() => {

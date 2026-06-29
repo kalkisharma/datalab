@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.17.0 — Contour shading & colorbar title
+
+### Features
+- **Contour smoothing control** — a new "Smooth shading" toggle (default on, so
+  existing plots are unchanged). Off renders discrete bands with straight edges
+  faithful to the grid, instead of Plotly's interpolated heatmap shading and
+  spline-smoothed contour lines.
+- **Contour colorbar title** — the contour colorbar title is now editable (blank
+  falls back to the Z column name), matching the colorbar-label control that
+  scatter/parity numeric color-by already had.
+
+## Schema
+### v2.17.0 (state version unchanged at 2 — all additive, no migration)
+- New optional `series.contourSmooth` (bool, absent = smooth on).
+- `series.colorbarLabel` now also drives the contour colorbar title (the field
+  already existed for scatter/parity).
+- v2.0–v2.16 session files load unchanged.
+
 ## v2.16.0 — Best-fit line styling
 
 ### Features

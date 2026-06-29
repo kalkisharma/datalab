@@ -40,6 +40,16 @@ function buildContourTrace(series, datasets) {
   }
   if (!pts.length) return { traces: [], error: 'No complete numeric (X, Y, Z) rows found.' };
 
+  // Shading control (user-facing): Plotly smooths contours by default — heatmap
+  // coloring interpolates between grid nodes and contour lines spline-smooth.
+  // contourSmooth:false renders discrete bands ('fill') with straight segments
+  // (smoothing 0), faithful to the grid. Default on for back-compat.
+  const smooth        = series.contourSmooth !== false;
+  const coloring      = smooth ? 'heatmap' : 'fill';
+  const lineSmoothing = smooth ? 1 : 0;
+  // Colorbar title is user-editable (colorbarLabel); blank falls back to Z.
+  const cbTitle = series.colorbarLabel || series.zCol;
+
   // Interpolated path (Phase 17, opt-in): grid scattered (x, y, z) through
   // gridScattered. Cells with no data support render as gaps (connectgaps
   // false), never invented; the method is named on hover. The pre-gridded
@@ -52,9 +62,9 @@ function buildContourTrace(series, datasets) {
       x: g.x, y: g.y, z: g.z,
       name: (series.name || 'Contour') + ' (interpolated)',
       colorscale: document.getElementById('cmapSelect')?.value ?? 'Viridis',
-      contours: { coloring: 'heatmap' },
+      contours: { coloring }, line: { smoothing: lineSmoothing },
       connectgaps: false, // unsupported cells (outside hull / beyond R) stay empty
-      colorbar: { title: { text: series.zCol } },
+      colorbar: { title: { text: cbTitle } },
       // An interpolated surface must announce itself (§20) — method on hover
       hovertemplate: `${series.xCol}: %{x}<br>${series.yCol}: %{y}<br>${series.zCol}: %{z}<extra>interpolated · binned mean + Laplace fill</extra>`,
     }];
@@ -105,8 +115,8 @@ function buildContourTrace(series, datasets) {
       x: ux, y: uy, z,
       name: series.name || 'Contour',
       colorscale: document.getElementById('cmapSelect')?.value ?? 'Viridis',
-      contours: { coloring: 'heatmap' },
-      colorbar: { title: { text: series.zCol } },
+      contours: { coloring }, line: { smoothing: lineSmoothing },
+      colorbar: { title: { text: cbTitle } },
       hovertemplate: `${series.xCol}: %{x}<br>${series.yCol}: %{y}<br>${series.zCol}: %{z}<extra></extra>`,
     }],
     error: null,
