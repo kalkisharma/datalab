@@ -274,6 +274,31 @@ function renderOnePlot(plot) {
           plot.plotConfig.annotPos[m[2]] = e[k];
         }
       }
+      // Persist interactive zoom/pan into plotConfig so re-renders (e.g.
+      // toggling minor gridlines) and exports keep the user's view — previously
+      // a drag-zoom lived only on the node and was reset on the next render.
+      // Plotly emits xaxis.range[0/1] on zoom/drag and xaxis.autorange on a
+      // double-click reset. Base xaxis/yaxis only (subplot-grid axes out of
+      // scope); parity re-forces its own equal-axis range, so it is unaffected.
+      const isActive = plot.id === activePlot().id;
+      for (const ax of ['xaxis', 'yaxis']) {
+        const cfgMin = ax === 'xaxis' ? 'xMin' : 'yMin';
+        const cfgMax = ax === 'xaxis' ? 'xMax' : 'yMax';
+        const isLog  = ax === 'xaxis' ? plot.plotConfig.xLog : plot.plotConfig.yLog;
+        const lo = e[`${ax}.range[0]`], hi = e[`${ax}.range[1]`];
+        if (lo !== undefined && hi !== undefined) {
+          const conv = v => isLog ? Math.pow(10, v) : v; // Plotly log ranges are log10; fields hold data units
+          plot.plotConfig[cfgMin] = String(conv(lo));
+          plot.plotConfig[cfgMax] = String(conv(hi));
+        } else if (e[`${ax}.autorange`]) {
+          plot.plotConfig[cfgMin] = ''; plot.plotConfig[cfgMax] = ''; // reset → auto
+        } else continue;
+        if (isActive) { // mirror into the panel Min/Max inputs so the UI stays in sync
+          const elMin = document.getElementById(cfgMin), elMax = document.getElementById(cfgMax);
+          if (elMin) elMin.value = plot.plotConfig[cfgMin];
+          if (elMax) elMax.value = plot.plotConfig[cfgMax];
+        }
+      }
     });
     pd._legendHooked = true;
   }

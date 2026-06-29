@@ -46,24 +46,35 @@ function appendParityStats(layout, parityResults, plot, srParts) {
   const fmt = v => isNaN(v) ? 'N/A' : Number(v).toPrecision(4);
   const th  = plotTheme();
   const single = parityResults.length === 1;
-  const base = single ? (plot.plotConfig.annotPos ?? { x: 0.98, y: 0.04 })
-                      : { x: 0.98, y: 0.04 };
-  layout.annotations = parityResults.map((p, i) => ({
-    x: base.x, y: base.y + i * 0.24,
-    xref: 'paper', yref: 'paper',
-    xanchor: base.x > 0.5 ? 'right' : 'left',
-    yanchor: base.y < 0.5 ? 'bottom' : 'top',
-    // Series names are user data — escHtml applied (Plotly pseudo-HTML)
-    text: (single ? '' : `<b>${escHtml(p.name)}</b><br>`)
-      + `NSE = ${fmt(p.stats.nse)}<br>MAE = ${fmt(p.stats.mae)}<br>RMSE = ${fmt(p.stats.rmse)}<br>N = ${p.n}`,
-    showarrow: false,
-    bgcolor: th.annotBg,
-    bordercolor: th.annotBorder, borderwidth: 1, borderpad: 8,
-    font: { family: 'JetBrains Mono,monospace',
-            size: parseFloat(document.getElementById('fsAnnot')?.value) || 11,
-            color: th.title },
-    align: 'left',
-  }));
+  // Tie each box to its parity series' OWN subplot cell via axis-DOMAIN refs
+  // ('x{sfx} domain'/'y{sfx} domain'), so it sits inside that cell's plot area
+  // and stays there as more subplots are added — rather than at the whole-figure
+  // corner. Still draggable; a dragged single-parity box persists in
+  // plotConfig.annotPos (now in cell-domain coords). Boxes sharing a cell stack
+  // upward via a per-cell counter so different cells don't offset each other.
+  const perCell = {};
+  layout.annotations = parityResults.map(p => {
+    const sfx = p.sfx || '';
+    const i = perCell[sfx] ?? 0; perCell[sfx] = i + 1;
+    const base = single ? (plot.plotConfig.annotPos ?? { x: 0.98, y: 0.04 })
+                        : { x: 0.98, y: 0.04 };
+    return {
+      x: base.x, y: base.y + i * 0.24,
+      xref: `x${sfx} domain`, yref: `y${sfx} domain`,
+      xanchor: base.x > 0.5 ? 'right' : 'left',
+      yanchor: base.y < 0.5 ? 'bottom' : 'top',
+      // Series names are user data — escHtml applied (Plotly pseudo-HTML)
+      text: (single ? '' : `<b>${escHtml(p.name)}</b><br>`)
+        + `NSE = ${fmt(p.stats.nse)}<br>MAE = ${fmt(p.stats.mae)}<br>RMSE = ${fmt(p.stats.rmse)}<br>N = ${p.n}`,
+      showarrow: false,
+      bgcolor: th.annotBg,
+      bordercolor: th.annotBorder, borderwidth: 1, borderpad: 8,
+      font: { family: 'JetBrains Mono,monospace',
+              size: parseFloat(document.getElementById('fsAnnot')?.value) || 11,
+              color: th.title },
+      align: 'left',
+    };
+  });
   parityResults.forEach(p => srParts.unshift(
     `${p.name} statistics: NSE=${fmt(p.stats.nse)}, MAE=${fmt(p.stats.mae)}, RMSE=${fmt(p.stats.rmse)}, N=${p.n}`
   ));

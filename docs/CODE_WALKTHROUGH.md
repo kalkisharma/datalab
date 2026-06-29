@@ -189,12 +189,14 @@ chart.js           renderPlot() — the dispatcher. For the active/each plot it
    │                     The actual trace construction (see §7).
    │
    ├─► decorations.js    Plot-level decorations layered on after traces:
-   │                     right Y axis (dual-Y), parity stats annotation box,
-   │                     free-text notes, and log-axis interactions. Drag
-   │                     positions for the legend, notes, and parity stats
-   │                     box are persisted back into plotConfig via a
-   │                     plotly_relayout hook (the hook currently lives in
-   │                     chart.js; decorations.js is its named next home).
+   │                     right Y axis (dual-Y), parity stats annotation box
+   │                     (anchored to its own subplot cell via axis-domain refs,
+   │                     v2.15.0), free-text notes, and log-axis interactions.
+   │                     Drag positions for the legend, notes, and parity stats
+   │                     box — plus interactive axis zoom/pan ranges (v2.15.0) —
+   │                     are persisted back into plotConfig via a plotly_relayout
+   │                     hook (the hook currently lives in chart.js;
+   │                     decorations.js is its named next home).
    │
    └─► layout.js         The base layout and plot theme — background-luminance
                          -adaptive colors, axis styling, and the colorbar
@@ -257,7 +259,7 @@ Scientist sign-off** for its statistical conventions. Summary:
 | `scatter.js` | scatter | Bubble size-by — configurable law (area default / diameter, which warns), min/max px (default 4→28), and a size key with custom label/count, optional hide, or routing to a second legend — plus color-by, error bars, trendlines (linear/quadratic/cubic), per-series marker shape, optional cross-dataset join. The richest renderer. |
 | `line.js` | line | Per-category lines when color-by is set (reuses `categoryGroups`, with a `(blank)` + high-cardinality warning); error bars; datetime X; per-series marker shape; **markers toggle, line dash, separate marker color (single-line), and markers that now honor the global marker-size slider** (v2.14.0 — previously a hardcoded 4 px). |
 | `bar.js` | bar | **Explicit aggregation** (none/count/sum/mean/median). `agg='none'` *errors* on repeated categories — silent aggregation is forbidden (§20). |
-| `parity.js` | parity | Observed-vs-modelled: y=x line, ±5%/±10% bands, equal axes (always explicitly set), and NSE/MAE/RMSE stats. Works cross-dataset (join) **or** single-dataset (two columns, since v2.13.0). `SS_tot` is variance around **mean(observed)** — the correct NSE denominator. |
+| `parity.js` | parity | Observed-vs-modelled: y=x line, ±5%/±10% bands (user-controllable colour/opacity, shared, v2.15.0), equal axes (always explicitly set), NSE/MAE/RMSE stats, and an optional linear best-fit line + R² (v2.15.0 — regression fit, conceptually distinct from NSE). Works cross-dataset (join) **or** single-dataset (two columns, since v2.13.0). `SS_tot` is variance around **mean(observed)** — the correct NSE denominator. |
 | `contour.js` | contour | Default path needs **pre-gridded** data (validated at creation). Opt-in "interpolate scattered data" path routes through `grid-interp.js`. |
 | `histogram.js` | histogram | Freedman-Diaconis bin count computed at render time; distribution fit overlay (normal/lognormal/Weibull) and KDE. |
 | `boxplot.js` | box plot | Tukey whiskers; warns above 50 categorical X values. |
@@ -296,9 +298,12 @@ own overlay/Escape via one `AbortController`.
 ## 9. Export
 
 ### `export.js` — PNG/SVG/ZIP and style presets
-PNG and SVG download (delegating image generation to Plotly), **Export all**
-(one numbered PNG per visible panel), ZIP of saved plots, and style-preset
-save/load. Includes a shared filename sanitizer and the SVG-rasterizes-WebGL
+PNG and SVG download — rendered off-screen via a fixed-size static `newPlot` +
+`toImage` (the same path as the ZIP export) from a clone of the live layout, so
+the image faithfully matches the screen, minor gridlines and the current
+zoom/range included (v2.15.0 — this replaced an in-place `Plotly.downloadImage`
+whose responsive clone-and-resize dropped those). **Export all** (one numbered
+PNG per visible panel), ZIP of saved plots, and style-preset save/load. Includes a shared filename sanitizer and the SVG-rasterizes-WebGL
 notice (warns that SVG export of WebGL scatter falls back to raster).
 Blob URLs are revoked after download (a §9 confidentiality requirement).
 

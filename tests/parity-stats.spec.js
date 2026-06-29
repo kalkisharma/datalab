@@ -87,6 +87,106 @@ test('parity pairs with one-sided NaN are dropped together, not misaligned', asy
   expect(result.stats.mae).toBeCloseTo((2 + 3 + 0) / 3, 10);
 });
 
+// ── Best-fit line (v2.15.0) ────────────────────────────────────────────────
+// Linear least-squares fit (modelled vs observed) with R² in the legend,
+// complementing the y=x reference. Exact data so the fit is unambiguous.
+test('parity best-fit line: linear fit trace carries the equation and R²', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const result = await page.evaluate(() => {
+    const ds = { id:'a', name:'A', color:'#000', headers:['obs','mod'],
+      rows:[{obs:1,mod:3},{obs:2,mod:5},{obs:3,mod:7}] }; // mod = 2·obs + 1, R²=1
+    const series = { id:'s1', name:'p', chartType:'parity', datasetId:'a',
+      xCol:'obs', yCol:'mod', parityFit:true, filters:[], style:{} };
+    return buildParityTrace(series, [ds]);
+  });
+  expect(result.error).toBeNull();
+  const fit = result.traces.find(t => typeof t.name === 'string' && t.name.startsWith('Best fit:'));
+  expect(fit).toBeTruthy();
+  expect(fit.mode).toBe('lines');
+  expect(fit.name).toContain('y = 2.000x + 1.000');
+  expect(fit.name).toContain('R² = 1.000');
+  // The line is evaluated from the fit across the equal-axis range
+  expect(fit.x).toEqual([result.axMin, result.axMax]);
+  expect(fit.y[0]).toBeCloseTo(2 * result.axMin + 1, 10);
+  expect(fit.y[1]).toBeCloseTo(2 * result.axMax + 1, 10);
+  // Screen-reader mirror is emitted for the dispatcher to pick up
+  expect(result.fitAnnot && result.fitAnnot.sr).toContain('R2=1.000');
+});
+
+test('parity best-fit line is absent unless parityFit is set', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const has = await page.evaluate(() => {
+    const ds = { id:'a', name:'A', color:'#000', headers:['obs','mod'],
+      rows:[{obs:1,mod:3},{obs:2,mod:5},{obs:3,mod:7}] };
+    const series = { id:'s1', name:'p', chartType:'parity', datasetId:'a',
+      xCol:'obs', yCol:'mod', filters:[], style:{} };
+    const r = buildParityTrace(series, [ds]);
+    return { hasFit: r.traces.some(t => typeof t.name === 'string' && t.name.startsWith('Best fit:')),
+             fitAnnot: r.fitAnnot };
+  });
+  expect(has.hasFit).toBe(false);
+  expect(has.fitAnnot).toBeNull();
+});
+
+// ── Band styling (v2.15.0) ──────────────────────────────────────────────────
+// A shared colour + opacity drive BOTH the ±5% and ±10% bands; the fill stays
+// at the original ~0.24 fill:line opacity ratio.
+test('parity band color + opacity apply to both bands', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const bands = await page.evaluate(() => {
+    const ds = { id:'a', name:'A', color:'#000', headers:['obs','mod'],
+      rows:[{obs:1,mod:1.1},{obs:2,mod:1.9},{obs:3,mod:3.2}] };
+    const series = { id:'s1', name:'p', chartType:'parity', datasetId:'a',
+      xCol:'obs', yCol:'mod', band5:true, band10:true,
+      bandColor:'#ff0000', bandOpacity:0.5, filters:[], style:{} };
+    return buildParityTrace(series, [ds]).traces.filter(t => t.fill === 'toself')
+      .map(t => ({ line: t.line.color, fill: t.fillcolor }));
+  });
+  expect(bands.length).toBeGreaterThanOrEqual(2);
+  for (const b of bands) {
+    expect(b.line).toBe('rgba(255,0,0,0.5)');
+    expect(b.fill).toBe('rgba(255,0,0,0.12)'); // 0.5 × 0.24
+  }
+});
+
+test('parity bands keep the original blue when unstyled', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const band = await page.evaluate(() => {
+    const ds = { id:'a', name:'A', color:'#000', headers:['obs','mod'],
+      rows:[{obs:1,mod:1.1},{obs:2,mod:1.9},{obs:3,mod:3.2}] };
+    const series = { id:'s1', name:'p', chartType:'parity', datasetId:'a',
+      xCol:'obs', yCol:'mod', band10:true, filters:[], style:{} };
+    return buildParityTrace(series, [ds]).traces.find(t => t.fill === 'toself');
+  });
+  expect(band.line.color).toBe('rgba(91,141,238,0.25)');
+  expect(band.fillcolor).toBe('rgba(91,141,238,0.06)'); // 0.25 × 0.24
+});
+
+// ── Stats box tied to its subplot cell (v2.15.0) ───────────────────────────
+// Each NSE/MAE/RMSE box anchors to its parity series' own cell via axis-domain
+// refs, so it stays inside that cell's plot area as subplots are added. Boxes
+// sharing a cell stack upward; the per-cell counter resets across cells.
+test('parity stats box anchors to its cell and stacks per cell', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const out = await page.evaluate(() => {
+    const layout = {};
+    const st = { nse: 1, mae: 0, rmse: 0 };
+    const parityResults = [
+      { name: 'A', sfx: '',  n: 3, stats: st }, // cell 1
+      { name: 'B', sfx: '',  n: 3, stats: st }, // cell 1 (stacks above A)
+      { name: 'C', sfx: '2', n: 3, stats: st }, // cell 2 (counter resets)
+    ];
+    appendParityStats(layout, parityResults, { plotConfig: {} }, []);
+    return layout.annotations.map(a => ({ xref: a.xref, yref: a.yref, y: a.y }));
+  });
+  expect(out[0]).toMatchObject({ xref: 'x domain',  yref: 'y domain'  });
+  expect(out[1]).toMatchObject({ xref: 'x domain',  yref: 'y domain'  });
+  expect(out[2]).toMatchObject({ xref: 'x2 domain', yref: 'y2 domain' });
+  expect(out[0].y).toBeCloseTo(0.04, 10);   // first in cell 1
+  expect(out[1].y).toBeCloseTo(0.28, 10);   // second in cell 1 stacks up
+  expect(out[2].y).toBeCloseTo(0.04, 10);   // first in cell 2 — counter reset
+});
+
 test('parity layout enforces equal axis ranges', async ({ page }) => {
   await page.goto(FILE_URL);
   const result = await page.evaluate(() => {

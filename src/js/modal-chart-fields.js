@@ -224,6 +224,17 @@ function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
         <label><input type="checkbox" id="mBand5"  ${existing?.band5 ?'checked':''} /> ±5%</label>
         <label><input type="checkbox" id="mBand10" ${existing?.band10??true?'checked':''} /> ±10%</label>
       </div>
+      <div class="modal-field">
+        <label class="modal-label" for="mBandColor" style="margin:0">Band color
+          <input type="color" class="edge-color" id="mBandColor" value="${existing?.bandColor ?? '#5b8dee'}" /></label>
+        <label class="modal-label" for="mBandOpacity" style="margin:0">Band opacity
+          <input type="number" class="ctrl-input" id="mBandOpacity" min="0" max="1" step="0.05" value="${existing?.bandOpacity ?? 0.25}" style="width:64px" /></label>
+        <div class="field-hint">Color and opacity apply to both the ±5% and ±10% bands.</div>
+      </div>
+      <div class="modal-section-title">Best fit</div>
+      <div class="check-row">
+        <label><input type="checkbox" id="mParityFit" ${existing?.parityFit ? 'checked' : ''} /> Best-fit line (least squares; legend shows equation and R²)</label>
+      </div>
       <div class="modal-section-title">Encoding</div>
       <div class="modal-field">
         <label class="modal-label" for="mColorCol">Color by (optional)</label>

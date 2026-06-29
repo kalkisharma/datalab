@@ -153,8 +153,27 @@ function buildParityTrace(series, datasets) {
   });
 
   // Error bands
-  if (series.band5)  traces.push(...buildBandTraces(axMin, axMax, 0.05, '±5%'));
-  if (series.band10) traces.push(...buildBandTraces(axMin, axMax, 0.10, '±10%'));
+  if (series.band5)  traces.push(...buildBandTraces(axMin, axMax, 0.05, '±5%',  series.bandColor, series.bandOpacity));
+  if (series.band10) traces.push(...buildBandTraces(axMin, axMax, 0.10, '±10%', series.bandColor, series.bandOpacity));
+
+  // Best-fit line (optional, linear least squares) — complements the y=x
+  // reference. R² here is the regression coefficient of determination (modelled
+  // vs observed), conceptually distinct from NSE (see file header).
+  let fitAnnot = null;
+  if (series.parityFit) {
+    const fit = linearFit(xs, ys);
+    if (fit) {
+      const fitColor = series.style?.color ?? (ds.color ?? '#5b8dee');
+      traces.push({
+        type: 'scatter', mode: 'lines',
+        x: [axMin, axMax], y: [fit.a * axMin + fit.b, fit.a * axMax + fit.b],
+        name: `Best fit: y = ${fmt(fit.a)}x ${fit.b < 0 ? '−' : '+'} ${fmt(Math.abs(fit.b))} (R² = ${fmt(fit.r2)})`,
+        line: { color: fitColor, width: 2 }, // solid — distinct from the grey dashed y=x
+        hoverinfo: 'skip', showlegend: true,
+      });
+      fitAnnot = { sr: `${baseName} best fit: slope=${fmt(fit.a)}, intercept=${fmt(fit.b)}, R2=${fmt(fit.r2)}, n=${n}` };
+    }
+  }
 
   // Layout with equal axis ranges
   const layout = {
@@ -168,7 +187,7 @@ function buildParityTrace(series, datasets) {
   // dataMin/dataMax are the unpadded extremes — log-log panels re-derive
   // their range from these (linear padding can push axMin negative even
   // for all-positive data; Phase 9 log axes)
-  return { traces, error: null, warning, layout, stats, annotSR, axMin, axMax, dataMin: mn, dataMax: mx, n };
+  return { traces, error: null, warning, layout, stats, annotSR, fitAnnot, axMin, axMax, dataMin: mn, dataMax: mx, n };
 }
 
 function fmt(v) { return isNaN(v) ? 'N/A' : Number(v).toPrecision(4); }
@@ -203,11 +222,24 @@ function innerJoinRows(rowsA, rowsB, key) {
   return { mA, mB };
 }
 
-function buildBandTraces(mn, mx, pct, name) {
+// hex → {r,g,b} for the user-controllable band color (no shared helper exists).
+// Defaults to the original band blue (#5b8dee) on any malformed input.
+function hexToRgb(hex) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
+  return m ? { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) }
+           : { r: 91, g: 141, b: 238 };
+}
+
+function buildBandTraces(mn, mx, pct, name, bandColor, bandOpacity) {
+  // Color + opacity are user-controllable and shared across ±5%/±10%. Defaults
+  // reproduce the original look exactly (#5b8dee; line 0.25 / fill 0.06 — a
+  // ~0.24 fill:line ratio, preserved by scaling fill from the line opacity).
+  const { r, g, b } = hexToRgb(bandColor ?? '#5b8dee');
+  const lineA = bandOpacity ?? 0.25, fillA = lineA * 0.24;
   const props = {
     type: 'scatter', mode: 'lines', hoverinfo: 'skip',
-    fill: 'toself', fillcolor: 'rgba(91,141,238,0.06)',
-    line: { color: 'rgba(91,141,238,0.25)', width: 1, dash: 'dot' },
+    fill: 'toself', fillcolor: `rgba(${r},${g},${b},${fillA})`,
+    line: { color: `rgba(${r},${g},${b},${lineA})`, width: 1, dash: 'dot' },
     showlegend: true,
   };
   if (mn >= 0) {

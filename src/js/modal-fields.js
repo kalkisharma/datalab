@@ -47,7 +47,7 @@ function renderDynamicFields(existing) {
     </div>
     <div class="modal-field">
       <label class="modal-label" for="mStyleMarkerSize">Marker size <span class="field-hint" style="margin:0">(blank = global)</span></label>
-      <input type="number" class="ctrl-input" id="mStyleMarkerSize" min="1" max="30"
+      <input type="number" class="ctrl-input" id="mStyleMarkerSize" min="1" max="60"
              value="${existing?.style?.markerSize ?? ''}" placeholder="global" />
     </div>
     ${showSymbol ? `

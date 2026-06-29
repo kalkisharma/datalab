@@ -20,21 +20,41 @@ function exportDims(pd) {
   return { w: fw, h: fh };
 }
 
-function downloadPlot(format = 'png') {
-  // Exports the ACTIVE panel at the Export size, or the panel's on-screen
-  // size when "Match on-screen size" is on (panels autosize to their cell)
-  const filename = safeFilename(activePlot().plotConfig.title || activePlot().name, 'datalab_plot');
+async function downloadPlot(format = 'png') {
+  // Exports the ACTIVE panel at the Export size, or the panel's on-screen size
+  // when "Match on-screen size" is on (panels autosize to their cell).
+  //
+  // Renders off-screen via a fixed-size static newPlot + toImage — the same
+  // proven path downloadZip uses — instead of Plotly.downloadImage on the live
+  // responsive div. downloadImage clones-and-resizes the live div, and that
+  // resize was dropping minor gridlines (and any zoomed range) from the image;
+  // a fixed-size static render of a clone of the live layout is a faithful copy
+  // of the screen (minor grid, current ranges, and decorations all included).
   const pd = activePlotDiv();
+  if (!pd || !pd.data) return;
   const { w, h } = exportDims(pd);
+  const filename = safeFilename(activePlot().plotConfig.title || activePlot().name, 'datalab_plot');
   // SVG notice (Stab A): scattergl traces (WebGL, >10k points) rasterize inside
   // the SVG — axes/text and non-GL traces stay vector. Tell the user rather
   // than let them discover blurry markers in a "vector" file.
-  if (format === 'svg' && (pd?._fullData || []).some(t => t.type === 'scattergl')) {
+  if (format === 'svg' && (pd._fullData || []).some(t => t.type === 'scattergl')) {
     const box = document.getElementById('dataAlerts');
     // innerHTML: static notice — no user data
     if (box) box.innerHTML = '<div class="alert warn" role="alert">SVG export: large scatter layers (&gt;10k points) use WebGL and rasterize inside the SVG — axes, text, and other traces stay vector.</div>';
   }
-  Plotly.downloadImage(pd, { format, width: w, height: h, filename });
+  const div = document.createElement('div');
+  div.style.cssText = `position:fixed;left:-9999px;top:0;width:${w}px;height:${h}px;`;
+  document.body.appendChild(div);
+  try {
+    const layout = JSON.parse(JSON.stringify(pd.layout)); // live layout incl. minor grid + current ranges
+    layout.width = w; layout.height = h; layout.autosize = false; // fixed size — no responsive resize
+    await Plotly.newPlot(div, pd.data, layout, { staticPlot: true, displayModeBar: false });
+    const url = await Plotly.toImage(div, { format, width: w, height: h });
+    const a = document.createElement('a');
+    a.href = url; a.download = `${filename}.${format}`; a.click();
+  } finally {
+    Plotly.purge(div); div.remove();
+  }
 }
 
 // ── Export plot data as CSV ───────────────────────────────────────────────

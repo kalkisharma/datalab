@@ -1,5 +1,37 @@
 # Changelog
 
+## v2.15.0 — Parity fits & faithful exports
+
+### Features
+- **Parity best-fit line** — an optional linear least-squares fit (modelled vs
+  observed) drawn alongside the y=x reference, with its equation and R² in the
+  legend. R² (regression fit) is reported in addition to NSE (parity agreement);
+  the two answer different questions.
+- **Parity band styling** — the ±5% / ±10% error bands now take a colour and an
+  opacity (shared across both bands); blank keeps the original blue.
+- **Larger markers** — the marker-size slider now reaches 40 (was 20), and the
+  per-series marker-size cap is 60 (was 30).
+
+### Fixes
+- **Parity stats box stays in its subplot** — the NSE/MAE/RMSE box is anchored to
+  its parity series' own cell (axis-domain coords), so it stays inside that
+  cell's plot area as subplots are added instead of drifting to the figure
+  corner. It is still draggable, and a moved single-parity box still persists.
+- **PNG/SVG export now matches the screen** — minor gridlines (and a zoomed
+  axis range) were dropped from the exported image because the live, responsive
+  panel was cloned-and-resized during download. Export now renders off-screen at
+  a fixed size from a copy of the live layout, so the file is a faithful copy of
+  what's on screen.
+- **Interactive zoom/pan persists** — dragging to zoom (or pan) is written back
+  into the plot's stored range, so it survives the next re-render (e.g. toggling
+  gridlines) and is reflected in exports; a double-click reset returns to auto.
+
+## Schema
+### v2.15.0 (state version unchanged at 2 — all additive, no migration)
+- New optional `series` fields (parity): `parityFit` (bool — linear best-fit
+  line + R²), `bandColor` (hex) and `bandOpacity` (0–1) for shared band styling.
+- v2.0–v2.14 session files load unchanged.
+
 ## v2.14.0 — Encoding & Style Controls
 
 ### Features

@@ -279,6 +279,9 @@ function saveModalSeries() {
     series.joinKey       = series.joinDatasetId ? (document.getElementById('mJoinKey')?.value || null) : null;
     series.band5         = document.getElementById('mBand5')?.checked  ?? false;
     series.band10        = document.getElementById('mBand10')?.checked ?? true;
+    series.bandColor     = document.getElementById('mBandColor')?.value || null;          // shared ±5%/±10% color
+    series.bandOpacity   = (v => Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : null)(parseFloat(document.getElementById('mBandOpacity')?.value));
+    series.parityFit     = document.getElementById('mParityFit')?.checked ?? false;        // linear best-fit line + R²
     if (series.joinDatasetId && !series.joinKey) { err.textContent = 'Select a join key, or switch "Compare against" to this dataset.'; return false; }
   }
 
