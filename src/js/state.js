@@ -2,7 +2,7 @@
 
 // Single source of truth for the app version (STANDARDS.md §3).
 // build.js parses the declaration below — do not rename or reformat it.
-const VERSION = '2.17.0';
+const VERSION = '2.18.0';
 
 // ── appState ──────────────────────────────────────────────────────────────
 //
@@ -31,8 +31,12 @@ const VERSION = '2.17.0';
 //   //                      showPoints (bool) — overlay sample locations;
 //   //                      contourSmooth (bool, absent = true) — false renders
 //   //                      discrete bands with straight edges (no Plotly smoothing);
-//   //                      colorbarLabel (str, absent = Z column) — colorbar title
-//   //   // colorbarLabel also styles scatter/parity numeric color-by colorbars
+//   //                      contourLevels (int ≥ 2, absent = auto) — ncontours
+//   // colorbar controls (v2.18.0; contour/heatmap/scatter+parity numeric color-by):
+//   //   colorbarLabel (str — title text, absent = column/agg name); colorbarTitleHide
+//   //   (bool — no title; heatmap always names the aggregation, §20, so it ignores
+//   //   this); colorMin/colorMax (num, absent = auto — zmin/zmax for contour/heatmap,
+//   //   cmin/cmax for marker color-by); colorReverse (bool — reverse the colormap)
 
 //   // bar (Phase 9): agg ('none'|'count'|'sum'|'mean'|'median'),
 //   //                errMode ('sd'|'sem'|null — mean only)

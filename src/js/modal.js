@@ -265,6 +265,11 @@ function saveModalSeries() {
     trendGroups: document.getElementById('mTrendGroups')?.checked ?? false, // scatter only (Phase 11)
     colorCol:  document.getElementById('mColorCol')?.value || null,
     colorbarLabel: document.getElementById('mColorbarLabel')?.value.trim() || null, // numeric color-by (Phase 16)
+    colorbarTitleHide: document.getElementById('mColorbarHide')?.checked ?? false,   // hide the colorbar title (v2.18.0)
+    colorReverse:      document.getElementById('mColorReverse')?.checked ?? false,   // reverse the colormap (v2.18.0)
+    colorMin: (v => Number.isFinite(v) ? v : null)(parseFloat(document.getElementById('mColorMin')?.value)), // manual color range (v2.18.0)
+    colorMax: (v => Number.isFinite(v) ? v : null)(parseFloat(document.getElementById('mColorMax')?.value)),
+    contourLevels: (v => Number.isFinite(v) && v >= 2 ? Math.round(v) : null)(parseFloat(document.getElementById('mContourLevels')?.value)), // contour ncontours (v2.18.0)
     legendLabel:   document.getElementById('mLegendLabel')?.value.trim() || null,   // overrides auto legend text (Phase 16)
     legendHide:    document.getElementById('mLegendHide')?.checked ?? false,        // suppress legend entries (workspace ergonomics)
     filters:   _modalFilters.map(f => ({ ...f })),

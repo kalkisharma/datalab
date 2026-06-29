@@ -92,7 +92,13 @@ function buildParityTrace(series, datasets) {
   }
   const marker = buildMarkerStyle(series.style, colorMode === 'numeric' ? catV.map(Number) : undefined);
   if (colorMode !== 'numeric') marker.color = series.style?.color ?? (ds.color ?? '#5b8dee');
-  if (colorMode === 'numeric') marker.colorbar = { title: { text: series.colorbarLabel || series.colorCol } };
+  if (colorMode === 'numeric') {
+    // Colorbar controls (v2.18.0): manual range (cmin/cmax), reverse, hide title
+    if (Number.isFinite(series.colorMin)) marker.cmin = series.colorMin;
+    if (Number.isFinite(series.colorMax)) marker.cmax = series.colorMax;
+    if (series.colorReverse) marker.reversescale = true;
+    marker.colorbar = { title: { text: series.colorbarTitleHide ? '' : (series.colorbarLabel || series.colorCol) } };
+  }
   let sizeOpts = null;
   if (sizeObs) {
     sizeOpts = { law: series.sizeLaw, dMin: series.sizeMin, dMax: series.sizeMax };

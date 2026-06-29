@@ -85,12 +85,21 @@ function buildHeatmapTrace(series, datasets) {
   const aggLabel = agg === 'count' ? 'count'
     : agg === 'none' ? series.zCol : `${agg}(${series.zCol})`;
 
+  // Colorbar controls (v2.18.0): manual color range + reverse colormap. The
+  // title stays the aggregation name — it must always be named (§20), so no
+  // hide/custom-title control here (unlike contour / numeric color-by).
+  const cbExtra = {};
+  if (Number.isFinite(series.colorMin)) cbExtra.zmin = series.colorMin;
+  if (Number.isFinite(series.colorMax)) cbExtra.zmax = series.colorMax;
+  if (series.colorReverse) cbExtra.reversescale = true;
+
   return {
     traces: [{
       type: 'heatmap',
       x: xs, y: ys, z,
       name: series.name || 'Heatmap',
       colorscale: document.getElementById('cmapSelect')?.value ?? 'Viridis',
+      ...cbExtra,
       colorbar: { title: { text: aggLabel } }, // aggregation always named (§20)
       hovertemplate: `${series.xCol}: %{x}<br>${series.yCol}: %{y}<br>${aggLabel}: %{z}<extra></extra>`,
     }],

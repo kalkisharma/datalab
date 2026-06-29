@@ -50,6 +50,44 @@ test('contour colorbar title uses colorbarLabel, falls back to the Z column', as
   expect(out.custom).toBe('Pressure (kPa)');
 });
 
+// ── Colorbar controls (v2.18.0) ────────────────────────────────────────────
+test('contour colorbar controls: range, reverse, hide-title, level count', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const t = await page.evaluate(({ ds, base }) =>
+    buildContourTrace({ ...base, colorMin: 5, colorMax: 35, colorReverse: true,
+      colorbarTitleHide: true, contourLevels: 8 }, [ds]).traces[0],
+    { ds: GRID2x2, base: CONTOUR_BASE });
+  expect(t.zmin).toBe(5); expect(t.zmax).toBe(35);
+  expect(t.reversescale).toBe(true);
+  expect(t.ncontours).toBe(8);
+  expect(t.colorbar.title.text).toBe(''); // title hidden
+});
+
+test('contour colorbar defaults add no range/reverse/level keys; title = Z', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const t = await page.evaluate(({ ds, base }) =>
+    buildContourTrace({ ...base }, [ds]).traces[0], { ds: GRID2x2, base: CONTOUR_BASE });
+  expect(t.zmin).toBeUndefined(); expect(t.zmax).toBeUndefined();
+  expect(t.reversescale).toBeUndefined(); expect(t.ncontours).toBeUndefined();
+  expect(t.colorbar.title.text).toBe('z');
+});
+
+test('heatmap gets range + reverse, but the title still names the aggregation (§20)', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const t = await page.evaluate(() => {
+    const ds = { id: 'h', name: 'H', color: '#000', headers: ['cx', 'cy', 'v'],
+      rows: [{ cx: 'a', cy: 'p', v: 1 }, { cx: 'a', cy: 'q', v: 2 },
+             { cx: 'b', cy: 'p', v: 3 }, { cx: 'b', cy: 'q', v: 4 }] };
+    const s = { id: 's', name: 'h', chartType: 'heatmap', datasetId: 'h',
+      xCol: 'cx', yCol: 'cy', zCol: 'v', agg: 'mean',
+      colorMin: 0, colorMax: 5, colorReverse: true, colorbarTitleHide: true, filters: [], style: {} };
+    return buildHeatmapTrace(s, [ds]).traces[0];
+  });
+  expect(t.zmin).toBe(0); expect(t.zmax).toBe(5);
+  expect(t.reversescale).toBe(true);
+  expect(t.colorbar.title.text).toBe('mean(v)'); // hide ignored — §20 names the aggregation
+});
+
 test('linear field is recovered exactly, including a filled interior hole', async ({ page }) => {
   await page.goto(FILE_URL);
   const out = await page.evaluate(() => {

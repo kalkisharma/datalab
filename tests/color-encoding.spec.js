@@ -17,6 +17,29 @@ async function loadCSV(page, content, filename) {
   fs.unlinkSync(csvPath);
 }
 
+// ── Numeric color-by colorbar controls (v2.18.0) ───────────────────────────
+test('numeric color-by colorbar: cmin/cmax, reverse, and hide-title', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'x,y,c\n1,2,10\n2,3,20\n3,4,30\n4,5,40', '_ce_cbar.csv');
+  const out = await page.evaluate(() => {
+    const ds = appState.datasets[0];
+    const base = { id: 'sN', name: 'N', datasetId: ds.id, chartType: 'scatter', xCol: 'x', yCol: 'y', colorCol: 'c' };
+    const find = s => buildScatterTrace(s, appState.datasets).traces.find(t => t.marker && t.marker.colorbar);
+    const dflt = find({ ...base });
+    const cust = find({ ...base, colorMin: 5, colorMax: 35, colorReverse: true, colorbarTitleHide: true });
+    return {
+      dfltTitle: dflt.marker.colorbar.title.text, dfltCmin: dflt.marker.cmin, dfltReverse: dflt.marker.reversescale,
+      cmin: cust.marker.cmin, cmax: cust.marker.cmax, reverse: cust.marker.reversescale, title: cust.marker.colorbar.title.text,
+    };
+  });
+  expect(out.dfltTitle).toBe('c');        // defaults to the color column name
+  expect(out.dfltCmin).toBeUndefined();   // no manual range by default
+  expect(out.dfltReverse).toBeUndefined();
+  expect(out.cmin).toBe(5); expect(out.cmax).toBe(35);
+  expect(out.reverse).toBe(true);
+  expect(out.title).toBe('');             // hidden
+});
+
 test('categorical color-by renders one named legend trace per category (not a colorbar)', async ({ page }) => {
   await page.goto(FILE_URL);
   await loadCSV(page,

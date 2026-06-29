@@ -129,7 +129,13 @@ function buildScatterTrace(series, datasets) {
     // column name, matching heatmap/contour; editable via colorbarLabel.
     // Plotly title text, not a DOM innerHTML sink — same no-escHtml
     // convention as the other renderers' colorbar titles (XSS-covered).
-    if (colorMode === 'numeric') marker.colorbar = { title: { text: series.colorbarLabel || series.colorCol } };
+    if (colorMode === 'numeric') {
+      // Colorbar controls (v2.18.0): manual range (cmin/cmax), reverse, hide title
+      if (Number.isFinite(series.colorMin)) marker.cmin = series.colorMin;
+      if (Number.isFinite(series.colorMax)) marker.cmax = series.colorMax;
+      if (series.colorReverse) marker.reversescale = true;
+      marker.colorbar = { title: { text: series.colorbarTitleHide ? '' : (series.colorbarLabel || series.colorCol) } };
+    }
     const tr = { type: trType, mode: 'markers', x: xV, y: yV, name: baseName, marker, hovertemplate: hover };
     if (sizeRaw) tr.customdata = sizeRaw; // hover shows the raw size value
     if (eV) tr.error_y = errorBarsFromCol(eV);

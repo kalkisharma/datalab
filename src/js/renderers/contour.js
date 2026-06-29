@@ -47,8 +47,14 @@ function buildContourTrace(series, datasets) {
   const smooth        = series.contourSmooth !== false;
   const coloring      = smooth ? 'heatmap' : 'fill';
   const lineSmoothing = smooth ? 1 : 0;
-  // Colorbar title is user-editable (colorbarLabel); blank falls back to Z.
-  const cbTitle = series.colorbarLabel || series.zCol;
+  // Colorbar controls (v2.18.0): editable/hideable title, manual color range
+  // (zmin/zmax, blank = auto), reverse colormap, and contour level count.
+  const cbTitle = series.colorbarTitleHide ? '' : (series.colorbarLabel || series.zCol);
+  const cbExtra = {};
+  if (Number.isFinite(series.colorMin)) cbExtra.zmin = series.colorMin;
+  if (Number.isFinite(series.colorMax)) cbExtra.zmax = series.colorMax;
+  if (series.colorReverse) cbExtra.reversescale = true;
+  if (Number.isFinite(series.contourLevels) && series.contourLevels >= 2) cbExtra.ncontours = series.contourLevels;
 
   // Interpolated path (Phase 17, opt-in): grid scattered (x, y, z) through
   // gridScattered. Cells with no data support render as gaps (connectgaps
@@ -62,6 +68,7 @@ function buildContourTrace(series, datasets) {
       x: g.x, y: g.y, z: g.z,
       name: (series.name || 'Contour') + ' (interpolated)',
       colorscale: document.getElementById('cmapSelect')?.value ?? 'Viridis',
+      ...cbExtra,
       contours: { coloring }, line: { smoothing: lineSmoothing },
       connectgaps: false, // unsupported cells (outside hull / beyond R) stay empty
       colorbar: { title: { text: cbTitle } },
@@ -115,6 +122,7 @@ function buildContourTrace(series, datasets) {
       x: ux, y: uy, z,
       name: series.name || 'Contour',
       colorscale: document.getElementById('cmapSelect')?.value ?? 'Viridis',
+      ...cbExtra,
       contours: { coloring }, line: { smoothing: lineSmoothing },
       colorbar: { title: { text: cbTitle } },
       hovertemplate: `${series.xCol}: %{x}<br>${series.yCol}: %{y}<br>${series.zCol}: %{z}<extra></extra>`,

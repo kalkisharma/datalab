@@ -36,6 +36,33 @@ function sizeByExtraControls(existing) {
       </div>`;
 }
 
+// Colorbar styling controls (v2.18.0): manual color range (blank = auto) and a
+// reverse-colormap toggle, plus — when opts.title — an editable, hideable
+// colorbar title. Heatmap omits the title controls (its colorbar names the
+// aggregation, §20). opts.levels adds the contour level count. Reads/writes
+// colorbarLabel/colorbarTitleHide/colorMin/colorMax/colorReverse (+ contourLevels).
+function colorbarExtraControls(existing, opts = {}) {
+  const title = opts.title ? `
+      <div class="modal-field">
+        <label class="modal-label" for="mColorbarLabel">Colorbar title <span class="field-hint" style="margin:0">(blank = column name)</span></label>
+        <input type="text" class="ctrl-input" id="mColorbarLabel" value="${escHtml(existing?.colorbarLabel || '')}" placeholder="defaults to the column name" />
+      </div>
+      <div class="check-row">
+        <label><input type="checkbox" id="mColorbarHide" ${existing?.colorbarTitleHide ? 'checked' : ''} /> Hide colorbar title</label>
+      </div>` : '';
+  const levels = opts.levels ? `
+        <label class="modal-label" for="mContourLevels" style="margin:0">Levels <input type="number" class="ctrl-input" id="mContourLevels" min="2" max="50" step="1" value="${existing?.contourLevels ?? ''}" placeholder="auto" style="width:64px" /></label>` : '';
+  return `
+      <div class="modal-section-title">Colorbar</div>${title}
+      <div class="edge-row" style="margin-top:6px">
+        <label class="modal-label" for="mColorMin" style="margin:0">Color min <input type="number" class="ctrl-input" id="mColorMin" value="${existing?.colorMin ?? ''}" placeholder="auto" style="width:80px" /></label>
+        <label class="modal-label" for="mColorMax" style="margin:0">Color max <input type="number" class="ctrl-input" id="mColorMax" value="${existing?.colorMax ?? ''}" placeholder="auto" style="width:80px" /></label>${levels}
+      </div>
+      <div class="check-row">
+        <label><input type="checkbox" id="mColorReverse" ${existing?.colorReverse ? 'checked' : ''} /> Reverse colormap</label>
+      </div>`;
+}
+
 function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
   let html = '';
 
@@ -82,10 +109,7 @@ function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
         <select id="mColorCol"><option value="">None</option>${colOptions(existing?.colorCol, true)}</select>
       </div>
       ${chartType === 'scatter' ? `
-      <div class="modal-field" id="mColorbarField" style="display:none">
-        <label class="modal-label" for="mColorbarLabel">Colorbar label <span class="field-hint" style="margin:0">(numeric color-by)</span></label>
-        <input type="text" class="ctrl-input" id="mColorbarLabel" value="${escHtml(existing?.colorbarLabel || '')}" placeholder="defaults to the column name" />
-      </div>
+      <div id="mColorbarField" style="display:none">${colorbarExtraControls(existing, { title: true })}</div>
       <div class="modal-field">
         <label class="modal-label" for="mSizeCol">Size by (optional, numeric)</label>
         <select id="mSizeCol"><option value="">None</option>${colOptions(existing?.sizeCol, false)}</select>
@@ -176,7 +200,7 @@ function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
       <div class="modal-field">
         <label class="modal-label" for="mZCol">Value column (numeric) <span class="required">*</span></label>
         <select id="mZCol" ${agg === 'count' ? 'disabled' : ''}>${colOptions(existing?.zCol, false)}</select>
-      </div>`;
+      </div>${colorbarExtraControls(existing, {})}`;
   } else if (chartType === 'parity') {
     // Parity has two modes (Stab A): same-dataset (X and Y are two columns of
     // THIS dataset — the common case) or cross-dataset join (Y from a second
@@ -251,10 +275,7 @@ function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
         <select id="mColorCol"><option value="">None</option>${colOptions(existing?.colorCol, true)}</select>
         <div class="field-hint">From the observed dataset; categories get a legend, numbers a colorbar.</div>
       </div>
-      <div class="modal-field" id="mColorbarField" style="display:none">
-        <label class="modal-label" for="mColorbarLabel">Colorbar label <span class="field-hint" style="margin:0">(numeric color-by)</span></label>
-        <input type="text" class="ctrl-input" id="mColorbarLabel" value="${escHtml(existing?.colorbarLabel || '')}" placeholder="defaults to the column name" />
-      </div>
+      <div id="mColorbarField" style="display:none">${colorbarExtraControls(existing, { title: true })}</div>
       <div class="modal-field">
         <label class="modal-label" for="mSizeCol">Size by (optional, numeric)</label>
         <select id="mSizeCol"><option value="">None</option>${colOptions(existing?.sizeCol, false)}</select>
@@ -314,10 +335,8 @@ function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
         <select id="mZCol">${colOptions(existing?.zCol, false)}</select>
         <div class="field-hint">By default contour needs pre-gridded data: every combination of the unique X and Y values exactly once (e.g. a parameter sweep). To plot scattered points, tick Interpolate below.</div>
       </div>
-      <div class="modal-field">
-        <label class="modal-label" for="mColorbarLabel">Colorbar title <span class="field-hint" style="margin:0">(blank = Z column name)</span></label>
-        <input type="text" class="ctrl-input" id="mColorbarLabel" value="${escHtml(existing?.colorbarLabel || '')}" placeholder="defaults to the Z column name" />
-      </div>
+      ${colorbarExtraControls(existing, { title: true, levels: true })}
+      <div class="modal-section-title">Shading</div>
       <div class="check-row">
         <label><input type="checkbox" id="mContourSmooth" ${existing?.contourSmooth !== false ? 'checked' : ''} />
           Smooth shading <span class="field-hint" style="margin:0">(off → discrete bands with straight edges, faithful to the grid)</span></label>

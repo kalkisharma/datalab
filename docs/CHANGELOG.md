@@ -1,5 +1,28 @@
 # Changelog
 
+## v2.18.0 — Colorbar controls
+
+### Features
+- **Colorbar controls** across the color-mapped charts (contour, heatmap, and
+  scatter/parity numeric color-by):
+  - **Manual color range** — Color min / max inputs (blank = auto) set the
+    colorbar's value range (`zmin`/`zmax`, or `cmin`/`cmax` for marker color-by).
+  - **Reverse colormap** — a per-series toggle to flip the color direction.
+  - **Hide / custom colorbar title** — set the title or hide it entirely
+    (contour and scatter/parity color-by). Heatmaps keep their title (it names
+    the aggregation — §20), but gain the range and reverse controls.
+  - **Contour levels** — set the approximate number of contour bands
+    (`ncontours`); blank = auto.
+
+  The colormap itself is still the shared **Colormap** selector in the Style
+  panel. Defaults are unchanged, so existing plots look the same.
+
+## Schema
+### v2.18.0 (state version unchanged at 2 — all additive, no migration)
+- New optional `series` fields: `colorbarTitleHide`, `colorReverse`, `colorMin`,
+  `colorMax` (all colorbar charts), `contourLevels` (contour).
+- v2.0–v2.17 session files load unchanged.
+
 ## v2.17.0 — Contour shading & colorbar title
 
 ### Features
