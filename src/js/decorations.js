@@ -43,33 +43,48 @@ function applyRightAxis(layout, leftSeries, rightSeries, leftColor, rightColor, 
 // Runs BEFORE appendNotes so notes append after these (see _noteOffset).
 function appendParityStats(layout, parityResults, plot, srParts) {
   if (!parityResults.length) return;
-  const fmt = v => isNaN(v) ? 'N/A' : Number(v).toPrecision(4);
-  // Best-fit R² (when the series has a fit) is shown HERE, not in the legend,
-  // at the series' chosen significant figures (v2.19.0).
-  const r2Txt = p => p.fitInfo ? `R² = ${isNaN(p.fitInfo.r2) ? 'N/A' : Number(p.fitInfo.r2).toPrecision(p.fitInfo.sig)}<br>` : '';
-  const r2Sr  = p => p.fitInfo ? `, R2=${isNaN(p.fitInfo.r2) ? 'N/A' : Number(p.fitInfo.r2).toPrecision(p.fitInfo.sig)}` : '';
-  const th  = plotTheme();
+  const fmt   = v => isNaN(v) ? 'N/A' : Number(v).toPrecision(4);
+  const r2fmt = p => isNaN(p.fitInfo.r2) ? 'N/A' : Number(p.fitInfo.r2).toPrecision(p.fitInfo.sig);
+  const th    = plotTheme();
   const single = parityResults.length === 1;
-  // Tie each box to its parity series' OWN subplot cell via axis-DOMAIN refs
-  // ('x{sfx} domain'/'y{sfx} domain'), so it sits inside that cell's plot area
-  // and stays there as more subplots are added — rather than at the whole-figure
-  // corner. Still draggable; a dragged single-parity box persists in
-  // plotConfig.annotPos (now in cell-domain coords). Boxes sharing a cell stack
-  // upward via a per-cell counter so different cells don't offset each other.
+  const legendShown = plot.plotConfig.legendShow !== false;
+  // Which stats to show (v2.21.0): absent parityStats = all four; an explicit
+  // array filters. R² only when the series has a best-fit. N lives in the legend
+  // (parity.js) unless the legend is hidden or the series' N toggle is off — then
+  // it falls back to the box here. N is ALWAYS kept in the SR mirror (the
+  // accessibility source of truth for sample size — never orphaned).
+  const pick = (p, k) => p.parityStats ? p.parityStats.includes(k) : true;
+  const visLines = p => {
+    const L = [];
+    if (pick(p, 'nse'))  L.push(`NSE = ${fmt(p.stats.nse)}`);
+    if (pick(p, 'mae'))  L.push(`MAE = ${fmt(p.stats.mae)}`);
+    if (pick(p, 'rmse')) L.push(`RMSE = ${fmt(p.stats.rmse)}`);
+    if (pick(p, 'r2') && p.fitInfo) L.push(`R² = ${r2fmt(p)}`);
+    if (!((p.parityShowN !== false) && legendShown)) L.push(`N = ${p.n}`); // box fallback for N
+    return L;
+  };
+
+  // Tie each box to its parity series' OWN subplot cell via axis-DOMAIN refs, so
+  // it sits inside that cell's plot area. A single box keeps its draggable stored
+  // position (plotConfig.annotPos). Boxes sharing a cell stack upward by a
+  // CUMULATIVE offset based on line count, so variable-height boxes don't overlap.
   const perCell = {};
-  layout.annotations = parityResults.map(p => {
-    const sfx = p.sfx || '';
-    const i = perCell[sfx] ?? 0; perCell[sfx] = i + 1;
+  const annots = [];
+  for (const p of parityResults) {
+    const lines = visLines(p);
+    if (!lines.length) continue; // never render an empty, labeled box (§20)
+    const sfx  = p.sfx || '';
+    const yOff = perCell[sfx] ?? 0;
+    perCell[sfx] = yOff + lines.length * 0.055 + 0.05; // ~per-line height + gap
     const base = single ? (plot.plotConfig.annotPos ?? { x: 0.98, y: 0.04 })
                         : { x: 0.98, y: 0.04 };
-    return {
-      x: base.x, y: base.y + i * 0.24,
+    annots.push({
+      x: base.x, y: base.y + yOff,
       xref: `x${sfx} domain`, yref: `y${sfx} domain`,
       xanchor: base.x > 0.5 ? 'right' : 'left',
       yanchor: base.y < 0.5 ? 'bottom' : 'top',
       // Series names are user data — escHtml applied (Plotly pseudo-HTML)
-      text: (single ? '' : `<b>${escHtml(p.name)}</b><br>`)
-        + `NSE = ${fmt(p.stats.nse)}<br>MAE = ${fmt(p.stats.mae)}<br>RMSE = ${fmt(p.stats.rmse)}<br>${r2Txt(p)}N = ${p.n}`,
+      text: (single ? '' : `<b>${escHtml(p.name)}</b><br>`) + lines.join('<br>'),
       showarrow: false,
       bgcolor: th.annotBg,
       bordercolor: th.annotBorder, borderwidth: 1, borderpad: 8,
@@ -77,18 +92,30 @@ function appendParityStats(layout, parityResults, plot, srParts) {
               size: parseFloat(document.getElementById('fsAnnot')?.value) || 11,
               color: th.title },
       align: 'left',
-    };
+    });
+  }
+  layout.annotations = annots;
+
+  parityResults.forEach(p => {
+    const sr = [];
+    if (pick(p, 'nse'))  sr.push(`NSE=${fmt(p.stats.nse)}`);
+    if (pick(p, 'mae'))  sr.push(`MAE=${fmt(p.stats.mae)}`);
+    if (pick(p, 'rmse')) sr.push(`RMSE=${fmt(p.stats.rmse)}`);
+    if (pick(p, 'r2') && p.fitInfo) sr.push(`R2=${r2fmt(p)}`);
+    sr.push(`N=${p.n}`); // always — never orphan the sample size for AT users
+    srParts.unshift(`${p.name} statistics: ${sr.join(', ')}`);
   });
-  parityResults.forEach(p => srParts.unshift(
-    `${p.name} statistics: NSE=${fmt(p.stats.nse)}, MAE=${fmt(p.stats.mae)}, RMSE=${fmt(p.stats.rmse)}${r2Sr(p)}, N=${p.n}`
-  ));
 }
 
 // Free-text notes (Phase 14): appended AFTER the parity annotations so
 // the relayout hook can map dragged indices back through the offset
 // stored on the plot div.
 function appendNotes(layout, plot, pd, srParts) {
-  const notes = plot.plotConfig.notes ?? [];
+  // Per-plot notes toggle (v2.21.0): hides notes WITHOUT deleting them. Treat
+  // hidden as an empty note set so _noteOffset below still equals the parity-box
+  // count — the relayout drag hook (chart.js) routes box drags by that offset,
+  // and a stale offset would write a dragged box's coords into a hidden note.
+  const notes = plot.plotConfig.notesShow === false ? [] : (plot.plotConfig.notes ?? []);
   if (notes.length) {
     const thN = plotTheme();
     layout.annotations = [

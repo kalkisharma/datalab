@@ -199,6 +199,7 @@ function syncActivePlotInputs() {
   g('yLogChk').checked = cfg.yLog ?? false;
   g('showLegend').checked = cfg.legendShow ?? true;
   g('showStats').checked = cfg.statsShow ?? true;
+  g('showNotes').checked = cfg.notesShow ?? true; // notes visibility toggle (v2.21.0)
   g('plotCmap').value = cfg.colormap ?? ''; // per-plot colormap override (v2.20.0)
   // Subplot grid controls mirror the active plot (Phase 10)
   const gr = activePlot().grid;

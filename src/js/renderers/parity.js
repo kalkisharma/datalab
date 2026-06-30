@@ -109,7 +109,12 @@ function buildParityTrace(series, datasets) {
     }
   }
 
-  const baseName = series.legendLabel || (series.name || 'Parity'); // legendLabel overrides (Phase 16)
+  const rawName = series.legendLabel || (series.name || 'Parity'); // legendLabel overrides (Phase 16)
+  // N in the legend (v2.21.0): append (n=…) to the series legend entry — even a
+  // custom label, since sample size is data-integrity info — unless the
+  // per-series toggle is off. When the plot's legend is hidden, N falls back to
+  // the stats box (handled in decorations.js); N always stays in the SR mirror.
+  const baseName = series.parityShowN !== false ? `${rawName} (n=${n})` : rawName;
   const hover = `${series.xCol}: %{x:.4g}<br>${series.yCol}: %{y:.4g}`
     + (sizeObs ? `<br>${series.sizeCol}: %{customdata}` : '') + '<extra></extra>';
 
@@ -188,7 +193,7 @@ function buildParityTrace(series, datasets) {
         hoverinfo: 'skip', showlegend: true,
       });
       fitInfo = { r2: fit.r2, sig };                          // rendered in the parity stats box (decorations.js)
-      fitAnnot = { sr: `${baseName} best fit: ${eq}, n=${n}` }; // R² is announced with the stats box
+      fitAnnot = { sr: `${rawName} best fit: ${eq}, n=${n}` }; // rawName (no n-suffix) to avoid duplicate n in SR
     }
   }
 
@@ -204,7 +209,9 @@ function buildParityTrace(series, datasets) {
   // dataMin/dataMax are the unpadded extremes — log-log panels re-derive
   // their range from these (linear padding can push axMin negative even
   // for all-positive data; Phase 9 log axes)
-  return { traces, error: null, warning, layout, stats, annotSR, fitAnnot, fitInfo, axMin, axMax, dataMin: mn, dataMax: mx, n };
+  return { traces, error: null, warning, layout, stats, annotSR, fitAnnot, fitInfo,
+    parityShowN: series.parityShowN, parityStats: series.parityStats, // threaded to the stats box (v2.21.0)
+    axMin, axMax, dataMin: mn, dataMax: mx, n };
 }
 
 function fmt(v) { return isNaN(v) ? 'N/A' : Number(v).toPrecision(4); }

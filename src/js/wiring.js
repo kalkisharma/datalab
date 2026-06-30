@@ -242,6 +242,10 @@ function init() {
     activePlot().plotConfig.statsShow = g('showStats').checked;
     if (appState.plotRendered) renderPlot();
   });
+  g('showNotes').addEventListener('change', () => { // notes visibility (v2.21.0)
+    activePlot().plotConfig.notesShow = g('showNotes').checked;
+    if (appState.plotRendered) renderPlot();
+  });
 
   // Notes (Phase 14) — added to the ACTIVE plot at center; dragging
   // persists via the relayout hook in chart.js

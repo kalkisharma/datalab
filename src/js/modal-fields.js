@@ -126,6 +126,15 @@ function renderDynamicFields(existing) {
     });
   }
 
+  // Parity: the R² stat only exists with a best-fit, so gate its checkbox on it (v2.21.0)
+  const mParityFit = document.getElementById('mParityFit');
+  if (mParityFit) {
+    mParityFit.addEventListener('change', () => {
+      const r2 = document.getElementById('mStatR2');
+      if (r2) r2.disabled = !mParityFit.checked;
+    });
+  }
+
   // Bar/heatmap: aggregation drives which dependent fields make sense —
   // the value column is meaningless for count (bar: Y; heatmap: Z), and
   // SD/SEM only exist for bar's mean

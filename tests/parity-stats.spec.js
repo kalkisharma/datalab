@@ -263,9 +263,88 @@ test('parity stats box anchors to its cell and stacks per cell', async ({ page }
   expect(out[0]).toMatchObject({ xref: 'x domain',  yref: 'y domain'  });
   expect(out[1]).toMatchObject({ xref: 'x domain',  yref: 'y domain'  });
   expect(out[2]).toMatchObject({ xref: 'x2 domain', yref: 'y2 domain' });
+  // Cumulative offset (v2.21.0): box B stacks above A in the same cell; C resets
+  // in its own cell. Assert relative positions, not brittle absolute offsets.
   expect(out[0].y).toBeCloseTo(0.04, 10);   // first in cell 1
-  expect(out[1].y).toBeCloseTo(0.28, 10);   // second in cell 1 stacks up
+  expect(out[1].y).toBeGreaterThan(out[0].y); // second in cell 1 stacks up
   expect(out[2].y).toBeCloseTo(0.04, 10);   // first in cell 2 — counter reset
+});
+
+// ── N to the legend + box fallback (v2.21.0) ───────────────────────────────
+const P_DS = { id: 'a', name: 'A', color: '#000', headers: ['obs', 'mod'],
+  rows: [{ obs: 1, mod: 1.1 }, { obs: 2, mod: 1.9 }, { obs: 3, mod: 3.2 }] };
+const P_BASE = { id: 's1', name: 'parity', chartType: 'parity', datasetId: 'a', xCol: 'obs', yCol: 'mod', filters: [], style: {} };
+
+test('parity N is in the legend name (default), not the box; always in SR', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const out = await page.evaluate(({ ds, base }) => {
+    const r = buildParityTrace({ ...base }, [ds]);
+    const main = r.traces.find(t => t.mode === 'markers');
+    const layout = {}, sr = [];
+    appendParityStats(layout, [{ name: 'parity', sfx: '', ...r }], { plotConfig: {} }, sr);
+    return { legend: main.name, box: layout.annotations[0].text, sr: sr.join(' ') };
+  }, { ds: P_DS, base: P_BASE });
+  expect(out.legend).toContain('(n=3)'); // N in the legend entry
+  expect(out.box).not.toContain('N =');  // not in the box while the legend is shown
+  expect(out.sr).toContain('N=3');       // always in the screen-reader summary
+});
+
+test('parity N falls back to the stats box when the legend is hidden', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const box = await page.evaluate(({ ds, base }) => {
+    const r = buildParityTrace({ ...base }, [ds]);
+    const layout = {}, sr = [];
+    appendParityStats(layout, [{ name: 'parity', sfx: '', ...r }], { plotConfig: { legendShow: false } }, sr);
+    return layout.annotations[0].text;
+  }, { ds: P_DS, base: P_BASE });
+  expect(box).toContain('N = 3'); // legend off → N reappears in the box
+});
+
+test('parity N toggle off removes (n=) from the legend', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const name = await page.evaluate(({ ds, base }) =>
+    buildParityTrace({ ...base, parityShowN: false }, [ds]).traces.find(t => t.mode === 'markers').name,
+    { ds: P_DS, base: P_BASE });
+  expect(name).toBe('parity');
+});
+
+// ── Which-stats picker (v2.21.0) ───────────────────────────────────────────
+test('parity stats picker filters the box + SR; empty selection hides the box', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const out = await page.evaluate(({ ds, base }) => {
+    const only = buildParityTrace({ ...base, parityStats: ['rmse'] }, [ds]);
+    const lo = {}, srO = [];
+    appendParityStats(lo, [{ name: 'parity', sfx: '', ...only }], { plotConfig: {} }, srO);
+    const none = buildParityTrace({ ...base, parityStats: [] }, [ds]);
+    const ln = {};
+    appendParityStats(ln, [{ name: 'parity', sfx: '', ...none }], { plotConfig: {} }, []);
+    return { text: lo.annotations[0].text, sr: srO.join(' '), emptyCount: ln.annotations.length };
+  }, { ds: P_DS, base: P_BASE });
+  expect(out.text).toContain('RMSE');
+  expect(out.text).not.toContain('NSE');
+  expect(out.text).not.toContain('MAE');
+  expect(out.sr).toContain('RMSE');
+  expect(out.sr).not.toContain('NSE');
+  expect(out.sr).toContain('N=3');       // N always in SR even when filtered out of the box
+  expect(out.emptyCount).toBe(0);        // nothing selected + N in legend → box hidden
+});
+
+// ── Notes toggle (v2.21.0) ─────────────────────────────────────────────────
+test('notesShow:false hides notes but keeps _noteOffset = parity-box count', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const out = await page.evaluate(() => {
+    const mk = (notesShow) => {
+      const layout = { annotations: [{ text: 'parity box' }] }; // one parity box already present
+      const pd = {};
+      appendNotes(layout, { plotConfig: { notes: [{ text: 'n1', x: 0.5, y: 0.5 }], notesShow } }, pd, []);
+      return { count: layout.annotations.length, offset: pd._noteOffset };
+    };
+    return { hidden: mk(false), shown: mk(true) };
+  });
+  expect(out.hidden.count).toBe(1);   // note not drawn
+  expect(out.hidden.offset).toBe(1);  // offset still = box count (drag routing stays correct)
+  expect(out.shown.count).toBe(2);    // note drawn
+  expect(out.shown.offset).toBe(1);   // 2 annotations - 1 note
 });
 
 test('parity layout enforces equal axis ranges', async ({ page }) => {

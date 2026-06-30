@@ -1,5 +1,31 @@
 # Changelog
 
+## v2.21.0 — Parity readout controls
+
+### Features
+- **Notes toggle.** Free-text notes are now togglable per plot, alongside the
+  Legend and Stats-box toggles.
+- **Choose which parity stats show.** A per-series "Statistics box" picker
+  (NSE / MAE / RMSE / R², all on by default) controls what appears in the box;
+  R² is available when the best-fit line is on. Deselecting everything hides the
+  box rather than drawing an empty one.
+- **N moves to the legend.** The datapoint count now reads `name (n=14)` in the
+  legend (default on, per series). When the plot's legend is hidden, N falls back
+  into the stats box so the stats keep their sample size; N is always present in
+  the screen-reader summary.
+
+### Internal
+- §6: extracted the shared modal control builders (`sizeByExtraControls`,
+  `colorbarExtraControls`) into `modal-field-controls.js` — discharges the
+  split obligation recorded at v2.20.0.
+
+## Schema
+### v2.21.0 (state version unchanged at 2 — all additive, no migration)
+- New optional `plotConfig.notesShow` (bool, absent = shown).
+- New optional `series` fields (parity): `parityStats` (array, absent = all
+  four), `parityShowN` (bool, absent = true).
+- v2.0–v2.20 session files load unchanged.
+
 ## v2.20.0 — Colormap overrides & contour lines
 
 ### Features

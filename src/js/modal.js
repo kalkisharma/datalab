@@ -298,6 +298,13 @@ function saveModalSeries() {
     series.parityFitColor = document.getElementById('mParityFitColor')?.value || null;     // fit-line color (absent = series color)
     series.parityFitWidth = (v => Number.isFinite(v) && v > 0 ? v : null)(parseFloat(document.getElementById('mParityFitWidth')?.value));
     series.parityFitStyle = document.getElementById('mParityFitStyle')?.value || null;     // solid|dash|dot|dashdot
+    // Which stats to show in the box (v2.21.0): null = all four (keeps existing
+    // sessions clean); an explicit array (incl. []) filters. N is governed by the
+    // legend toggle below, not this list.
+    series.parityShowN = document.getElementById('mParityShowN')?.checked ?? true;
+    const _picked = [['nse','mStatNSE'],['mae','mStatMAE'],['rmse','mStatRMSE'],['r2','mStatR2']]
+      .filter(([, id]) => document.getElementById(id)?.checked).map(([k]) => k);
+    series.parityStats = _picked.length === 4 ? null : _picked;
     if (series.joinDatasetId && !series.joinKey) { err.textContent = 'Select a join key, or switch "Compare against" to this dataset.'; return false; }
   }
 

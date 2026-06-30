@@ -2,7 +2,7 @@
 
 // Single source of truth for the app version (STANDARDS.md §3).
 // build.js parses the declaration below — do not rename or reformat it.
-const VERSION = '2.20.0';
+const VERSION = '2.21.0';
 
 // ── appState ──────────────────────────────────────────────────────────────
 //
@@ -22,7 +22,10 @@ const VERSION = '2.20.0';
 // {
 //   id, datasetId, xCol, yCol, colorCol, chartType,
 //   // join: joinDatasetId, joinKey — parity always; scatter optional (workspace ergonomics)
-//   // parity-only: showBands, band5, band10; parityFit (bool — linear best-fit
+//   // parity-only: showBands, band5, band10; parityStats (array of shown box
+//   //   stats from nse/mae/rmse/r2, absent = all four; [] hides the box);
+//   //   parityShowN (bool, absent = true — N in the legend; falls back to the
+//   //   stats box when the legend is hidden); parityFit (bool — linear best-fit
 //   //   line; R² is shown in the stats box, not the legend); parityFitEquation
 //   //   (bool, absent = true — show the equation in the legend); parityFitSigFigs
 //   //   (int 1–10, absent = 4 — sig figs for the equation + R²); parityFitColor
@@ -85,6 +88,7 @@ function makeDefaultPlotConfig() {
     annotPos:     null,   // { x, y } paper coords; null = default
     legendShow:   true,
     statsShow:    true,   // parity NSE/MAE/RMSE box — toggle like the legend (workspace ergonomics)
+    notesShow:    true,   // free-text notes visibility — toggle like the legend (v2.21.0)
     legendPos:    null,   // { x, y }; null = default corner
     legend2Pos:   null,   // { x, y }; second legend for opt-in size keys (Phase 19), null = default corner
     xMin: '', xMax: '', yMin: '', yMax: '', // manual axis ranges ('' = auto)
