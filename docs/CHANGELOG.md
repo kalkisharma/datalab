@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.22.1 — Release-tooling validation
+
+No feature or behavior change. A deliberate patch to validate the new
+`scripts/release.sh` end-to-end (commit → tag → push → GitHub release, STANDARDS
+§4). `datalab.html` differs from v2.22.0 only by the embedded version string;
+v2.0–v2.22.0 sessions load unchanged.
+
 ## v2.22.0 — Per-subplot labels, titles & shared colorbar
 
 ### Features
