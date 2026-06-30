@@ -8,3 +8,6 @@ datalab.html -text
 # build.js against the working tree — eol conversion on a fresh clone would
 # abort every build.
 lib/*.js -text
+
+# Shell scripts must stay LF — a CRLF shebang line breaks execution.
+*.sh text eol=lf

@@ -63,6 +63,7 @@
   - [ ] `CODE_WALKTHROUGH.md` updated for any `src/js/` file added/removed/split/repurposed this phase — its File Index must match the tree, and any architecture section the change touched (build order, renderer contract, data flow) re-read (added post-v2.13.0; §17). `REVIEW_GUIDE.md` reviewed if the feature set or security posture changed
   - [ ] Stale branches cleaned
 - Tag format: `v0.1.0`, `v1.0.0`, etc.
+- **The git commit → tag → push step goes through `scripts/release.sh`, never ad-hoc inline commands** (added at the v2.22.0 post-mortem). A release must never tag or push if the commit didn't happen — the §8 pre-commit hook can reject a commit, and an inline `git commit …; git tag … && git push …` chain once left the tag created and pushed at the *previous* commit when the commit was blocked. The script makes that impossible: `set -euo pipefail` aborts on any failed step, the tag is created only after verifying HEAD advanced to a new commit (and points at that exact commit), and it refuses to re-cut an existing tag. The checklist above (build, suite, docs, hash) is still done by hand before invoking it; the script is only the safe git mechanics + optional `gh release create`.
 
 ## 5. Hotfix Process
 
