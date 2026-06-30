@@ -26,6 +26,26 @@ const COLORSCALE_ARRAYS = {
 // Names Plotly 3.6.0 renders correctly by string (verified distinct).
 const COLORSCALE_NAMED = new Set(['Viridis', 'Cividis', 'RdBu', 'Blues', 'Greens', 'Jet']);
 
+// Dropdown grouping (Data Scientist guardrail, v2.18.1): perceptually-uniform /
+// colorblind-safe first, then diverging, single-hue, and rainbow (cautioned).
+// Single source for the global picker (mirrored statically in index.html) and
+// the per-plot / per-series <select> builders below.
+const COLORMAP_GROUPS = [
+  ['Perceptually uniform (colorblind-safe)', ['Viridis', 'Plasma', 'Inferno', 'Magma', 'Cividis']],
+  ['Diverging — for a meaningful midpoint',  ['RdBu', 'Coolwarm']],
+  ['Single-hue sequential',                  ['Blues', 'Reds', 'Greens']],
+  ['Rainbow — not perceptually uniform',     ['Turbo', 'Jet']],
+];
+
+// Grouped <optgroup> options for the per-plot / per-series colormap selects.
+// (Plotly text only — these are option labels, not user data; no escHtml sink.)
+function colormapOptionsHTML(selected) {
+  return COLORMAP_GROUPS.map(([label, names]) =>
+    `<optgroup label="${label}">` +
+    names.map(n => `<option value="${n}"${selected === n ? ' selected' : ''}>${n}</option>`).join('') +
+    `</optgroup>`).join('');
+}
+
 // Default fallback — the documented, perceptually-uniform, colorblind-safe map.
 const COLORSCALE_DEFAULT = 'Viridis';
 
@@ -35,4 +55,16 @@ function resolveColorscale(name) {
     if (COLORSCALE_NAMED.has(name)) return name;
   }
   return COLORSCALE_DEFAULT; // allowlist: unknown / non-string / poisoned → Viridis
+}
+
+// Effective colormap NAME for a series (v2.20.0): per-series override, then the
+// plot override, then the global Style-panel picker, then Viridis. The
+// dispatcher (chart.js) bakes this onto the cloned series so renderers read a
+// concrete name and the trace cache reflects it; pass the result through
+// resolveColorscale() to get the Plotly colorscale.
+function effectiveColormap(series, plot) {
+  return (series && series.colormap)
+      || (plot && plot.plotConfig && plot.plotConfig.colormap)
+      || document.getElementById('cmapSelect')?.value
+      || COLORSCALE_DEFAULT;
 }

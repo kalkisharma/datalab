@@ -9,7 +9,13 @@
 // heatmap/contour/correlation) so renderers don't each read the DOM.
 function applyColorbarFonts(traces) {
   const v = (id, d) => { const n = parseFloat(document.getElementById(id)?.value); return Number.isFinite(n) ? n : d; };
-  const titleSize = v('fsAxis', 12), tickSize = v('fsTick', 10);
+  // Colorbar fonts follow Axis/Tick label sizes by default; when "separate" is
+  // on (v2.20.0), use the dedicated colorbar sizes. Clamp to a sane range so a
+  // negative/absurd value (incl. from an imported preset) can't break rendering.
+  const clamp = n => Math.min(48, Math.max(4, n));
+  const sep = document.getElementById('fsCbarSeparate')?.checked;
+  const titleSize = clamp(sep ? v('fsCbarTitle', 12) : v('fsAxis', 12));
+  const tickSize  = clamp(sep ? v('fsCbarTick', 10)  : v('fsTick', 10));
   for (const t of traces) {
     const cb = t.colorbar || (t.marker && t.marker.colorbar);
     if (!cb) continue;

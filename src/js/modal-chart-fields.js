@@ -52,8 +52,15 @@ function colorbarExtraControls(existing, opts = {}) {
       </div>` : '';
   const levels = opts.levels ? `
         <label class="modal-label" for="mContourLevels" style="margin:0">Levels <input type="number" class="ctrl-input" id="mContourLevels" min="2" max="50" step="1" value="${existing?.contourLevels ?? ''}" placeholder="auto" style="width:64px" /></label>` : '';
+  // Per-series colormap (v2.20.0): blank inherits the plot's colormap, then the
+  // global Style-panel default. Overrides both when set.
+  const colormap = `
+      <div class="modal-field">
+        <label class="modal-label" for="mColormap">Colormap <span class="field-hint" style="margin:0">(blank = inherit plot / global)</span></label>
+        <select id="mColormap"><option value=""${existing?.colormap ? '' : ' selected'}>Inherit (plot / global)</option>${colormapOptionsHTML(existing?.colormap)}</select>
+      </div>`;
   return `
-      <div class="modal-section-title">Colorbar</div>${title}
+      <div class="modal-section-title">Colorbar</div>${colormap}${title}
       <div class="edge-row" style="margin-top:6px">
         <label class="modal-label" for="mColorMin" style="margin:0">Color min <input type="number" class="ctrl-input" id="mColorMin" value="${existing?.colorMin ?? ''}" placeholder="auto" style="width:80px" /></label>
         <label class="modal-label" for="mColorMax" style="margin:0">Color max <input type="number" class="ctrl-input" id="mColorMax" value="${existing?.colorMax ?? ''}" placeholder="auto" style="width:80px" /></label>${levels}
@@ -341,18 +348,26 @@ function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
         <div class="field-hint">By default contour needs pre-gridded data: every combination of the unique X and Y values exactly once (e.g. a parameter sweep). To plot scattered points, tick Interpolate below.</div>
       </div>
       ${colorbarExtraControls(existing, { title: true, levels: true })}
+      <div class="modal-section-title">Contour lines</div>
+      <div class="check-row">
+        <label><input type="checkbox" id="mIsoLines" ${existing?.isoLines !== false ? 'checked' : ''} /> Show iso-lines</label>
+        <label><input type="checkbox" id="mDisplayGrid" ${existing?.displayGrid !== false ? 'checked' : ''} /> Show grid</label>
+      </div>
+      <div class="check-row" style="align-items:center;gap:12px">
+        <label><input type="checkbox" id="mIsoLabels" ${existing?.isoLabels ? 'checked' : ''} /> Show iso-labels</label>
+        <label class="modal-label" for="mIsoLabelSize" style="margin:0">Label size
+          <input type="number" class="ctrl-input" id="mIsoLabelSize" min="6" max="24" step="1" value="${existing?.isoLabelSize ?? 10}" style="width:56px" /></label>
+      </div>
       <div class="modal-section-title">Shading</div>
       <div class="check-row">
-        <label><input type="checkbox" id="mContourSmooth" ${existing?.contourSmooth !== false ? 'checked' : ''} />
-          Smooth shading <span class="field-hint" style="margin:0">(off → discrete bands with straight edges, faithful to the grid)</span></label>
+        <label><input type="checkbox" id="mContourSmooth" ${existing?.contourSmooth !== false ? 'checked' : ''} /> Smooth shading <span class="field-hint" style="margin:0">(off → discrete bands)</span></label>
+      </div>
+      <div class="modal-section-title">Scattered data</div>
+      <div class="check-row">
+        <label><input type="checkbox" id="mInterpolate" ${existing?.interpolate ? 'checked' : ''} /> Interpolate scattered data <span class="field-hint" style="margin:0">(grids scattered X/Y/Z; nothing invented outside the data's support)</span></label>
       </div>
       <div class="check-row">
-        <label><input type="checkbox" id="mInterpolate" ${existing?.interpolate ? 'checked' : ''} />
-          Interpolate scattered data <span class="field-hint" style="margin:0">(grids scattered X, Y, Z; no values outside the data's support; method named on hover)</span></label>
-      </div>
-      <div class="check-row">
-        <label><input type="checkbox" id="mShowPoints" ${existing?.showPoints ? 'checked' : ''} />
-          Show data points <span class="field-hint" style="margin:0">(with Interpolate — overlays the sample locations so support is visible)</span></label>
+        <label><input type="checkbox" id="mShowPoints" ${existing?.showPoints ? 'checked' : ''} /> Show data points <span class="field-hint" style="margin:0">(with Interpolate — shows where the surface is backed by data)</span></label>
       </div>`;
   }
   return html;

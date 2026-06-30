@@ -2,7 +2,7 @@
 
 // Single source of truth for the app version (STANDARDS.md §3).
 // build.js parses the declaration below — do not rename or reformat it.
-const VERSION = '2.19.0';
+const VERSION = '2.20.0';
 
 // ── appState ──────────────────────────────────────────────────────────────
 //
@@ -34,12 +34,17 @@ const VERSION = '2.19.0';
 //   //                      showPoints (bool) — overlay sample locations;
 //   //                      contourSmooth (bool, absent = true) — false renders
 //   //                      discrete bands with straight edges (no Plotly smoothing);
-//   //                      contourLevels (int ≥ 2, absent = auto) — ncontours
+//   //                      contourLevels (int ≥ 2, absent = auto) — ncontours;
+//   //                      isoLines (bool, absent = true) — show contour lines;
+//   //                      isoLabels (bool, absent = false) — label the levels;
+//   //                      isoLabelSize (px, absent = 10); displayGrid (bool,
+//   //                      absent = inherit global) — this contour's axis grid (v2.20.0)
 //   // colorbar controls (v2.18.0; contour/heatmap/scatter+parity numeric color-by):
 //   //   colorbarLabel (str — title text, absent = column/agg name); colorbarTitleHide
 //   //   (bool — no title; heatmap always names the aggregation, §20, so it ignores
 //   //   this); colorMin/colorMax (num, absent = auto — zmin/zmax for contour/heatmap,
-//   //   cmin/cmax for marker color-by); colorReverse (bool — reverse the colormap)
+//   //   cmin/cmax for marker color-by); colorReverse (bool — reverse the colormap);
+//   //   colormap (str, absent = inherit plot then global) — per-series override (v2.20.0)
 
 //   // bar (Phase 9): agg ('none'|'count'|'sum'|'mean'|'median'),
 //   //                errMode ('sd'|'sem'|null — mean only)
@@ -83,6 +88,7 @@ function makeDefaultPlotConfig() {
     legendPos:    null,   // { x, y }; null = default corner
     legend2Pos:   null,   // { x, y }; second legend for opt-in size keys (Phase 19), null = default corner
     xMin: '', xMax: '', yMin: '', yMax: '', // manual axis ranges ('' = auto)
+    colormap: null, // per-plot colormap override (v2.20.0); null = inherit the global picker
     // Log axis toggles (Phase 9 — additive with defaults, no migration §3)
     xLog: false, yLog: false,
     // Free-text notes (Phase 14): [{ id, text, x, y }] in paper coords

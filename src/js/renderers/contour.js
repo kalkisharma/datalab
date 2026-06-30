@@ -56,6 +56,27 @@ function buildContourTrace(series, datasets) {
   if (series.colorReverse) cbExtra.reversescale = true;
   if (Number.isFinite(series.contourLevels) && series.contourLevels >= 2) cbExtra.ncontours = series.contourLevels;
 
+  // Contour lines / labels / grid (v2.20.0). Iso-lines default ON (back-compat);
+  // iso-labels default OFF (clutter) and need lines to attach to. Plotly draws
+  // labels on the levels it actually renders, so they honor the manual color
+  // range + ncontours above. Label colour follows the theme for legibility
+  // (Accessibility). displayGrid forces this contour's axis grid on/off
+  // (overrides the global grid for the cell); absent = inherit the global.
+  const th = plotTheme();
+  const isoLines  = series.isoLines !== false;
+  const isoLabels = !!series.isoLabels && isoLines;
+  const labelSize = Number.isFinite(series.isoLabelSize) ? series.isoLabelSize : 10;
+  const contoursCfg = { coloring, showlines: isoLines, showlabels: isoLabels,
+    labelfont: { size: labelSize, color: th.title } };
+  let contourLayout = null;
+  if (series.displayGrid !== undefined) {
+    const showG = !!series.displayGrid;
+    contourLayout = {
+      xaxis: { showgrid: showG, gridcolor: showG ? th.grid : 'rgba(0,0,0,0)' },
+      yaxis: { showgrid: showG, gridcolor: showG ? th.grid : 'rgba(0,0,0,0)' },
+    };
+  }
+
   // Interpolated path (Phase 17, opt-in): grid scattered (x, y, z) through
   // gridScattered. Cells with no data support render as gaps (connectgaps
   // false), never invented; the method is named on hover. The pre-gridded
@@ -67,9 +88,9 @@ function buildContourTrace(series, datasets) {
       type: 'contour',
       x: g.x, y: g.y, z: g.z,
       name: (series.name || 'Contour') + ' (interpolated)',
-      colorscale: resolveColorscale(document.getElementById('cmapSelect')?.value),
+      colorscale: resolveColorscale(series.colormap),
       ...cbExtra,
-      contours: { coloring }, line: { smoothing: lineSmoothing },
+      contours: contoursCfg, line: { smoothing: lineSmoothing },
       connectgaps: false, // unsupported cells (outside hull / beyond R) stay empty
       colorbar: { title: { text: cbTitle } },
       // An interpolated surface must announce itself (§20) — method on hover
@@ -88,7 +109,7 @@ function buildContourTrace(series, datasets) {
         hovertemplate: `${series.xCol}: %{x}<br>${series.yCol}: %{y}<extra>data</extra>`,
       });
     }
-    return { traces, error: null };
+    return { traces, error: null, layout: contourLayout };
   }
 
   // Grid validation: unique X × unique Y must cover the points exactly once
@@ -121,12 +142,13 @@ function buildContourTrace(series, datasets) {
       type: 'contour',
       x: ux, y: uy, z,
       name: series.name || 'Contour',
-      colorscale: resolveColorscale(document.getElementById('cmapSelect')?.value),
+      colorscale: resolveColorscale(series.colormap),
       ...cbExtra,
-      contours: { coloring }, line: { smoothing: lineSmoothing },
+      contours: contoursCfg, line: { smoothing: lineSmoothing },
       colorbar: { title: { text: cbTitle } },
       hovertemplate: `${series.xCol}: %{x}<br>${series.yCol}: %{y}<br>${series.zCol}: %{z}<extra></extra>`,
     }],
     error: null,
+    layout: contourLayout,
   };
 }

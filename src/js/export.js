@@ -150,7 +150,7 @@ const PRESET_SCHEMA_V2 = 'datalab-style-preset-v2';
 const PRESET_CATEGORIES = {
   style:      { fields: ['plotBg', 'cmapSelect', 'markerSize', 'markerOpacity', 'edgeColor', 'edgeWidth'], checks: [] },
   exportSize: { fields: ['figW', 'figH'], checks: [] },
-  typography: { fields: ['fsTitle', 'fsAxis', 'fsTick', 'fsLegend', 'fsAnnot'], checks: [] },
+  typography: { fields: ['fsTitle', 'fsAxis', 'fsTick', 'fsLegend', 'fsAnnot', 'fsCbarTitle', 'fsCbarTick'], checks: ['fsCbarSeparate'] },
   frame:      { fields: ['frameColor', 'frameWidth', 'gridColor', 'gridWidth'],
                 checks: ['frameAuto', 'gridAuto', 'majorGrid', 'minorGrid', 'showLegend'] },
 };
@@ -232,11 +232,16 @@ function applyPresetSections(p) {
   [['markerSize','markerSizeVal',''], ['markerOpacity','markerOpacityVal','%'],
    ['edgeWidth','edgeWidthVal',''], ['fsTitle','fsTitleVal',''], ['fsAxis','fsAxisVal',''],
    ['fsTick','fsTickVal',''], ['fsLegend','fsLegendVal',''], ['fsAnnot','fsAnnotVal',''],
-   ['frameWidth','frameWidthVal',''], ['gridWidth','gridWidthVal','']
+   ['frameWidth','frameWidthVal',''], ['gridWidth','gridWidthVal',''],
+   ['fsCbarTitle','fsCbarTitleVal',''], ['fsCbarTick','fsCbarTickVal','']
   ].forEach(([id, valId, suffix]) => {
     const el = document.getElementById(id), val = document.getElementById(valId);
     if (el && val) val.textContent = el.value + suffix;
   });
+  // Separate-colorbar-fonts toggle drives the two slider enabled states (v2.20.0)
+  const cbSep = document.getElementById('fsCbarSeparate')?.checked;
+  document.getElementById('fsCbarTitle').disabled = !cbSep;
+  document.getElementById('fsCbarTick').disabled  = !cbSep;
   document.getElementById('figWNum').value = document.getElementById('figW').value;
   document.getElementById('figHNum').value = document.getElementById('figH').value;
   // Frame auto state drives the color inputs' enabled state

@@ -90,7 +90,7 @@ function buildParityTrace(series, datasets) {
     const finiteFrac = catV.filter(v => Number.isFinite(Number(v))).length / (catV.length || 1);
     colorMode = finiteFrac > 0.5 ? 'numeric' : 'categorical';
   }
-  const marker = buildMarkerStyle(series.style, colorMode === 'numeric' ? catV.map(Number) : undefined);
+  const marker = buildMarkerStyle(series.style, colorMode === 'numeric' ? catV.map(Number) : undefined, series.colormap);
   if (colorMode !== 'numeric') marker.color = series.style?.color ?? (ds.color ?? '#5b8dee');
   if (colorMode === 'numeric') {
     // Colorbar controls (v2.18.0): manual range (cmin/cmax), reverse, hide title

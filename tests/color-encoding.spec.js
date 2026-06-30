@@ -40,6 +40,30 @@ test('numeric color-by colorbar: cmin/cmax, reverse, and hide-title', async ({ p
   expect(out.title).toBe('');             // hidden
 });
 
+// Separate colorbar fonts (v2.20.0): toggle off follows axis/tick, on uses
+// the dedicated colorbar sizes.
+test('separate-colorbar-fonts toggle overrides the axis/tick sizes', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const out = await page.evaluate(() => {
+    document.getElementById('fsAxis').value = '20';
+    document.getElementById('fsTick').value = '18';
+    document.getElementById('fsCbarTitle').value = '30';
+    document.getElementById('fsCbarTick').value = '28';
+    const offT = [{ colorbar: {} }];
+    document.getElementById('fsCbarSeparate').checked = false;
+    applyColorbarFonts(offT);
+    const onT = [{ colorbar: {} }];
+    document.getElementById('fsCbarSeparate').checked = true;
+    applyColorbarFonts(onT);
+    return {
+      off: { title: offT[0].colorbar.title.font.size, tick: offT[0].colorbar.tickfont.size },
+      on:  { title: onT[0].colorbar.title.font.size,  tick: onT[0].colorbar.tickfont.size },
+    };
+  });
+  expect(out.off).toEqual({ title: 20, tick: 18 }); // follows Axis / Tick label sizes
+  expect(out.on).toEqual({ title: 30, tick: 28 });  // dedicated colorbar sizes
+});
+
 test('categorical color-by renders one named legend trace per category (not a colorbar)', async ({ page }) => {
   await page.goto(FILE_URL);
   await loadCSV(page,

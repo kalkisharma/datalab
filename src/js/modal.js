@@ -233,6 +233,10 @@ function saveModalSeries() {
     interpolate: document.getElementById('mInterpolate')?.checked ?? false,  // contour only (Phase 17)
     showPoints:  document.getElementById('mShowPoints')?.checked ?? false,   // contour interpolate overlay (Phase 17)
     contourSmooth: document.getElementById('mContourSmooth')?.checked ?? true, // contour shading smoothing (default on)
+    isoLines:     document.getElementById('mIsoLines')?.checked ?? true,        // contour iso-lines (default on, v2.20.0)
+    isoLabels:    document.getElementById('mIsoLabels')?.checked ?? false,      // contour iso-labels (default off, v2.20.0)
+    isoLabelSize: (v => Number.isFinite(v) && v > 0 ? Math.round(v) : null)(parseFloat(document.getElementById('mIsoLabelSize')?.value)),
+    displayGrid:  document.getElementById('mDisplayGrid')?.checked ?? true,     // contour axis grid (default on, v2.20.0)
     binCount:  Number(document.getElementById('mBinCount')?.value) || null, // histogram only
     // fitDist supersedes the Phase 5 fitNormal boolean; old sessions are
     // read via the renderer's fitDist ?? fitNormal fallback
@@ -265,6 +269,7 @@ function saveModalSeries() {
     trendGroups: document.getElementById('mTrendGroups')?.checked ?? false, // scatter only (Phase 11)
     colorCol:  document.getElementById('mColorCol')?.value || null,
     colorbarLabel: document.getElementById('mColorbarLabel')?.value.trim() || null, // numeric color-by (Phase 16)
+    colormap:      document.getElementById('mColormap')?.value || null,             // per-series colormap override (v2.20.0; blank = inherit)
     colorbarTitleHide: document.getElementById('mColorbarHide')?.checked ?? false,   // hide the colorbar title (v2.18.0)
     colorReverse:      document.getElementById('mColorReverse')?.checked ?? false,   // reverse the colormap (v2.18.0)
     colorMin: (v => Number.isFinite(v) ? v : null)(parseFloat(document.getElementById('mColorMin')?.value)), // manual color range (v2.18.0)

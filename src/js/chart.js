@@ -105,17 +105,17 @@ function renderOnePlot(plot) {
       continue;
     }
 
-    // Subplot-wide encoding override (workspace ergonomics): in a grid, a
-    // shared color/size-by column replaces the per-series one when present in
-    // this series' dataset. Clone so the trace-cache key reflects the override.
-    let eff = s;
+    // Bake the resolved effective colormap (series > plot > global, v2.20.0) and
+    // the subplot-wide shared color/size override (grid only) onto a clone, so
+    // the renderer reads concrete values and the trace-cache key reflects them.
+    const ov = { colormap: effectiveColormap(s, plot) };
     if (grid) {
-      const cfg = plot.plotConfig, ov = {};
+      const cfg = plot.plotConfig;
       const dsH = appState.datasets.find(d => d.id === s.datasetId)?.headers || [];
       if (cfg.sharedColorCol && dsH.includes(cfg.sharedColorCol)) ov.colorCol = cfg.sharedColorCol;
       if (cfg.sharedSizeCol  && dsH.includes(cfg.sharedSizeCol))  ov.sizeCol  = cfg.sharedSizeCol;
-      if (ov.colorCol || ov.sizeCol) eff = { ...s, ...ov };
     }
+    const eff = { ...s, ...ov };
     const result = buildSeriesResult(eff, { xLog: !!plot.plotConfig.xLog });
     if (result.error) { errors.push({ name: label, error: result.error }); continue; }
     if (result.warning) warnings.push({ name: label, warning: result.warning });
@@ -213,6 +213,22 @@ function renderOnePlot(plot) {
   }
 
   applyLogInteractions(layout, plot, traces, warnings, parityByCell);
+
+  // Mixed-scale warning (Data Scientist guardrail, v2.20.0): 2+ color-mapped
+  // series on one plot using different colormaps or color ranges — identical
+  // colors then don't mean identical values. Soft warning, never a block.
+  const cbSeries = appState.series.filter(s =>
+    (s.plotId ?? appState.plots[0].id) === plot.id && s.enabled !== false &&
+    (s.chartType === 'contour' || s.chartType === 'heatmap' ||
+     ((s.chartType === 'scatter' || s.chartType === 'parity') && s.colorCol)));
+  if (cbSeries.length > 1) {
+    const maps   = new Set(cbSeries.map(s => effectiveColormap(s, plot)));
+    const ranges = new Set(cbSeries.map(s => `${s.colorMin ?? ''}:${s.colorMax ?? ''}`));
+    if (maps.size > 1 || ranges.size > 1) {
+      warnings.push({ name: 'Colorbar', warning:
+        'Multiple color-mapped series on this plot use different colormaps or ranges — identical colors may not mean identical values. Consider one colormap and range per plot.' });
+    }
+  }
 
   showPanelErrors(plot.id, errors, warnings);
 

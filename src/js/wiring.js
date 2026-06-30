@@ -140,6 +140,11 @@ function init() {
       if (appState.plotRendered) debounceRender();
     });
   });
+  // Per-plot colormap override (v2.20.0): blank = inherit the global picker
+  g('plotCmap')?.addEventListener('change', () => {
+    activePlot().plotConfig.colormap = g('plotCmap').value || null;
+    if (appState.plotRendered) renderPlot();
+  });
   // Log scales live in the ACTIVE plot's config (Phase 9)
   [['xLogChk', 'xLog'], ['yLogChk', 'yLog']].forEach(([id, key]) => {
     g(id).addEventListener('change', () => {
@@ -194,6 +199,8 @@ function init() {
   syncSlider('fsTick',   'fsTickVal',   '');
   syncSlider('fsLegend', 'fsLegendVal', '');
   syncSlider('fsAnnot',  'fsAnnotVal',  '');
+  syncSlider('fsCbarTitle', 'fsCbarTitleVal', ''); // separate colorbar fonts (v2.20.0)
+  syncSlider('fsCbarTick',  'fsCbarTickVal',  '');
   syncSlider('frameWidth', 'frameWidthVal', '');
   syncSlider('gridWidth',  'gridWidthVal',  '');
   syncSliderNum('figW', 'figWNum');
@@ -206,6 +213,15 @@ function init() {
   // Re-render on style changes
   ['plotBg','cmapSelect','edgeColor','majorGrid','minorGrid','frameColor','gridColor'].forEach(id => {
     g(id)?.addEventListener('change', () => { if (appState.plotRendered) renderPlot(); });
+  });
+
+  // Separate colorbar fonts (v2.20.0): the toggle enables/disables the two
+  // dedicated sliders and re-renders.
+  g('fsCbarSeparate')?.addEventListener('change', () => {
+    const on = g('fsCbarSeparate').checked;
+    g('fsCbarTitle').disabled = !on;
+    g('fsCbarTick').disabled  = !on;
+    if (appState.plotRendered) debounceRender();
   });
 
   // Frame "auto" checkboxes: auto = follow the background theme; unchecking

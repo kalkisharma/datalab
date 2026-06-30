@@ -135,7 +135,7 @@ function errorBarsFromCol(eV) {
  * @param {number} [colorOverride] - optional numeric array for color mapping
  * @returns {object} Plotly marker object
  */
-function buildMarkerStyle(seriesStyle, colorOverride) {
+function buildMarkerStyle(seriesStyle, colorOverride, colorscaleName) {
   const s = seriesStyle || {};
   const marker = {
     size:    s.markerSize    ?? Number(document.getElementById('markerSize')?.value  ?? 6),
@@ -152,7 +152,7 @@ function buildMarkerStyle(seriesStyle, colorOverride) {
   };
   if (colorOverride !== undefined) {
     marker.color     = colorOverride;
-    marker.colorscale = resolveColorscale(document.getElementById('cmapSelect')?.value);
+    marker.colorscale = resolveColorscale(colorscaleName); // effective colormap, resolved by the caller (v2.20.0)
     marker.showscale  = true;
   } else {
     // Use the series color (dataset palette color or per-series override)

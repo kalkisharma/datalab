@@ -50,6 +50,23 @@ test('unknown / non-string colormap values fail closed to Viridis (allowlist)', 
   expect(out.object).toBe('Viridis');
 });
 
+// Override hierarchy (v2.20.0): series > plot > global.
+test('effectiveColormap resolves series > plot > global', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const out = await page.evaluate(() => {
+    document.getElementById('cmapSelect').value = 'Jet'; // global
+    const plot = { plotConfig: { colormap: 'RdBu' } };   // plot override
+    return {
+      series: effectiveColormap({ colormap: 'Plasma' }, plot), // series wins
+      plot:   effectiveColormap({}, plot),                     // plot over global
+      global: effectiveColormap({}, { plotConfig: {} }),       // falls to global
+    };
+  });
+  expect(out.series).toBe('Plasma');
+  expect(out.plot).toBe('RdBu');
+  expect(out.global).toBe('Jet');
+});
+
 test('a contour rendered with Plasma carries the explicit array, not a fallback name', async ({ page }) => {
   await page.goto(FILE_URL);
   const colorscale = await page.evaluate(() => {

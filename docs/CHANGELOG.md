@@ -1,5 +1,38 @@
 # Changelog
 
+## v2.20.0 — Colormap overrides & contour lines
+
+### Features
+- **Per-plot and per-series colormap.** The global Colormap is now a default:
+  set a colormap for a specific plot ("Colormap (this plot)" in Plot settings)
+  to override it, and a colormap per series (in the Colorbar section) to
+  override both. Resolution is series → plot → global.
+- **Mixed-scale warning.** When two or more color-mapped series on one plot use
+  different colormaps or color ranges, a warning notes that identical colors may
+  not mean identical values.
+- **Contour lines, labels, and grid.** Toggle the iso-lines (default on), turn
+  on iso-labels with a label size (default off), and show/hide the contour's
+  axis grid. Labels honor the manual color range and level count.
+- **Separate colorbar fonts.** A Plot-typography toggle (default off) lets the
+  colorbar title and tick sizes be set independently of the axis/tick label
+  sizes.
+- The contour modal's setup is regrouped (Colorbar / Contour lines / Shading /
+  Scattered data) for clarity.
+
+### Internal
+- §6: `modal-chart-fields.js` is over the ~300-line trigger — tolerated this
+  release; the next change there extracts the shared control builders
+  (`sizeByExtraControls`, `colorbarExtraControls`) into `modal-field-controls.js`.
+
+## Schema
+### v2.20.0 (state version unchanged at 2 — all additive, no migration)
+- New optional `plotConfig.colormap` (per-plot colormap; null = inherit).
+- New optional `series` fields: `colormap` (per-series); contour `isoLines`,
+  `isoLabels`, `isoLabelSize`, `displayGrid`.
+- Style-preset file (`datalab-style-preset-v2`) gains `typography.fsCbarTitle`,
+  `fsCbarTick`, and `fsCbarSeparate`; older presets load unchanged.
+- v2.0–v2.19 session files load unchanged.
+
 ## v2.19.0 — Parity best-fit reporting
 
 ### Features

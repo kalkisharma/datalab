@@ -65,7 +65,7 @@ function buildScatterTrace(series, datasets) {
     else colorMode = 'categorical';
   }
 
-  const marker = buildMarkerStyle(series.style, colorMode === 'numeric' ? colorInfo.colorVals : undefined);
+  const marker = buildMarkerStyle(series.style, colorMode === 'numeric' ? colorInfo.colorVals : undefined, series.colormap);
   if (colorMode !== 'numeric') marker.color = series.style?.color ?? (ds.color ?? '#5b8dee');
 
   // Bubble size (Phase 14): via the shared areaSizes mapping (one source of

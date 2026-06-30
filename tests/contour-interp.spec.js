@@ -88,6 +88,50 @@ test('heatmap gets range + reverse, but the title still names the aggregation (�
   expect(t.colorbar.title.text).toBe('mean(v)'); // hide ignored — §20 names the aggregation
 });
 
+// Iso-lines / labels / grid + per-series colormap (v2.20.0).
+test('contour iso-lines default on; labels gated by lines; grid + per-series colormap', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const out = await page.evaluate(({ ds, base }) => {
+    const dflt    = buildContourTrace({ ...base }, [ds]).traces[0];
+    const labeled = buildContourTrace({ ...base, isoLabels: true, isoLabelSize: 14, displayGrid: true, colormap: 'Plasma' }, [ds]);
+    const gridOff = buildContourTrace({ ...base, displayGrid: false }, [ds]);
+    const noLines = buildContourTrace({ ...base, isoLines: false, isoLabels: true }, [ds]).traces[0];
+    return {
+      dfltLines: dflt.contours.showlines, dfltLabels: dflt.contours.showlabels,
+      labLines: labeled.traces[0].contours.showlines, labLabels: labeled.traces[0].contours.showlabels,
+      labSize: labeled.traces[0].contours.labelfont.size,
+      gridOn: labeled.layout.xaxis.showgrid, gridOff: gridOff.layout.xaxis.showgrid,
+      csArray: Array.isArray(labeled.traces[0].colorscale),
+      noLinesLabels: noLines.contours.showlabels,
+    };
+  }, { ds: GRID2x2, base: CONTOUR_BASE });
+  expect(out.dfltLines).toBe(true);      // iso-lines default on (back-compat)
+  expect(out.dfltLabels).toBe(false);    // iso-labels default off
+  expect(out.labLines).toBe(true);
+  expect(out.labLabels).toBe(true);
+  expect(out.labSize).toBe(14);
+  expect(out.gridOn).toBe(true);
+  expect(out.gridOff).toBe(false);
+  expect(out.csArray).toBe(true);        // per-series Plasma → explicit array
+  expect(out.noLinesLabels).toBe(false); // labels need lines to attach to
+});
+
+test('two contour series with different colormaps on one plot warn (mixed scale)', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const warn = await page.evaluate(({ ds }) => {
+    appState.datasets.push(ds);
+    const pid = appState.plots[0].id;
+    appState.series = [
+      { id: 'c1', name: 'c1', datasetId: 'a', plotId: pid, chartType: 'contour', xCol: 'x', yCol: 'y', zCol: 'z', colormap: 'Viridis', filters: [], style: {} },
+      { id: 'c2', name: 'c2', datasetId: 'a', plotId: pid, chartType: 'contour', xCol: 'x', yCol: 'y', zCol: 'z', colormap: 'Plasma', filters: [], style: {} },
+    ];
+    renderPlot();
+    const box = document.querySelector(`.plot-panel[data-pid="${pid}"] .panel-errors`);
+    return box ? box.textContent : '';
+  }, { ds: GRID2x2 });
+  expect(warn).toMatch(/identical colors may not mean identical values/i);
+});
+
 test('linear field is recovered exactly, including a filled interior hole', async ({ page }) => {
   await page.goto(FILE_URL);
   const out = await page.evaluate(() => {
