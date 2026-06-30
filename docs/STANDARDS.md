@@ -108,6 +108,7 @@
   - Hex: `/^#([0-9a-f]{3}|[0-9a-f]{6})$/i`
   - RGBA (comma-separated, decimal alpha only): `/^rgba\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(0|1|0?\.\d+)\s*\)$/`
   - No named colors, no CSS variables, no color functions, no modern space syntax. Invalid values are rejected with an error message.
+- **Stored-enum allowlisting** (added at the v2.18.1 colormap review): any value drawn from a fixed set (a colormap name, an aggregation, a chart type) that is persisted in state and **round-trips through session import** must be allowlisted at its point of consumption and **fail closed to a documented default** — never passed through raw. Session import validates ids (`SAFE_ID`) but not arbitrary enum fields, so a hand-edited session could carry an unknown value; the consuming helper is the chokepoint (e.g. `resolveColorscale()` returns Viridis on any unknown/non-string value). This is the integrity analog of the dataset-color regex above. Note an unknown colorscale string is a correctness/silent-fallback risk, **not** an injection vector — Plotly `colorscale` is inert data, not a DOM sink — so the allowlist's job is predictable fallback, not escaping.
 - No `localStorage`, `sessionStorage`, or cookies — session-only state.
 - Blob URLs revoked after download.
 - Playwright XSS injection test runs on every PR once the suite exists.
@@ -327,6 +328,7 @@ The pre-commit hook greps `src/js/**` for:
   - Computed-column evaluation semantics (Phase 12+): NaN propagation follows the missing-value rules; materialization is one-shot (source edits never silently recompute — provenance)
   - Hypothesis-test reporting (Phase 13+): a p-value is never displayed without its effect size and per-group sample sizes — promoted from the Phase 13 scoping decision because it generalizes to every future test, exactly as the no-silent-aggregation rule did
   - Colormap perceptual uniformity and accuracy
+  - **A visual control must render what its label claims** (promoted from the v2.18.1 colormap finding — the visual analog of the no-silent-aggregation rule above): a menu option that silently falls back to a *different* encoding than the one named — six of the twelve colormaps rendered as a wrong fallback because Plotly didn't recognize the name — is a misleading-visualization defect, not a cosmetic bug. Encodings whose label and output can diverge must fail loudly (a build-time check or a documented safe fallback), never silently substitute. The Data Scientist flagged the colormap case `blocks-phase`; it shipped as its own PATCH.
   - Axis scale appropriateness (log vs. linear) and axis range defaults
   - Axis range manipulation — auto-range is acceptable for most chart types; parity plots require equal axis ranges (same min/max for X and Y, explicitly set in the renderer, not left to Plotly auto-range)
   - Filter operator behavior on real data
