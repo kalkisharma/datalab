@@ -505,6 +505,7 @@ is overdue for its phase-exit update.
 | `dt-preview.js` | Paginated data preview |
 | `wiring.js` | Event listeners, dropzone, DOM bootstrap |
 | `grid-interp.js` | Scattered→grid interpolation for contours |
+| `colorscales.js` | `resolveColorscale` — colormap name → Plotly colorscale (explicit arrays for the maps Plotly lacks; allowlists unknown values) |
 | `renderers/shared.js` | Renderer contract + shared trace utilities |
 | `renderers/scatter.js` | Scatter (size-by, color-by, trendlines, join) |
 | `renderers/line.js` | Line (per-category, error bars) |

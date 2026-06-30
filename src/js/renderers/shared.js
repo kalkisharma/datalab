@@ -152,7 +152,7 @@ function buildMarkerStyle(seriesStyle, colorOverride) {
   };
   if (colorOverride !== undefined) {
     marker.color     = colorOverride;
-    marker.colorscale = document.getElementById('cmapSelect')?.value ?? 'Viridis';
+    marker.colorscale = resolveColorscale(document.getElementById('cmapSelect')?.value);
     marker.showscale  = true;
   } else {
     // Use the series color (dataset palette color or per-series override)

@@ -144,10 +144,18 @@
         </label>
         <label class="ctrl-label" for="cmapSelect">Colormap</label>
         <select id="cmapSelect">
-          <option>Viridis</option><option>Plasma</option><option>Inferno</option>
-          <option>Magma</option><option>Cividis</option><option>Coolwarm</option>
-          <option>RdBu</option><option>Blues</option><option>Reds</option>
-          <option>Greens</option><option>Turbo</option><option>Jet</option>
+          <optgroup label="Perceptually uniform (colorblind-safe)">
+            <option>Viridis</option><option>Plasma</option><option>Inferno</option><option>Magma</option><option>Cividis</option>
+          </optgroup>
+          <optgroup label="Diverging — for a meaningful midpoint">
+            <option>RdBu</option><option>Coolwarm</option>
+          </optgroup>
+          <optgroup label="Single-hue sequential">
+            <option>Blues</option><option>Reds</option><option>Greens</option>
+          </optgroup>
+          <optgroup label="Rainbow — not perceptually uniform">
+            <option>Turbo</option><option>Jet</option>
+          </optgroup>
         </select>
         <label class="ctrl-label" style="margin-top:10px;">Marker size
           <div class="slider-row">

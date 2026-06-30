@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.18.1 — Colormap fix (6 of 12 were broken)
+
+### Fixes
+- **Six colormaps rendered as the wrong scale.** Plasma, Inferno, Magma,
+  Coolwarm, Turbo, and Reds are not built-in Plotly named scales, so selecting
+  them silently fell back to a default — the dropdown label disagreed with the
+  rendered colors (a §20 honesty defect; the perceptually-uniform,
+  colorblind-safe maps were among the broken ones). A new `colorscales.js`
+  resolver maps every option to an explicit colorscale Plotly honors, and
+  allowlists unknown values to Viridis (also closing a session-import gap).
+- The Colormap picker is now grouped (perceptually-uniform/colorblind-safe →
+  diverging → single-hue → rainbow), with rainbow maps (Turbo, Jet) marked as
+  not perceptually uniform and diverging maps (RdBu, Coolwarm) noted as for
+  data with a meaningful midpoint.
+
+No schema change — the stored colormap name is untouched; only how it resolves
+to colors changed. v2.0–v2.18.0 sessions load unchanged.
+
 ## v2.18.0 — Colorbar controls
 
 ### Features

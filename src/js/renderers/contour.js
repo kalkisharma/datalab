@@ -67,7 +67,7 @@ function buildContourTrace(series, datasets) {
       type: 'contour',
       x: g.x, y: g.y, z: g.z,
       name: (series.name || 'Contour') + ' (interpolated)',
-      colorscale: document.getElementById('cmapSelect')?.value ?? 'Viridis',
+      colorscale: resolveColorscale(document.getElementById('cmapSelect')?.value),
       ...cbExtra,
       contours: { coloring }, line: { smoothing: lineSmoothing },
       connectgaps: false, // unsupported cells (outside hull / beyond R) stay empty
@@ -121,7 +121,7 @@ function buildContourTrace(series, datasets) {
       type: 'contour',
       x: ux, y: uy, z,
       name: series.name || 'Contour',
-      colorscale: document.getElementById('cmapSelect')?.value ?? 'Viridis',
+      colorscale: resolveColorscale(document.getElementById('cmapSelect')?.value),
       ...cbExtra,
       contours: { coloring }, line: { smoothing: lineSmoothing },
       colorbar: { title: { text: cbTitle } },

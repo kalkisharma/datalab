@@ -76,6 +76,7 @@ const appJs = [
   'src/js/saves.js',
   'src/js/wiring.js',
   'src/js/grid-interp.js',
+  'src/js/colorscales.js',
   'src/js/renderers/shared.js',
   'src/js/renderers/scatter.js',
   'src/js/renderers/line.js',

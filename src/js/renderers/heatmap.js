@@ -98,7 +98,7 @@ function buildHeatmapTrace(series, datasets) {
       type: 'heatmap',
       x: xs, y: ys, z,
       name: series.name || 'Heatmap',
-      colorscale: document.getElementById('cmapSelect')?.value ?? 'Viridis',
+      colorscale: resolveColorscale(document.getElementById('cmapSelect')?.value),
       ...cbExtra,
       colorbar: { title: { text: aggLabel } }, // aggregation always named (§20)
       hovertemplate: `${series.xCol}: %{x}<br>${series.yCol}: %{y}<br>${aggLabel}: %{z}<extra></extra>`,
