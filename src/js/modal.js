@@ -288,6 +288,11 @@ function saveModalSeries() {
   if (chartType === 'parity') {
     series.joinDatasetId = document.getElementById('mJoinDataset')?.value || null;
     series.joinKey       = series.joinDatasetId ? (document.getElementById('mJoinKey')?.value || null) : null;
+    // 3-way bridge join (v2.23.0): "Join by" bridge dataset (null = same as
+    // compare-against = direct join) + the bridge→modelled key.
+    const _jby = series.joinDatasetId ? (document.getElementById('mJoinByDataset')?.value || null) : null;
+    series.joinByDatasetId = (_jby && _jby !== series.joinDatasetId) ? _jby : null;
+    series.joinKeyB        = series.joinByDatasetId ? (document.getElementById('mJoinKeyB')?.value || null) : null;
     series.band5         = document.getElementById('mBand5')?.checked  ?? false;
     series.band10        = document.getElementById('mBand10')?.checked ?? true;
     series.bandColor     = document.getElementById('mBandColor')?.value || null;          // shared ±5%/±10% color
@@ -306,6 +311,7 @@ function saveModalSeries() {
       .filter(([, id]) => document.getElementById(id)?.checked).map(([k]) => k);
     series.parityStats = _picked.length === 4 ? null : _picked;
     if (series.joinDatasetId && !series.joinKey) { err.textContent = 'Select a join key, or switch "Compare against" to this dataset.'; return false; }
+    if (series.joinByDatasetId && !series.joinKeyB) { err.textContent = 'Select the second join key (bridge → modelled), or set "Join by" back to the compare-against dataset.'; return false; }
   }
 
   // Scatter optional cross-dataset join (workspace ergonomics)

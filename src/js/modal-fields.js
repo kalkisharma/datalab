@@ -152,31 +152,53 @@ function renderDynamicFields(existing) {
     });
   }
 
-  // Parity: switching the join dataset re-derives the Y (modelled) and
-  // join key options from the newly chosen dataset
+  // Parity join wiring (3-way bridge, v2.23.0). One sync function owns the
+  // dependent selects: Y (modelled) from the compare-against dataset B; "Join by"
+  // bridge M (default = B); Join key (observed A ↔ M); Join key 2 (M ↔ B), shown
+  // only when a real bridge (M ≠ B) is chosen. Each select preserves its current
+  // value, falling back to its saved data-sel on first populate.
   const mjd = document.getElementById('mJoinDataset');
   if (mjd) {
-    mjd.addEventListener('change', () => {
-      const jds = appState.datasets.find(d => d.id === mjd.value);
-      if (!jds) {
-        // scatter "none": Y reverts to this dataset's numeric columns; key clears
+    const g = id => document.getElementById(id);
+    const show = (id, on) => { const e = g(id); if (e) e.style.display = on ? '' : 'none'; };
+    // keep(val): current value, else the saved data-sel
+    const cur = sel => sel.value || sel.dataset.sel || '';
+    const keyOpts = (cols, sel) => '<option value="">Select key…</option>' +
+      // innerHTML: column names escaped via escHtml()
+      cols.map(c => `<option value="${escHtml(c)}"${sel === c ? ' selected' : ''}>${escHtml(c)}</option>`).join('');
+    const syncParityJoin = () => {
+      const B = appState.datasets.find(d => d.id === mjd.value); // compare-against (modelled)
+      if (!B) { // same-dataset parity: Y from this dataset; no join controls
         // innerHTML: column names escaped via colOptions()/escHtml()
-        document.getElementById('mYCol').innerHTML = colOptions(null, false);
-        const jk = document.getElementById('mJoinKey');
-        // innerHTML: static option markup — no user data
-        if (jk) jk.innerHTML = '<option value="">Select key…</option>';
+        g('mYCol').innerHTML = colOptions(cur(g('mYCol')) || null, false);
+        ['mJoinByField', 'mJoinKeyField', 'mJoinKeyBField'].forEach(id => show(id, false));
         return;
       }
-      const numeric = jds.headers.filter(c => classifyColumn(jds.rows, c) === 'numeric');
+      // Y = numeric columns of B
+      const yCur = cur(g('mYCol'));
+      const yNum = B.headers.filter(c => classifyColumn(B.rows, c) === 'numeric');
       // innerHTML: column names escaped via escHtml()
-      document.getElementById('mYCol').innerHTML = numeric.map(c =>
-        `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
-      const shared = ds.headers.filter(c => jds.headers.includes(c));
-      // innerHTML: column names escaped via escHtml()
-      document.getElementById('mJoinKey').innerHTML =
-        '<option value="">Select key…</option>' + shared.map(c =>
-        `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
-    });
+      g('mYCol').innerHTML = yNum.map(c => `<option value="${escHtml(c)}"${yCur === c ? ' selected' : ''}>${escHtml(c)}</option>`).join('');
+      // "Join by" = bridge M; default option mirrors the compare-against name
+      const jbCur = cur(g('mJoinByDataset'));
+      // innerHTML: dataset names escaped via escHtml()
+      g('mJoinByDataset').innerHTML = `<option value="">Same as Compare against (${escHtml(B.name)})</option>` +
+        appState.datasets.map(d => `<option value="${escHtml(d.id)}"${jbCur === d.id ? ' selected' : ''}>${escHtml(d.name)}</option>`).join('');
+      show('mJoinByField', true);
+      const M = appState.datasets.find(d => d.id === g('mJoinByDataset').value) || B; // bridge defaults to B
+      // Join key: observed (ds) ↔ M — innerHTML: keyOpts() escapes column names via escHtml()
+      g('mJoinKey').innerHTML = keyOpts(ds.headers.filter(c => M.headers.includes(c)), cur(g('mJoinKey')));
+      show('mJoinKeyField', true);
+      // Join key 2: M ↔ B, only for a real bridge (M ≠ B)
+      if (M.id !== B.id) {
+        // innerHTML: keyOpts() escapes column names via escHtml()
+        g('mJoinKeyB').innerHTML = keyOpts(M.headers.filter(c => B.headers.includes(c)), cur(g('mJoinKeyB')));
+        show('mJoinKeyBField', true);
+      } else { show('mJoinKeyBField', false); }
+    };
+    mjd.addEventListener('change', syncParityJoin);
+    g('mJoinByDataset')?.addEventListener('change', syncParityJoin);
+    syncParityJoin(); // initial populate / restore
   }
 
   // Wire filter list

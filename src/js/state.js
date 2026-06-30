@@ -2,7 +2,7 @@
 
 // Single source of truth for the app version (STANDARDS.md §3).
 // build.js parses the declaration below — do not rename or reformat it.
-const VERSION = '2.22.0';
+const VERSION = '2.23.0';
 
 // ── appState ──────────────────────────────────────────────────────────────
 //
@@ -22,6 +22,9 @@ const VERSION = '2.22.0';
 // {
 //   id, datasetId, xCol, yCol, colorCol, chartType,
 //   // join: joinDatasetId, joinKey — parity always; scatter optional (workspace ergonomics)
+//   // parity 3-way bridge join (v2.23.0): joinByDatasetId (bridge dataset, null =
+//   //   same as joinDatasetId = direct join) + joinKeyB (bridge↔modelled key).
+//   //   joinKey is then observed↔bridge. Each hop must be 1:1 (duplicate keys error).
 //   // parity-only: showBands, band5, band10; parityStats (array of shown box
 //   //   stats from nse/mae/rmse/r2, absent = all four; [] hides the box);
 //   //   parityShowN (bool, absent = true — N in the legend; falls back to the

@@ -29,11 +29,23 @@ function buildParityTrace(series, datasets) {
   //     row-aligned by construction.
   let rowsA, rowsB;
   if (series.joinDatasetId) {
-    const joinDs = datasets.find(d => d.id === series.joinDatasetId);
+    const joinDs = datasets.find(d => d.id === series.joinDatasetId); // B = modelled (Y source)
     if (!joinDs) return { traces: [], error: 'Join dataset not found. Select a second dataset, or clear the join for a same-dataset parity.', layout: null };
     if (!series.joinKey) return { traces: [], error: 'Join key column is required for a cross-dataset parity.', layout: null };
-    // Inner join on the key
-    const { mA, mB } = innerJoinRows(ds.rows, joinDs.rows, series.joinKey);
+    let mA, mB;
+    const bridgeId = series.joinByDatasetId;
+    if (bridgeId && bridgeId !== series.joinDatasetId) {
+      // 3-way bridge join (v2.23.0): observed A —joinKey→ bridge M —joinKeyB→ modelled B.
+      const bridgeDs = datasets.find(d => d.id === bridgeId);
+      if (!bridgeDs) return { traces: [], error: '"Join by" (bridge) dataset not found.', layout: null };
+      if (!series.joinKeyB) return { traces: [], error: 'A second join key (bridge → modelled) is required for a 3-way join.', layout: null };
+      const res = bridgeJoinRows(ds.rows, bridgeDs.rows, joinDs.rows, series.joinKey, series.joinKeyB);
+      if (res.error) return { traces: [], error: res.error, layout: null };
+      ({ mA, mB } = res);
+    } else {
+      // Direct inner join on the key (default; byte-identical to pre-v2.23.0)
+      ({ mA, mB } = innerJoinRows(ds.rows, joinDs.rows, series.joinKey));
+    }
     if (!mA.length) return { traces: [], error: 'No rows matched on the join key. Check key column values.', layout: null };
     rowsA = applyFilters(mA, series.filters || [], series.filterLogic || 'and');
     rowsB = applyFilters(mB, series.filters || [], series.filterLogic || 'and');
@@ -242,6 +254,41 @@ function innerJoinRows(rowsA, rowsB, key) {
   for (const r of rowsA) {
     const k = String(r[key] ?? '').trim().toLowerCase();
     if (map.has(k) && !used.has(k)) { mA.push(r); mB.push(map.get(k)); used.add(k); }
+  }
+  return { mA, mB };
+}
+
+// 3-way bridge join (v2.23.0): observed A —keyA→ bridge M —keyB→ modelled B,
+// strictly 1:1 per hop so the observed↔modelled pairing stays provable (the
+// Phase-1 invariant). Duplicate keys on ANY side are a HARD ERROR (Data Scientist
+// §20) — first-match-wins across a mapping hop would silently mispair rows and
+// corrupt NSE/RMSE while looking fine. Returns aligned { mA, mB } or { error }.
+// (Distinct from the direct innerJoinRows, which tolerates dupes — acceptable for
+// a single direct inner join, dangerous the moment a mapping hop is introduced.)
+function bridgeJoinRows(rowsA, rowsM, rowsB, keyA, keyB) {
+  const norm = v => String(v ?? '').trim().toLowerCase();
+  const dupErr = (val, label, col) => ({ error:
+    `Duplicate key "${val}" in the ${label} (column "${col}") — a 3-way parity join needs each key unique (1:1) so observed and modelled stay paired.` });
+  const bridge = new Map();   // keyA value → keyB value (1:1 on keyA)
+  for (const r of rowsM) {
+    const ka = norm(r[keyA]); if (ka === '') continue;
+    if (bridge.has(ka)) return dupErr(r[keyA], '"Join by" (bridge) dataset', keyA);
+    bridge.set(ka, norm(r[keyB]));
+  }
+  const modelled = new Map(); // keyB value → row (1:1 on keyB)
+  for (const r of rowsB) {
+    const kb = norm(r[keyB]); if (kb === '') continue;
+    if (modelled.has(kb)) return dupErr(r[keyB], 'compare-against (modelled) dataset', keyB);
+    modelled.set(kb, r);
+  }
+  const seen = new Set(), mA = [], mB = [];
+  for (const r of rowsA) {    // observed: 1:1 on keyA; compose A→bridge→modelled
+    const ka = norm(r[keyA]); if (ka === '') continue;
+    if (seen.has(ka)) return dupErr(r[keyA], 'observed dataset', keyA);
+    seen.add(ka);
+    const kb = bridge.get(ka); if (kb === undefined) continue; // no bridge entry → drop
+    const bRow = modelled.get(kb); if (!bRow) continue;        // bridge → missing modelled key → drop
+    mA.push(r); mB.push(bRow);
   }
   return { mA, mB };
 }

@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.23.0 — Parity 3-way bridge join
+
+### Features
+- **Parity "Join by" bridge dataset.** A parity series can now match observed
+  and modelled values through a separate lookup/bridge table: observed (A)
+  → bridge (M) → modelled (B), via two keys (A↔M and M↔B). "Join by" defaults
+  to the compare-against dataset, so a plain two-file join is unchanged.
+- Every join hop must be **1:1** — duplicate keys are a hard error (naming the
+  dataset and column), so the observed↔modelled pairing the parity stats depend
+  on can never be silently corrupted.
+
+## Schema
+### v2.23.0 (state version unchanged at 2 — all additive, no migration)
+- New optional `series` fields (parity): `joinByDatasetId` (bridge dataset;
+  null = same as `joinDatasetId` = direct join), `joinKeyB` (bridge↔modelled key).
+  `joinKey` is then observed↔bridge.
+- v2.0–v2.22 session files load unchanged.
+
 ## v2.22.0 — Per-subplot labels, titles & shared colorbar
 
 ### Features

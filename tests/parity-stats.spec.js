@@ -347,6 +347,47 @@ test('notesShow:false hides notes but keeps _noteOffset = parity-box count', asy
   expect(out.shown.offset).toBe(1);   // 2 annotations - 1 note
 });
 
+// ── 3-way bridge join (v2.23.0) ────────────────────────────────────────────
+test('parity 3-way bridge join aligns observed↔modelled through the crosswalk', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const r = await page.evaluate(() => {
+    const A = { id: 'A', name: 'A', color: '#000', headers: ['id_a', 'obs'],
+      rows: [{ id_a: 's1', obs: 10 }, { id_a: 's2', obs: 20 }, { id_a: 's3', obs: 30 }] };
+    const M = { id: 'M', name: 'M', color: '#000', headers: ['id_a', 'id_b'],
+      rows: [{ id_a: 's1', id_b: 'm1' }, { id_a: 's2', id_b: 'm2' }, { id_a: 's3', id_b: 'm3' }] };
+    const B = { id: 'B', name: 'B', color: '#000', headers: ['id_b', 'mod'], // shuffled
+      rows: [{ id_b: 'm3', mod: 33 }, { id_b: 'm1', mod: 12 }, { id_b: 'm2', mod: 18 }] };
+    const s = { id: 's1', name: 'p', chartType: 'parity', datasetId: 'A',
+      joinDatasetId: 'B', joinByDatasetId: 'M', joinKey: 'id_a', joinKeyB: 'id_b',
+      xCol: 'obs', yCol: 'mod', filters: [], style: {} };
+    return buildParityTrace(s, [A, M, B]);
+  });
+  expect(r.error).toBeNull();
+  expect(r.n).toBe(3); // pairs (10,12),(20,18),(30,33) via s1→m1, s2→m2, s3→m3
+  // SS_res = 2²+2²+3² = 17; mean(obs)=20 → SS_tot = 10²+0+10² = 200
+  expect(r.stats.rmse).toBeCloseTo(Math.sqrt(17 / 3), 10);
+  expect(r.stats.mae).toBeCloseTo((2 + 2 + 3) / 3, 10);
+  expect(r.stats.nse).toBeCloseTo(1 - 17 / 200, 10);
+});
+
+test('parity bridge join blocks on duplicate keys (1:1 required, §20)', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const out = await page.evaluate(() => {
+    const A = { id: 'A', name: 'A', color: '#000', headers: ['id_a', 'obs'],
+      rows: [{ id_a: 's1', obs: 10 }, { id_a: 's2', obs: 20 }] };
+    const M = { id: 'M', name: 'M', color: '#000', headers: ['id_a', 'id_b'],
+      rows: [{ id_a: 's1', id_b: 'm1' }, { id_a: 's1', id_b: 'm2' }] }; // duplicate id_a in the bridge
+    const B = { id: 'B', name: 'B', color: '#000', headers: ['id_b', 'mod'],
+      rows: [{ id_b: 'm1', mod: 12 }, { id_b: 'm2', mod: 18 }] };
+    const s = { id: 's1', name: 'p', chartType: 'parity', datasetId: 'A',
+      joinDatasetId: 'B', joinByDatasetId: 'M', joinKey: 'id_a', joinKeyB: 'id_b',
+      xCol: 'obs', yCol: 'mod', filters: [], style: {} };
+    return buildParityTrace(s, [A, M, B]);
+  });
+  expect(out.error).toMatch(/Duplicate key/i); // hard error, not silent mispairing
+  expect(out.traces.length).toBe(0);
+});
+
 test('parity layout enforces equal axis ranges', async ({ page }) => {
   await page.goto(FILE_URL);
   const result = await page.evaluate(() => {

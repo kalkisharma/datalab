@@ -173,12 +173,18 @@ function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
         </select>
         <div class="field-hint">Same dataset: X and Y are two columns here. Or join a second dataset — observed vs modelled in separate files, matched on a key.</div>
       </div>
-      <div class="modal-field">
-        <label class="modal-label" for="mJoinKey">Join key <span class="field-hint" style="margin:0">(only when comparing against another dataset)</span></label>
-        <select id="mJoinKey">
-          <option value="">Select key…</option>
-          ${sharedKeys.map(c=>`<option value="${escHtml(c)}" ${existing?.joinKey===c?'selected':''}>${escHtml(c)}</option>`).join('')}
-        </select>
+      <div class="modal-field" id="mJoinByField" style="display:none">
+        <label class="modal-label" for="mJoinByDataset">Join by</label>
+        <select id="mJoinByDataset" data-sel="${escHtml(existing?.joinByDatasetId || '')}"></select>
+        <div class="field-hint">Defaults to the compare-against dataset. Pick a different one only if observed and modelled match through a separate lookup/bridge table — each key must be unique (1:1).</div>
+      </div>
+      <div class="modal-field" id="mJoinKeyField" style="display:none">
+        <label class="modal-label" for="mJoinKey">Join key <span class="field-hint" style="margin:0">(observed ↔ join-by)</span></label>
+        <select id="mJoinKey" data-sel="${escHtml(existing?.joinKey || '')}"></select>
+      </div>
+      <div class="modal-field" id="mJoinKeyBField" style="display:none">
+        <label class="modal-label" for="mJoinKeyB">Join key 2 <span class="field-hint" style="margin:0">(bridge ↔ modelled)</span></label>
+        <select id="mJoinKeyB" data-sel="${escHtml(existing?.joinKeyB || '')}"></select>
       </div>
       <div class="modal-section-title">Columns</div>
       <div class="modal-field">
@@ -187,7 +193,7 @@ function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
       </div>
       <div class="modal-field">
         <label class="modal-label" for="mYCol">Y column — modelled <span class="required">*</span></label>
-        <select id="mYCol">${yColHtml}</select>
+        <select id="mYCol" data-sel="${escHtml(existing?.yCol || '')}">${yColHtml}</select>
       </div>
       <div class="modal-section-title">Statistics box</div>
       <div class="check-row" role="group" aria-label="Statistics shown in the box">

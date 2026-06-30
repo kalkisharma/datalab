@@ -165,8 +165,22 @@ function validateSeriesColumns(s, datasets) {
         missing.push('its join dataset (removed)');
       } else {
         check(s.yCol, 'Y column', jds.headers, jds.name);
-        check(s.joinKey, 'join key', ds.headers, ds.name);
-        check(s.joinKey, 'join key', jds.headers, jds.name);
+        const bridgeId = s.joinByDatasetId;
+        if (bridgeId && bridgeId !== s.joinDatasetId) {
+          // 3-way bridge (v2.23.0): joinKey is observed↔bridge, joinKeyB is bridge↔modelled
+          const mds = datasets.find(d => d.id === bridgeId);
+          if (!mds) {
+            missing.push('its "join by" (bridge) dataset (removed)');
+          } else {
+            check(s.joinKey,  'join key',   ds.headers,  ds.name);
+            check(s.joinKey,  'join key',   mds.headers, mds.name);
+            check(s.joinKeyB, 'join key 2', mds.headers, mds.name);
+            check(s.joinKeyB, 'join key 2', jds.headers, jds.name);
+          }
+        } else {
+          check(s.joinKey, 'join key', ds.headers, ds.name);
+          check(s.joinKey, 'join key', jds.headers, jds.name);
+        }
       }
     } else {
       // Same-dataset parity: Y is a column of this dataset
