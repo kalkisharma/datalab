@@ -16,10 +16,15 @@ readers who want to go deeper.
 
 ## What DataLab Is
 
-DataLab is a tool for making charts and doing basic statistics from
-spreadsheet data. You give it a CSV file (a plain-text spreadsheet — the
-kind Excel can export), and it draws scatter plots, line charts,
-histograms, and so on, and computes things like averages and correlations.
+DataLab is a tool for making charts and doing statistics from spreadsheet
+data. You give it a CSV file (a plain-text spreadsheet — the kind Excel can
+export), and it draws a wide range of charts — scatter and line charts, bar
+charts, histograms, box and violin plots, heatmaps, contour maps, and
+model-vs-observed ("parity") plots — and computes statistics ranging from
+averages and correlations to formal group comparisons (t-tests, ANOVA, and
+their rank-based equivalents). You can control the appearance in detail —
+colors, color scales, fonts, labels, axes — export the results as images, and
+save your whole session to reload later.
 
 What makes it unusual is **how** it runs. It is a *single file* —
 `datalab.html` — that you open in an ordinary web browser (Chrome, Edge,
@@ -153,7 +158,7 @@ becomes easy to navigate.
 > `src/` files concatenated together by `build.js`. Review the `src/`
 > files, not the generated `datalab.html`.
 
-**1. `src/js/state.js`** *(~120 lines) — the data model. Start here.*
+**1. `src/js/state.js`** *(~155 lines) — the data model. Start here.*
 This defines `appState` (the central record sheet described above), the
 session-file format, the version number, and `escHtml` (the function that
 neutralizes potentially-dangerous text before it's shown — important for
@@ -161,14 +166,14 @@ security). Its comment block is the *authoritative* description of the data
 model; the planning docs intentionally don't duplicate it. Read this and
 you understand what every other file is manipulating.
 
-**2. `src/js/chart.js`** *(~300 lines) — the conductor.*
+**2. `src/js/chart.js`** *(~350 lines) — the conductor.*
 This is where the central record sheet becomes pixels. Its main function,
 `renderPlot()`, walks through your defined charts, calls the right renderer
 for each, and assembles the final figure (including multi-panel grids and
 secondary axes). If you understand this file, you understand the tool's
 flow of control.
 
-**3. `src/js/renderers/shared.js`** *(~250 lines) — the renderer contract +
+**3. `src/js/renderers/shared.js`** *(~275 lines) — the renderer contract +
 shared helpers.* The comment at the top is the *contract* every chart type
 must satisfy: given a series and the datasets, return either drawable
 shapes or a clear error. The file also holds helpers the renderers share —
@@ -200,10 +205,12 @@ read this, each individual renderer (`scatter.js`, `line.js`,
   name, a dataset name) is inserted into the page is escaped via `escHtml`
   and carries a comment saying so. This prevents *cross-site scripting* —
   malicious data masquerading as code.
-- **Honest statistics.** No statistic is shown without the context needed to
-  read it (a p-value always travels with its effect size and sample size;
-  error bars always say what they represent). This is a hard rule, not a
-  preference.
+- **Honest statistics and visuals.** No statistic is shown without the context
+  needed to read it (a p-value always travels with its effect size and sample
+  size; error bars always say what they represent). The same principle covers
+  the charts themselves: a color scale must actually be the one its label
+  names, and aggregated values must say how they were combined. This is a hard
+  rule, not a preference.
 
 ---
 
@@ -225,6 +232,15 @@ For a reviewer, the three guarantees most worth knowing:
 - **Accessibility** targets WCAG 2.1 AA and is automatically verified (via a
   tool called *axe*) on every change, with full keyboard operation. See
   `STANDARDS.md` §15.
+
+**An example of the honesty rule in practice.** In a recent release the team
+found that several of the color scales in the menu were quietly drawing the
+*wrong* colors — the menu said one thing, the chart showed another. Because
+"a control must show what it claims" is treated as an honesty rule (the same
+rule that governs statistics), this was logged as a defect, fixed in its own
+release right away, and a test was added so it can't silently come back. For a
+reviewer, the point isn't the bug itself — it's that the project treats a
+*visual that misleads* with the same seriousness as a *wrong number*.
 
 The full rulebook is `STANDARDS.md`; the roadmap and history of *what was
 built and why* is `PLANNING.md`.
