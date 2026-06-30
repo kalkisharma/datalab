@@ -88,6 +88,7 @@ const appJs = [
   'src/js/renderers/boxplot.js',
   'src/js/renderers/violin.js',
   'src/js/renderers/heatmap.js',
+  'src/js/renderers/pair.js',
 ].map(read).join('\n\n');
 
 // ── Assemble ──────────────────────────────────────────────────────────────

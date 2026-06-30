@@ -67,7 +67,7 @@ function buildModalBody(existing) {
     `<option value="${escHtml(ds.id)}" ${existing?.datasetId === ds.id ? 'selected' : ''}>${escHtml(ds.name)}</option>`
   ).join('');
 
-  const chartTypes = ['scatter','line','bar','parity','contour','histogram','boxplot','violin','heatmap'];
+  const chartTypes = ['scatter','line','bar','parity','contour','histogram','boxplot','violin','heatmap','pair'];
   const ctBtns = chartTypes.map(t =>
     `<button class="ct-btn ${existing?.chartType === t ? 'active' : ''}" data-ct="${t}">${t}</button>`
   ).join('');
@@ -158,9 +158,16 @@ function saveModalSeries() {
   const xCol = document.getElementById('mXCol')?.value || '';
   const yCol = document.getElementById('mYCol')?.value || '';
   const zCol = document.getElementById('mZCol')?.value || '';
+  // Pair plot (SPLOM): the checked numeric columns from the modal checklist.
+  const pairCols = chartType === 'pair'
+    ? [...document.querySelectorAll('.mPairCol')].filter(b => b.checked).map(b => b.value)
+    : null;
 
   // Required columns vary by chart type (see modal field matrix, PLANNING.md)
-  if (chartType === 'histogram') {
+  if (chartType === 'pair') {
+    if (pairCols.length < 2) { err.textContent = 'Select at least 2 numeric columns for the pair plot.'; return false; }
+    if (pairCols.length > 12) { err.textContent = `Too many columns (${pairCols.length}) — a pair plot is capped at 12 to stay readable. Trim the selection.`; return false; }
+  } else if (chartType === 'histogram') {
     if (!xCol) { err.textContent = 'A numeric column is required.'; return false; }
   } else if (chartType === 'boxplot') {
     if (!yCol) { err.textContent = 'Y column is required.'; return false; }
@@ -179,6 +186,26 @@ function saveModalSeries() {
     if (!xCol) { err.textContent = 'X column is required.'; return false; }
     if (!yCol) { err.textContent = 'Y column is required.'; return false; }
     if (chartType === 'contour' && !zCol) { err.textContent = 'Z column is required.'; return false; }
+  }
+
+  // A pair plot owns the whole panel (its own N×N axis grid) — it can't go in a
+  // subplot grid or share a plot with other series. Block both directions at
+  // save (renderPairPlot is the render-time backstop for hand-edited sessions).
+  const targetPlotId = document.getElementById('mPlot')?.value
+    || (_editingSeriesId && appState.series.find(s => s.id === _editingSeriesId)?.plotId)
+    || appState.activePlotId;
+  const targetPlot = appState.plots.find(p => p.id === targetPlotId);
+  const coResident = appState.series.filter(s =>
+    (s.plotId ?? appState.plots[0].id) === targetPlotId && s.id !== _editingSeriesId);
+  if (chartType === 'pair') {
+    if (targetPlot?.grid && targetPlot.grid.rows * targetPlot.grid.cols > 1) {
+      err.textContent = "A pair plot can't go in a subplot grid — choose a single-cell plot."; return false;
+    }
+    if (coResident.length) {
+      err.textContent = 'A pair plot uses the whole panel — it can’t share a plot with other series. Move it to its own plot.'; return false;
+    }
+  } else if (coResident.some(s => s.chartType === 'pair')) {
+    err.textContent = 'This plot holds a pair plot, which uses the whole panel — add this series to a different plot.'; return false;
   }
 
   const ds    = appState.datasets.find(d => d.id === dsId);
@@ -268,6 +295,7 @@ function saveModalSeries() {
     trendDegree: parseInt(document.getElementById('mTrendDeg')?.value) || 1, // scatter only (Phase 13)
     trendGroups: document.getElementById('mTrendGroups')?.checked ?? false, // scatter only (Phase 11)
     colorCol:  document.getElementById('mColorCol')?.value || null,
+    pairCols:  (chartType === 'pair' && pairCols && pairCols.length) ? pairCols : null, // SPLOM columns (null = all numeric)
     colorbarLabel: document.getElementById('mColorbarLabel')?.value.trim() || null, // numeric color-by (Phase 16)
     colormap:      document.getElementById('mColormap')?.value || null,             // per-series colormap override (v2.20.0; blank = inherit)
     colorbarTitleHide: document.getElementById('mColorbarHide')?.checked ?? false,   // hide the colorbar title (v2.18.0)

@@ -325,6 +325,34 @@ function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
       <div class="check-row">
         <label><input type="checkbox" id="mShowPoints" ${existing?.showPoints ? 'checked' : ''} /> Show data points <span class="field-hint" style="margin:0">(with Interpolate — shows where the surface is backed by data)</span></label>
       </div>`;
+  } else if (chartType === 'pair') {
+    // Pair plot (SPLOM): numeric-only multi-select checklist (NOT makeDD, which
+    // is single-select), default the first 8 (soft cap), + a categorical hue.
+    // The checklist + live cell-count + Select all/Clear are wired in
+    // modal-fields.js. A pair plot owns the whole panel (no co-resident series).
+    const numericCols = cols.filter(c => classifyColumn(ds.rows, c) === 'numeric');
+    const nonNum = cols.length - numericCols.length;
+    const sel = (Array.isArray(existing?.pairCols) && existing.pairCols.length)
+      ? new Set(existing.pairCols)
+      : new Set(numericCols.slice(0, 8));
+    const checks = numericCols.map(c =>
+      // escHtml applied to column name (value + label)
+      `<label class="pair-col-row" style="display:block;padding:1px 0"><input type="checkbox" class="mPairCol" value="${escHtml(c)}" ${sel.has(c) ? 'checked' : ''} /> ${escHtml(c)}</label>`
+    ).join('');
+    html = `
+      <div class="modal-section-title">Columns</div>
+      <div class="field-hint">Pick the numeric columns to cross-plot — every pair becomes a scatter; the diagonal is left blank.${nonNum ? ` ${nonNum} non-numeric column${nonNum > 1 ? 's' : ''} excluded.` : ''}</div>
+      <div style="margin:6px 0">
+        <button type="button" class="btn btn-sm" id="mPairAll">Select all</button>
+        <button type="button" class="btn btn-sm" id="mPairNone">Clear</button>
+        <span class="field-hint" id="mPairCount" style="margin-left:8px"></span>
+      </div>
+      <div class="pair-col-list" id="mPairColList" style="max-height:180px;overflow:auto;border:1px solid var(--border,#cccccc);border-radius:4px;padding:6px 8px">${checks || '<span class="field-hint">No numeric columns in this dataset.</span>'}</div>
+      <div class="modal-field" style="margin-top:12px">
+        <label class="modal-label" for="mColorCol">Color by group (optional, categorical)</label>
+        <select id="mColorCol"><option value="">None</option>${colOptions(existing?.colorCol, true)}</select>
+        <div class="field-hint">Colors points by a category — one color per group, like a hue.</div>
+      </div>`;
   }
   return html;
 }

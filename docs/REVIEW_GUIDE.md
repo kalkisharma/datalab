@@ -19,8 +19,9 @@ readers who want to go deeper.
 DataLab is a tool for making charts and doing statistics from spreadsheet
 data. You give it a CSV file (a plain-text spreadsheet — the kind Excel can
 export), and it draws a wide range of charts — scatter and line charts, bar
-charts, histograms, box and violin plots, heatmaps, contour maps, and
-model-vs-observed ("parity") plots — and computes statistics ranging from
+charts, histograms, box and violin plots, heatmaps, contour maps,
+model-vs-observed ("parity") plots, and pair plots (scatterplot matrices) —
+and computes statistics ranging from
 averages and correlations to formal group comparisons (t-tests, ANOVA, and
 their rank-based equivalents). You can control the appearance in detail —
 colors, color scales, fonts, labels, axes — export the results as images, and

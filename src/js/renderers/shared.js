@@ -27,6 +27,14 @@
 //   - Log scale guidance for each chart type is documented at the top of
 //     its renderer file. Data Viz Engineer writes it; Data Scientist reviews.
 //
+// Whole-plot renderers (v2.24.0, SPLOM): the 'pair' chartType is dispatched
+// SPECIALLY — renderOnePlot intercepts it BEFORE the series loop and lets the
+// renderer own the entire figure layout (its own N×N axis grid: xaxis1..N /
+// yaxis1..N). It still returns { traces, layout, error, warning }, but that
+// layout is merged WHOLESALE (no per-cell axis remap) and the series may NOT
+// co-exist with other series or a subplot grid. A documented carve-out from the
+// single-axis-pair rule, not a change to it (EL + Data Viz, §7).
+//
 // Shared utilities (colVals, buildMarkerStyle, colorMapping) are helpers
 // in this file — not part of the interface. Tested via renderers.
 //

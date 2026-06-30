@@ -201,6 +201,27 @@ function renderDynamicFields(existing) {
     syncParityJoin(); // initial populate / restore
   }
 
+  // Pair plot (SPLOM): live cell-count readout + Select all / Clear for the
+  // numeric column checklist. Mirrors the save-time soft/hard caps (8 / 12).
+  const mPairList = document.getElementById('mPairColList');
+  if (mPairList) {
+    const boxes = () => [...mPairList.querySelectorAll('.mPairCol')];
+    const countEl = document.getElementById('mPairCount');
+    const SOFT = 8, HARD = 12;
+    const syncPairCount = () => {
+      const n = boxes().filter(b => b.checked).length;
+      let msg = `${n} column${n === 1 ? '' : 's'} → ${n * n} cell${n * n === 1 ? '' : 's'}`;
+      if (n > HARD)      msg += ` — over the ${HARD}-column limit; trim before saving`;
+      else if (n > SOFT) msg += ' — a lot to read at once';
+      else if (n < 2)    msg += ' — pick at least 2';
+      if (countEl) countEl.textContent = msg;
+    };
+    mPairList.addEventListener('change', syncPairCount);
+    document.getElementById('mPairAll')?.addEventListener('click', () => { boxes().forEach(b => { b.checked = true; }); syncPairCount(); });
+    document.getElementById('mPairNone')?.addEventListener('click', () => { boxes().forEach(b => { b.checked = false; }); syncPairCount(); });
+    syncPairCount();
+  }
+
   // Wire filter list
   renderFilterList(existing?.filters || [], ds);
   document.getElementById('mAddFilter').addEventListener('click', () => {

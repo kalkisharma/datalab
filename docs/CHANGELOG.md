@@ -1,5 +1,44 @@
 # Changelog
 
+## v2.24.0 — Pair plots (scatterplot matrix / SPLOM)
+
+### Features
+- **Pair plot — a new chart type.** Scatters every selected numeric column
+  against every other in an N×N matrix, so all pairwise relationships are
+  visible at once. Pick the columns from a numeric-only checklist (Select all /
+  Clear); it defaults to the first 8 and warns past that — the matrix gets
+  unreadable beyond ~8 columns (>12 is blocked).
+- **Color by group (categorical hue).** Color points by a category — one color
+  per group, like a seaborn `hue` — to see cluster/group separation across every
+  pair simultaneously.
+- **Honest by construction (§20).** No correlation _r_ is shown (the scatter is
+  the honest primitive; the Data Tools correlation heatmap remains the _r_
+  surface). Cells use pairwise-complete points, so different cells can have
+  different n — disclosed in a note whenever a selected column has gaps. The
+  diagonal is left blank (Plotly's SPLOM can't draw a histogram there) with each
+  variable labeled on the matrix edge.
+- A pair plot owns the whole panel — it can't go in a subplot grid or share a
+  plot with other series (blocked when you save it).
+
+## Schema
+### v2.24.0 (state version unchanged at 2 — all additive, no migration)
+- New `chartType` value `pair` (a WHOLE-PLOT type, dispatched specially).
+- New optional `series.pairCols` (`string[]` of numeric columns; absent/null =
+  all numeric in the dataset, resolved at render). The categorical hue reuses the
+  existing `series.colorCol`. `xCol`/`yCol` are unused for `pair`.
+- v2.0–v2.23 session files load unchanged.
+
+### Internal
+- §7: first **whole-plot** renderer — `pair` is intercepted by `renderPairPlot`
+  before the per-series loop and owns the entire figure layout (its own N×N axis
+  grid, merged wholesale). A documented carve-out from the single-axis-pair rule,
+  not a change to it (comment amendment in `shared.js`).
+- §6: `chart.js` (354), `modal.js` (366), `modal-chart-fields.js` (358) are over
+  the ~300 trigger and **tolerated** this release (house precedent, e.g.
+  v2.14.0). The subplot-grid + whole-plot dispatch in `chart.js` is interleaved
+  with the series loop, so its extraction (→ `render-grid.js`) is the standing
+  named seam for a dedicated refactor rather than riding this feature release.
+
 ## v2.23.0 — Parity 3-way bridge join
 
 ### Features

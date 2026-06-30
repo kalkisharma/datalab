@@ -14,6 +14,7 @@ const RENDERERS = {
   boxplot:   buildBoxplotTrace,
   violin:    buildViolinTrace,
   heatmap:   buildHeatmapTrace,
+  pair:      buildPairTrace,
 };
 
 // ── renderPlot — renders the whole grid ───────────────────────────────────
@@ -56,6 +57,13 @@ function renderOnePlot(plot) {
   const pd = plotDivFor(plot.id);
   if (!pd) return;
 
+  // Pair plot (SPLOM) is a WHOLE-PLOT type: it owns its own N×N axis grid, so
+  // it can't go through the single-axis-pair loop or coexist with the subplot
+  // grid. Intercept it here, before any grid/loop machinery (§7 carve-out).
+  const pairSeries = appState.series.find(s =>
+    (s.plotId ?? appState.plots[0].id) === plot.id && s.enabled !== false && s.chartType === 'pair');
+  if (pairSeries) { renderPairPlot(plot, pd, pairSeries); return; }
+
   const traces   = [];
   const errors   = [];
   const warnings = [];
@@ -95,6 +103,7 @@ function renderOnePlot(plot) {
   for (const s of appState.series) {
     if ((s.plotId ?? appState.plots[0].id) !== plot.id) continue;
     if (s.enabled === false) continue;
+    if (s.chartType === 'pair') continue; // whole-plot type — handled by the early branch above
     if (!RENDERERS[s.chartType]) continue;
 
     const cell  = grid ? cellOf(s) : null;
@@ -264,6 +273,50 @@ function renderOnePlot(plot) {
   // Persist dragged legend(s) / annotations / zoom per panel (Phase 6+, now in
   // decorations.js — the §6 seam discharged at v2.22.0). Re-bound after
   // clearPanel replaces the node (guarded by pd._legendHooked inside).
+  bindRelayoutPersistence(pd, plot);
+}
+
+// ── renderPairPlot — whole-plot SPLOM render path ─────────────────────────
+// A pair plot owns the entire figure (its own N×N axis grid), so it bypasses
+// the per-cell series loop, the subplot grid, and the axis remap. The renderer
+// returns themed axes 1..N which we merge wholesale onto the base layout.
+function renderPairPlot(plot, pd, series) {
+  const errors = [], warnings = [];
+
+  // A pair plot uses the whole panel — disclose any co-resident series that a
+  // hand-edited session may have left on this plot (save-time blocks this; this
+  // is the render-time backstop, §8 fail-closed).
+  const others = appState.series.filter(s =>
+    (s.plotId ?? appState.plots[0].id) === plot.id && s.enabled !== false && s.id !== series.id);
+  if (others.length) warnings.push({ name: 'Pair plot',
+    warning: `${others.length} other series on this plot ${others.length > 1 ? 'are' : 'is'} hidden — a pair plot uses the whole panel.` });
+
+  // validateSeriesColumns self-heals pairCols (renderer drops missing); only a
+  // removed dataset is fatal here.
+  const result = buildSeriesResult(series, { xLog: false });
+  if (result.error) {
+    errors.push({ name: series.name, error: result.error });
+    showPanelErrors(plot.id, errors, warnings);
+    Plotly.react(pd, [], buildBaseLayout(plot), { responsive: true, displaylogo: false });
+    return;
+  }
+  if (result.warning) warnings.push({ name: series.name, warning: result.warning });
+
+  // Base layout carries the theme, title, legend, and typography; the single
+  // xaxis/yaxis don't apply to a matrix (the renderer supplies xaxis..xaxisN).
+  const layout = buildBaseLayout(plot);
+  delete layout.xaxis; delete layout.yaxis;
+  Object.assign(layout, result.layout);
+
+  showPanelErrors(plot.id, errors, warnings);
+
+  const srEl = document.getElementById('plotSR-' + plot.id);
+  if (srEl) srEl.textContent = `Pair plot (scatterplot matrix): ${series.name}.`;
+
+  Plotly.react(pd, result.traces, layout, {
+    responsive: true, displayModeBar: true, displaylogo: false,
+    edits: { legendPosition: true, annotationPosition: true },
+  });
   bindRelayoutPersistence(pd, plot);
 }
 

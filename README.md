@@ -29,7 +29,9 @@ Maintainer: Kalki Sharma <kalkijsharma@gmail.com>
   bands; colorable and sizeable by a column from the observed dataset),
   contour (pre-gridded data), histogram (Freedman-Diaconis
   auto-binning), box plot (Tukey whiskers), violin, heatmap (category ×
-  category with explicit aggregation)
+  category with explicit aggregation), pair plot / scatterplot matrix
+  (every numeric column against every other, with an optional categorical
+  hue)
 - **Self-describing encodings:** color a series by a column — categories
   get a named legend, numbers a labeled colorbar (editable label) — and
   size markers by a column, area- or diameter-proportional, with a

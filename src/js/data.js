@@ -186,6 +186,12 @@ function validateSeriesColumns(s, datasets) {
       // Same-dataset parity: Y is a column of this dataset
       check(s.yCol, 'Y column', ds.headers);
     }
+  } else if (s.chartType === 'pair') {
+    // Whole-plot SPLOM: pairCols self-heal — renderPairPlot drops columns no
+    // longer in the dataset and warns (<2 survivors is the hard error there),
+    // so they are NOT reported as missing here. Only the categorical hue is a
+    // normal column reference.
+    check(s.colorCol, 'color column', ds.headers);
   } else {
     check(s.yCol, 'Y column', ds.headers);
     check(s.colorCol, 'color column', ds.headers);

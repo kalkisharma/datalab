@@ -82,7 +82,7 @@ state → data → ui → filters → modal → modal-chart-fields → modal-fie
 → export → sessions → stats → distributions → specfun → hypothesis
 → expr → compare → datatools → dt-preview → saves → wiring → grid-interp
 → renderers/shared → scatter → line → bar → parity → contour
-→ histogram → boxplot → violin → heatmap
+→ histogram → boxplot → violin → heatmap → pair
 ```
 
 ---
@@ -265,6 +265,7 @@ Scientist sign-off** for its statistical conventions. Summary:
 | `boxplot.js` | box plot | Tukey whiskers; warns above 50 categorical X values. |
 | `violin.js` | violin | Plotly-native violin with the Tukey box inside. |
 | `heatmap.js` | heatmap | Categorical X × categorical Y × explicit aggregation; colorbar names the aggregation. |
+| `pair.js` | pair / SPLOM | **Whole-plot type** (v2.24.0) — a scatterplot matrix of selected numeric columns. Dispatched specially by `renderPairPlot` (chart.js) *before* the series loop because the Plotly `splom` trace owns its own N×N axis grid; the renderer returns themed axes 1..N merged wholesale. Categorical hue = one splom trace per group (`categoryGroupsFromValues`). §20: no _r_ by default, pairwise-complete n disclosed, blank/edge-labeled diagonal (Plotly's splom can't draw a histogram there). Blocked from subplot grids + co-resident series. Column cap: warn >8, cap/block >12. |
 
 ---
 
@@ -517,6 +518,7 @@ is overdue for its phase-exit update.
 | `renderers/boxplot.js` | Box plot (Tukey) |
 | `renderers/violin.js` | Violin |
 | `renderers/heatmap.js` | Heatmap (category × category) |
+| `renderers/pair.js` | Pair plot / SPLOM (whole-plot; categorical hue, blank diagonal) |
 
 Non-`src/js` files: `src/index.html` (page shell + CSP + injection markers),
 `src/style.css`, `build.js` (assembler), `lib/` (pinned dependencies),
