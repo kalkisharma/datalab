@@ -491,7 +491,7 @@ is overdue for its phase-exit update.
 | `grid.js` | Multi-plot grid: panel lifecycle, active plot |
 | `chart.js` | `renderPlot`/`renderOnePlot` dispatcher; `RENDERERS` map |
 | `render-cache.js` | Per-series trace memoization (`buildSeriesResult`) |
-| `decorations.js` | Right-Y, parity stats box, notes, log interactions |
+| `decorations.js` | Right-Y, parity stats box, notes, per-cell titles, shared-colorbar config, log interactions, and the `plotly_relayout` persistence hook (`bindRelayoutPersistence`, moved from chart.js at v2.22.0) |
 | `layout.js` | Plot theme, base layout, colorbar fonts |
 | `export.js` | PNG/SVG/ZIP export, style presets |
 | `sessions.js` | Full-state JSON session export/import + migrations |

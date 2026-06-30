@@ -279,3 +279,26 @@ for (const [label, payload] of [['PAYLOAD_SCRIPT', PAYLOAD_SCRIPT], ['PAYLOAD_IM
     expect(await xssNotExecuted(page)).toBe(true);
   });
 }
+
+// Per-subplot title / axis labels + shared colorbar label (v2.22.0): new Plotly
+// text sinks — inert SVG, not escHtml'd, so prove non-execution here (§8).
+for (const [label, payload] of [['PAYLOAD_SCRIPT', PAYLOAD_SCRIPT], ['PAYLOAD_IMG', PAYLOAD_IMG]]) {
+  test(`per-cell title / labels + shared colorbar label: ${label} does not execute`, async ({ page }) => {
+    await loadApp(page);
+    await loadCSV(page, 'x,y,z\n1,2,10\n3,4,20\n5,6,30\n7,8,40', '_xss_cells.csv');
+    await page.evaluate((p) => {
+      const ds = appState.datasets[0], pid = appState.plots[0].id, plot = appState.plots[0];
+      plot.grid = { rows: 1, cols: 2, shareX: false, shareY: false };
+      plot.plotConfig.cells = { '1,1': { title: p, xLabel: p, yLabel: p } };
+      plot.plotConfig.sharedColorCol = 'z';
+      plot.plotConfig.colorbar = { label: p, min: 0, max: 50 };
+      appState.series = [
+        { id: 'a', name: 'a', datasetId: ds.id, plotId: pid, chartType: 'scatter', xCol: 'x', yCol: 'y', filters: [], style: {}, cell: { row: 1, col: 1 } },
+        { id: 'b', name: 'b', datasetId: ds.id, plotId: pid, chartType: 'scatter', xCol: 'x', yCol: 'y', filters: [], style: {}, cell: { row: 1, col: 2 } },
+      ];
+      renderPlot();
+    }, payload);
+    await page.waitForTimeout(500);
+    expect(await xssNotExecuted(page)).toBe(true);
+  });
+}

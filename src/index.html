@@ -68,24 +68,28 @@
       <summary>Plot settings</summary>
       <div class="details-body">
         <div class="ctrl-label" id="activePlotLabel" style="color:var(--accent)">Editing: Plot 1</div>
+        <!-- Title / axis labels suggest the loaded datasets' column names via a
+             native <datalist> (v2.22.0): type freely or pick a suggestion;
+             editing/picking locks the label (the "auto" button reverts). -->
         <label class="ctrl-label">Title
           <div class="input-lock-row">
-            <input type="text" class="ctrl-input" id="inputTitle" placeholder="Auto" />
+            <input type="text" class="ctrl-input" id="inputTitle" placeholder="Auto" list="labelCols" />
             <button class="lock-btn" id="titleLock" title="Lock title">auto</button>
           </div>
         </label>
         <label class="ctrl-label">X axis label
           <div class="input-lock-row">
-            <input type="text" class="ctrl-input" id="inputXLabel" placeholder="Auto" />
+            <input type="text" class="ctrl-input" id="inputXLabel" placeholder="Auto" list="labelCols" />
             <button class="lock-btn" id="xLabelLock" title="Lock X label">auto</button>
           </div>
         </label>
         <label class="ctrl-label">Y axis label
           <div class="input-lock-row">
-            <input type="text" class="ctrl-input" id="inputYLabel" placeholder="Auto" />
+            <input type="text" class="ctrl-input" id="inputYLabel" placeholder="Auto" list="labelCols" />
             <button class="lock-btn" id="yLabelLock" title="Lock Y label">auto</button>
           </div>
         </label>
+        <datalist id="labelCols"></datalist>
         <div class="check-row" style="margin-top:10px;">
           <label><input type="checkbox" id="majorGrid" checked /> Major grid</label>
           <label><input type="checkbox" id="minorGrid" /> Minor grid</label>
@@ -138,6 +142,44 @@
           <label class="ctrl-label">Size by — all cells
             <select id="sharedSizeCol"><option value="">Per series</option></select>
           </label>
+          <!-- Shared colorbar override (v2.22.0): shown when a shared Color-by is
+               set; overrides each series' Colorbar section. -->
+          <details id="sharedColorbarWrap" style="display:none;margin-top:6px;">
+            <summary class="ctrl-label" style="cursor:pointer;">Shared colorbar</summary>
+            <div class="field-hint" style="margin:4px 0;">One colorbar for all cells — overrides each series' Colorbar settings.</div>
+            <label class="ctrl-label" for="sharedCbMap" style="margin:0;">Colormap
+              <select id="sharedCbMap"><option value="">Inherit (plot / global)</option></select>
+            </label>
+            <label class="ctrl-label" for="sharedCbTitle" style="margin-top:4px;">Colorbar title
+              <input type="text" class="ctrl-input" id="sharedCbTitle" placeholder="column name" />
+            </label>
+            <div class="check-row" style="margin-top:4px;">
+              <label><input type="checkbox" id="sharedCbHide" /> Hide title</label>
+              <label><input type="checkbox" id="sharedCbReverse" /> Reverse</label>
+            </div>
+            <div class="edge-row" style="margin-top:4px;">
+              <label class="modal-label" for="sharedCbMin" style="margin:0;">Min <input type="number" class="ctrl-input" id="sharedCbMin" placeholder="auto" style="width:72px;" /></label>
+              <label class="modal-label" for="sharedCbMax" style="margin:0;">Max <input type="number" class="ctrl-input" id="sharedCbMax" placeholder="auto" style="width:72px;" /></label>
+            </div>
+          </details>
+          <!-- Per-subplot label/title overrides (v2.22.0): the Edit-cell selector
+               re-points the three fields below at the chosen cell. Blank = auto. -->
+          <div id="cellOverrideWrap" style="display:none;margin-top:8px;">
+            <div class="field-hint" style="margin:0 0 4px;">Per-subplot overrides (blank = auto):</div>
+            <label class="ctrl-label" for="cellTarget" style="margin:0;">Edit cell
+              <select id="cellTarget" aria-describedby="cellTargetStatus"></select>
+            </label>
+            <span id="cellTargetStatus" class="sr-only" aria-live="polite"></span>
+            <label class="ctrl-label" for="cellTitle" style="margin-top:4px;">Title
+              <input type="text" class="ctrl-input" id="cellTitle" placeholder="Auto (blank)" />
+            </label>
+            <label class="ctrl-label" for="cellXLabel">X label
+              <input type="text" class="ctrl-input" id="cellXLabel" placeholder="Auto (blank)" list="labelCols" />
+            </label>
+            <label class="ctrl-label" for="cellYLabel">Y label
+              <input type="text" class="ctrl-input" id="cellYLabel" placeholder="Auto (blank)" list="labelCols" />
+            </label>
+          </div>
         </div>
         <!-- Bulk axis retarget: set X/Y for every series in this plot at once -->
         <div id="bulkAxisWrap" style="display:none;">

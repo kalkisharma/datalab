@@ -134,6 +134,154 @@ function appendNotes(layout, plot, pd, srParts) {
   pd._noteOffset = (layout.annotations?.length ?? 0) - notes.length;
 }
 
+// Per-subplot titles (v2.22.0): a config-driven title per cell, positioned at
+// the top of the cell via axis-DOMAIN refs (the parity-stats-box pattern, so it
+// tracks the cell on grid resize). Appended AFTER notes so a stray drag lands
+// outside both the note and parity-box index ranges in the relayout hook and is
+// simply ignored — titles are config-driven, never persisted by drag. Mirrored
+// in the .sr-only summary (Plotly SVG text isn't exposed to screen readers).
+function appendCellTitles(layout, plot, grid, srParts) {
+  if (!grid) return;
+  const cells = plot.plotConfig.cells || {};
+  const th = plotTheme();
+  const fsT = parseFloat(document.getElementById('fsTitle')?.value) || 14;
+  const adds = [];
+  for (const [key, ov] of Object.entries(cells)) {
+    if (!ov || !ov.title) continue;
+    const m = /^(\d+),(\d+)$/.exec(key);
+    if (!m) continue;
+    const r = +m[1], c = +m[2];
+    if (r < 1 || r > grid.rows || c < 1 || c > grid.cols) continue;
+    const k = (r - 1) * grid.cols + c;
+    const sfx = k === 1 ? '' : String(k);
+    adds.push({
+      x: 0.5, y: 1.0, xref: `x${sfx} domain`, yref: `y${sfx} domain`,
+      xanchor: 'center', yanchor: 'bottom', yshift: 6,
+      // Plotly annotation text is inert SVG (XSS-suite covered, §8) — not escHtml'd
+      text: ov.title, showarrow: false,
+      font: { size: Math.round(fsT * 0.9), color: th.title },
+    });
+    srParts.push(`Subplot R${r}C${c} title: ${ov.title}`);
+  }
+  if (adds.length) layout.annotations = [...(layout.annotations ?? []), ...adds];
+}
+
+// Per-panel plotly_relayout persistence (extracted from chart.js at the v2.22.0
+// §6 split — the named seam recorded since v2.14.0). Persists a dragged legend
+// and second legend (clamped to the figure), dragged annotations (notes vs the
+// parity stats box, routed by pd._noteOffset), and interactive zoom/pan into
+// plotConfig. Bound once per plot div; re-bound after clearPanel replaces it.
+function bindRelayoutPersistence(pd, plot) {
+  if (pd._legendHooked) return;
+  pd.on('plotly_relayout', e => {
+    if (e['legend.x'] !== undefined || e['legend.y'] !== undefined) {
+      const clamp = v => Math.max(0, Math.min(1, v));
+      const lx = clamp(e['legend.x'] ?? plot.plotConfig.legendPos?.x ?? 0.01);
+      const ly = clamp(e['legend.y'] ?? plot.plotConfig.legendPos?.y ?? 0.99);
+      plot.plotConfig.legendPos = { x: lx, y: ly };
+      const outX = e['legend.x'] !== undefined && (e['legend.x'] < 0 || e['legend.x'] > 1);
+      const outY = e['legend.y'] !== undefined && (e['legend.y'] < 0 || e['legend.y'] > 1);
+      if (outX || outY) { try { Plotly.relayout(pd, { 'legend.x': lx, 'legend.y': ly }); } catch (err) {} }
+    }
+    // Second legend (Phase 19): persists and clamps like the main legend.
+    if (e['legend2.x'] !== undefined || e['legend2.y'] !== undefined) {
+      const clamp = v => Math.max(0, Math.min(1, v));
+      const lx = clamp(e['legend2.x'] ?? plot.plotConfig.legend2Pos?.x ?? 0.99);
+      const ly = clamp(e['legend2.y'] ?? plot.plotConfig.legend2Pos?.y ?? 0.99);
+      plot.plotConfig.legend2Pos = { x: lx, y: ly };
+      const outX = e['legend2.x'] !== undefined && (e['legend2.x'] < 0 || e['legend2.x'] > 1);
+      const outY = e['legend2.y'] !== undefined && (e['legend2.y'] < 0 || e['legend2.y'] > 1);
+      if (outX || outY) { try { Plotly.relayout(pd, { 'legend2.x': lx, 'legend2.y': ly }); } catch (err) {} }
+    }
+    // Dragged annotations: indices past _noteOffset are notes (Phase 14); before
+    // it is the parity stats box (Stab A → plotConfig.annotPos). Per-cell titles
+    // (v2.22.0) sit past both ranges and are intentionally ignored here.
+    for (const k of Object.keys(e)) {
+      const m = /^annotations\[(\d+)\]\.(x|y)$/.exec(k);
+      if (!m) continue;
+      const ai = parseInt(m[1]);
+      const noteIdx = ai - (pd._noteOffset ?? 0);
+      const ns = plot.plotConfig.notes ?? [];
+      if (noteIdx >= 0 && noteIdx < ns.length) {
+        ns[noteIdx][m[2]] = e[k];
+      } else if (ai < (pd._noteOffset ?? 0)) {
+        plot.plotConfig.annotPos = plot.plotConfig.annotPos || { x: 0.98, y: 0.04 };
+        plot.plotConfig.annotPos[m[2]] = e[k];
+      }
+    }
+    // Persist interactive zoom/pan (base xaxis/yaxis only; parity re-forces its
+    // own equal-axis range). Plotly emits xaxis.range[0/1] on zoom, xaxis.autorange
+    // on a double-click reset. Mirror into the panel Min/Max inputs when active.
+    const isActive = plot.id === activePlot().id;
+    for (const ax of ['xaxis', 'yaxis']) {
+      const cfgMin = ax === 'xaxis' ? 'xMin' : 'yMin';
+      const cfgMax = ax === 'xaxis' ? 'xMax' : 'yMax';
+      const isLog  = ax === 'xaxis' ? plot.plotConfig.xLog : plot.plotConfig.yLog;
+      const lo = e[`${ax}.range[0]`], hi = e[`${ax}.range[1]`];
+      if (lo !== undefined && hi !== undefined) {
+        const conv = v => isLog ? Math.pow(10, v) : v;
+        plot.plotConfig[cfgMin] = String(conv(lo));
+        plot.plotConfig[cfgMax] = String(conv(hi));
+      } else if (e[`${ax}.autorange`]) {
+        plot.plotConfig[cfgMin] = ''; plot.plotConfig[cfgMax] = '';
+      } else continue;
+      if (isActive) {
+        const elMin = document.getElementById(cfgMin), elMax = document.getElementById(cfgMax);
+        if (elMin) elMin.value = plot.plotConfig[cfgMin];
+        if (elMax) elMax.value = plot.plotConfig[cfgMax];
+      }
+    }
+  });
+  pd._legendHooked = true;
+}
+
+// Plot-level shared-colorbar override (v2.22.0). Active only when a subplot grid
+// has a shared color-by AND plotConfig.colorbar is set. Returns the per-series
+// fields to bake onto EVERY series so all cells share ONE scale — the honest
+// precondition for a single colorbar — with the colour range forced: explicit
+// min/max, else the union over the plot's shared-colour values (a single bar over
+// per-cell auto-scales would misread, §20). Returns null when inactive.
+function sharedColorbarConfig(plot) {
+  const cfg = plot.plotConfig;
+  const grid = plot.grid && plot.grid.rows * plot.grid.cols > 1; // grid lives on plot, not plotConfig
+  if (!grid || !cfg.sharedColorCol || !cfg.colorbar) return null;
+  const cb = cfg.colorbar;
+  const out = { colorReverse: !!cb.reverse, colorbarTitleHide: !!cb.titleHide };
+  if (cb.colormap) out.colormap = cb.colormap;
+  if (cb.label) out.colorbarLabel = cb.label;
+  let dlo = Infinity, dhi = -Infinity;
+  if (!Number.isFinite(cb.min) || !Number.isFinite(cb.max)) {
+    for (const s of appState.series) {
+      if ((s.plotId ?? appState.plots[0].id) !== plot.id || s.enabled === false) continue;
+      const ds = appState.datasets.find(d => d.id === s.datasetId);
+      if (!ds || !(ds.headers || []).includes(cfg.sharedColorCol)) continue;
+      const rows = applyFilters(ds.rows, s.filters || [], s.filterLogic || 'and');
+      for (const v of colVals(rows, cfg.sharedColorCol)) {
+        if (Number.isFinite(v)) { if (v < dlo) dlo = v; if (v > dhi) dhi = v; }
+      }
+    }
+  }
+  const cmin = Number.isFinite(cb.min) ? cb.min : dlo;
+  const cmax = Number.isFinite(cb.max) ? cb.max : dhi;
+  if (Number.isFinite(cmin)) out.colorMin = cmin;
+  if (Number.isFinite(cmax)) out.colorMax = cmax;
+  return out;
+}
+
+// Keep exactly one colorbar when a shared colorbar is active (v2.22.0): the first
+// colour-mapped trace keeps its bar; the rest are silenced so N identical bars
+// don't stack. Covers marker color-by (scatter/parity) and trace-level colorbars.
+function suppressExtraColorbars(traces) {
+  let kept = false;
+  for (const t of traces) {
+    const mk = t.marker;
+    if (!(mk && (mk.showscale || mk.colorbar)) && !(t.showscale || t.colorbar)) continue;
+    if (!kept) { kept = true; continue; }
+    if (mk) { mk.showscale = false; delete mk.colorbar; }
+    t.showscale = false; delete t.colorbar;
+  }
+}
+
 // Log-axis interactions (Phase 9 rulings, per-cell since Phase 10, moved
 // here at the Phase 14 exit refactor review — verbatim from chart.js):
 // non-positive counts surfaced (Plotly drops them silently); parity ranges

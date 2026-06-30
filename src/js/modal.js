@@ -324,6 +324,7 @@ function saveModalSeries() {
   }
 
   renderSeriesList();
+  syncActivePlotInputs(); // refresh shared color/size + colorbar options after a series add (v2.22.0)
   scheduleRender();
   closeModal();
   if (appState.plotRendered) debounceRender();

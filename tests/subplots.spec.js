@@ -38,6 +38,61 @@ async function addSeries(page, ct, fields, name, cell) {
   await page.waitForTimeout(120);
 }
 
+// ── Per-cell label/title overrides (v2.22.0) ───────────────────────────────
+test('per-cell axis labels + title override the auto labels', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'x,y,z\n1,2,9\n3,4,7\n5,6,5', '_sub_cells.csv');
+  const out = await page.evaluate(() => {
+    const ds = appState.datasets[0], pid = appState.plots[0].id, plot = appState.plots[0];
+    plot.grid = { rows: 1, cols: 2, shareX: false, shareY: false };
+    plot.plotConfig.cells = { '1,2': { xLabel: 'Custom X', yLabel: 'Custom Y', title: 'Cell Two' } };
+    appState.series = [
+      { id: 'a', name: 'a', datasetId: ds.id, plotId: pid, chartType: 'scatter', xCol: 'x', yCol: 'y', filters: [], style: {}, cell: { row: 1, col: 1 } },
+      { id: 'b', name: 'b', datasetId: ds.id, plotId: pid, chartType: 'scatter', xCol: 'x', yCol: 'z', filters: [], style: {}, cell: { row: 1, col: 2 } },
+    ];
+    renderPlot();
+    const fl = activePlotDiv()._fullLayout;
+    return {
+      x2: fl.xaxis2.title.text, y2: fl.yaxis2.title.text, x1: fl.xaxis.title.text,
+      title: (fl.annotations || []).map(a => a.text).find(t => t === 'Cell Two'),
+      sr: document.getElementById('plotSR-' + pid)?.textContent || '',
+    };
+  });
+  expect(out.x2).toBe('Custom X');   // per-cell override
+  expect(out.y2).toBe('Custom Y');
+  expect(out.x1).toBe('x');          // the other cell stays auto
+  expect(out.title).toBe('Cell Two'); // per-cell title annotation
+  expect(out.sr).toContain('Subplot R1C2 title: Cell Two'); // .sr-only mirror
+});
+
+test('shared colorbar override: one bar, forced range, overrides per-series', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'x,y,z\n1,2,10\n3,4,20\n5,6,30\n7,8,40', '_sub_cb.csv');
+  const out = await page.evaluate(() => {
+    const ds = appState.datasets[0], pid = appState.plots[0].id, plot = appState.plots[0];
+    plot.grid = { rows: 1, cols: 2, shareX: false, shareY: false };
+    plot.plotConfig.sharedColorCol = 'z';
+    plot.plotConfig.colorbar = { colormap: 'Plasma', label: 'Z scale', titleHide: false, reverse: true, min: 0, max: 50 };
+    appState.series = [
+      { id: 'a', name: 'a', datasetId: ds.id, plotId: pid, chartType: 'scatter', xCol: 'x', yCol: 'y', filters: [], style: {}, cell: { row: 1, col: 1 } },
+      { id: 'b', name: 'b', datasetId: ds.id, plotId: pid, chartType: 'scatter', xCol: 'x', yCol: 'y', filters: [], style: {}, cell: { row: 1, col: 2 } },
+    ];
+    renderPlot();
+    const withScale = activePlotDiv()._fullData.filter(t => t.marker && t.marker.showscale);
+    const bar = withScale[0];
+    return {
+      n: withScale.length, cmin: bar.marker.cmin, cmax: bar.marker.cmax,
+      reverse: bar.marker.reversescale, title: bar.marker.colorbar.title.text,
+      csArray: Array.isArray(bar.marker.colorscale),
+    };
+  });
+  expect(out.n).toBe(1);                  // exactly one colorbar
+  expect(out.cmin).toBe(0); expect(out.cmax).toBe(50); // forced shared range
+  expect(out.reverse).toBe(true);
+  expect(out.title).toBe('Z scale');      // plot override label
+  expect(out.csArray).toBe(true);         // Plasma → explicit array
+});
+
 test('2×2 grid assigns traces to cell axes with per-cell auto labels', async ({ page }) => {
   await page.goto(FILE_URL);
   await loadCSV(page, 'x,y,z\n1,2,9\n3,4,7\n5,6,5', '_sub_basic.csv');

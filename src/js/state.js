@@ -2,7 +2,7 @@
 
 // Single source of truth for the app version (STANDARDS.md §3).
 // build.js parses the declaration below — do not rename or reformat it.
-const VERSION = '2.21.0';
+const VERSION = '2.22.0';
 
 // ── appState ──────────────────────────────────────────────────────────────
 //
@@ -93,6 +93,8 @@ function makeDefaultPlotConfig() {
     legend2Pos:   null,   // { x, y }; second legend for opt-in size keys (Phase 19), null = default corner
     xMin: '', xMax: '', yMin: '', yMax: '', // manual axis ranges ('' = auto)
     colormap: null, // per-plot colormap override (v2.20.0); null = inherit the global picker
+    cells:    {},   // per-subplot overrides (v2.22.0), keyed "r,c": { xLabel?, yLabel?, title? }; blank = auto
+    colorbar: null, // plot-level shared-colorbar override (v2.22.0); null = use per-series colorbar fields
     // Log axis toggles (Phase 9 — additive with defaults, no migration §3)
     xLog: false, yLog: false,
     // Free-text notes (Phase 14): [{ id, text, x, y }] in paper coords

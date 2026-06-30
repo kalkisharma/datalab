@@ -187,9 +187,36 @@ function bulkSetAxis(axis, col) {
     + (skipped ? ` — ${skipped} skipped (no "${col}" column)` : '') + '.', skipped ? 'warn' : 'success');
 }
 
+// Column-name suggestions for the Title / X / Y label inputs (v2.22.0): the
+// union of every loaded dataset's headers. innerHTML — names escaped for the
+// option value attribute (§8); datalist options are inert, not a script sink.
+function populateLabelDatalist() {
+  const dl = document.getElementById('labelCols');
+  if (!dl) return;
+  const cols = new Set();
+  appState.datasets.forEach(d => (d.headers || []).forEach(c => cols.add(c)));
+  // innerHTML: column names (user data) escaped via escHtml into the value attribute
+  dl.innerHTML = [...cols].map(c => `<option value="${escHtml(c)}"></option>`).join('');
+}
+
+// Load the Edit-cell selector's current cell overrides into the three fields,
+// and announce the target for screen readers (v2.22.0).
+function loadCellOverrideFields() {
+  const cfg = activePlot().plotConfig;
+  const key = document.getElementById('cellTarget')?.value || '';
+  const ov = (cfg.cells && cfg.cells[key]) || {};
+  document.getElementById('cellTitle').value  = ov.title  ?? '';
+  document.getElementById('cellXLabel').value = ov.xLabel ?? '';
+  document.getElementById('cellYLabel').value = ov.yLabel ?? '';
+  const m = /^(\d+),(\d+)$/.exec(key);
+  const status = document.getElementById('cellTargetStatus');
+  if (status && m) status.textContent = `Editing Row ${m[1]}, Column ${m[2]}`;
+}
+
 function syncActivePlotInputs() {
   const cfg = activePlot().plotConfig;
   const g = id => document.getElementById(id);
+  populateLabelDatalist();
   g('activePlotLabel').textContent = `Editing: ${activePlot().name}`;
   g('inputTitle').value  = cfg.title  || '';
   g('inputXLabel').value = cfg.xLabel || '';
@@ -225,6 +252,31 @@ function syncActivePlotInputs() {
       };
       fill('sharedColorCol', cfg.sharedColorCol);
       fill('sharedSizeCol', cfg.sharedSizeCol);
+      // Shared colorbar override (v2.22.0): block shown only when a shared
+      // Color-by is set (a shared colorbar only exists then).
+      const cb = cfg.colorbar || {};
+      const cbWrap = g('sharedColorbarWrap');
+      if (cbWrap) cbWrap.style.display = cfg.sharedColorCol ? '' : 'none';
+      // innerHTML: fixed colormap names + a static inherit option — no user data
+      g('sharedCbMap').innerHTML = '<option value="">Inherit (plot / global)</option>' + colormapOptionsHTML(cb.colormap);
+      g('sharedCbTitle').value    = cb.label ?? '';
+      g('sharedCbHide').checked   = !!cb.titleHide;
+      g('sharedCbReverse').checked = !!cb.reverse;
+      g('sharedCbMin').value = cb.min ?? '';
+      g('sharedCbMax').value = cb.max ?? '';
+      // Per-cell overrides (v2.22.0): populate the Edit-cell R×C selector and load
+      // the targeted cell's stored overrides into the three fields.
+      if (g('cellOverrideWrap')) g('cellOverrideWrap').style.display = '';
+      const sel = g('cellTarget');
+      const prev = /^\d+,\d+$/.test(sel.value) ? sel.value : '1,1';
+      const opts = [];
+      for (let r = 1; r <= gr.rows; r++) for (let c = 1; c <= gr.cols; c++) opts.push(`<option value="${r},${c}">R${r}·C${c}</option>`);
+      // innerHTML: R×C option labels are loop integers — no user data
+      sel.innerHTML = opts.join('');
+      sel.value = prev; if (!sel.value) sel.value = '1,1';
+      loadCellOverrideFields();
+    } else {
+      ['sharedColorbarWrap', 'cellOverrideWrap'].forEach(id => { const e = g(id); if (e) e.style.display = 'none'; });
     }
   }
   updateLockBtn('titleLock',  cfg.titleLocked);

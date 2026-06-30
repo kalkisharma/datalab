@@ -88,6 +88,10 @@ function renderOnePlot(plot) {
     }
   }
 
+  // Plot-level shared-colorbar override (v2.22.0): computed once; baked onto every
+  // series below and collapsed to a single bar after the loop. null when inactive.
+  const sharedCb = sharedColorbarConfig(plot);
+
   for (const s of appState.series) {
     if ((s.plotId ?? appState.plots[0].id) !== plot.id) continue;
     if (s.enabled === false) continue;
@@ -115,6 +119,9 @@ function renderOnePlot(plot) {
       if (cfg.sharedColorCol && dsH.includes(cfg.sharedColorCol)) ov.colorCol = cfg.sharedColorCol;
       if (cfg.sharedSizeCol  && dsH.includes(cfg.sharedSizeCol))  ov.sizeCol  = cfg.sharedSizeCol;
     }
+    // Plot colorbar override (v2.22.0): bake the shared-colorbar fields onto every
+    // series so all cells share one scale (single bar suppressed below).
+    if (sharedCb) Object.assign(ov, sharedCb);
     const eff = { ...s, ...ov };
     const result = buildSeriesResult(eff, { xLog: !!plot.plotConfig.xLog });
     if (result.error) { errors.push({ name: label, error: result.error }); continue; }
@@ -173,9 +180,13 @@ function renderOnePlot(plot) {
       if (!firstByCell.has(sfx)) firstByCell.set(sfx, s);
     }
     for (const [sfx, s] of firstByCell) {
-      // The figure title stays plot-level; only axis labels are per-cell
-      if (!plot.plotConfig.xLabelLocked) layout['xaxis' + sfx].title.text = s.xCol || '';
-      if (!plot.plotConfig.yLabelLocked) layout['yaxis' + sfx].title.text = s.yCol || '';
+      // Per-cell axis labels (v2.22.0): a stored per-cell override wins, then a
+      // locked plot-wide label, then the per-cell auto (first series' column).
+      // The figure title stays plot-level; cell titles are added separately.
+      const { r, c } = cellOf(s);
+      const ov = plot.plotConfig.cells?.[`${r},${c}`] || {};
+      layout['xaxis' + sfx].title.text = ov.xLabel || (plot.plotConfig.xLabelLocked ? plot.plotConfig.xLabel : (s.xCol || ''));
+      layout['yaxis' + sfx].title.text = ov.yLabel || (plot.plotConfig.yLabelLocked ? plot.plotConfig.yLabel : (s.yCol || ''));
     }
   }
 
@@ -217,11 +228,14 @@ function renderOnePlot(plot) {
   // Mixed-scale warning (Data Scientist guardrail, v2.20.0): 2+ color-mapped
   // series on one plot using different colormaps or color ranges — identical
   // colors then don't mean identical values. Soft warning, never a block.
+  // A plot colorbar override forces one shared scale + a single bar — that IS
+  // the one-scale guarantee, so it satisfies (suppresses) the mixed-scale warning.
+  if (sharedCb) suppressExtraColorbars(traces);
   const cbSeries = appState.series.filter(s =>
     (s.plotId ?? appState.plots[0].id) === plot.id && s.enabled !== false &&
     (s.chartType === 'contour' || s.chartType === 'heatmap' ||
      ((s.chartType === 'scatter' || s.chartType === 'parity') && s.colorCol)));
-  if (cbSeries.length > 1) {
+  if (!sharedCb && cbSeries.length > 1) {
     const maps   = new Set(cbSeries.map(s => effectiveColormap(s, plot)));
     const ranges = new Set(cbSeries.map(s => `${s.colorMin ?? ''}:${s.colorMax ?? ''}`));
     if (maps.size > 1 || ranges.size > 1) {
@@ -234,6 +248,7 @@ function renderOnePlot(plot) {
 
   if (plot.plotConfig.statsShow !== false) appendParityStats(layout, parityResults, plot, srParts); // stats-box toggle (workspace ergonomics)
   appendNotes(layout, plot, pd, srParts);
+  appendCellTitles(layout, plot, grid, srParts); // per-subplot titles (v2.22.0) — after notes so a stray drag is ignored
   applyColorbarFonts(traces); // colorbar title/ticks follow the typography sliders (Phase 16)
 
   const srEl = document.getElementById('plotSR-' + plot.id);
@@ -246,78 +261,10 @@ function renderOnePlot(plot) {
     edits: { legendPosition: true, annotationPosition: true },
   });
 
-  // Persist a dragged legend per plot (Phase 6 behavior, now per panel).
-  // Re-bound after clearPanel because that replaces the node.
-  if (!pd._legendHooked) {
-    pd.on('plotly_relayout', e => {
-      if (e['legend.x'] !== undefined || e['legend.y'] !== undefined) {
-        // Clamp to the figure (Stab A): a dragged legend could drift far off to
-        // the right with no bound. Persist the clamped position and snap the
-        // live legend back if it was dragged outside [0,1] paper coords.
-        const clamp = v => Math.max(0, Math.min(1, v));
-        const lx = clamp(e['legend.x'] ?? plot.plotConfig.legendPos?.x ?? 0.01);
-        const ly = clamp(e['legend.y'] ?? plot.plotConfig.legendPos?.y ?? 0.99);
-        plot.plotConfig.legendPos = { x: lx, y: ly };
-        const outX = e['legend.x'] !== undefined && (e['legend.x'] < 0 || e['legend.x'] > 1);
-        const outY = e['legend.y'] !== undefined && (e['legend.y'] < 0 || e['legend.y'] > 1);
-        if (outX || outY) { try { Plotly.relayout(pd, { 'legend.x': lx, 'legend.y': ly }); } catch (err) {} }
-      }
-      // Second legend (Phase 19): the optional size-key legend persists and
-      // clamps the same way as the main legend.
-      if (e['legend2.x'] !== undefined || e['legend2.y'] !== undefined) {
-        const clamp = v => Math.max(0, Math.min(1, v));
-        const lx = clamp(e['legend2.x'] ?? plot.plotConfig.legend2Pos?.x ?? 0.99);
-        const ly = clamp(e['legend2.y'] ?? plot.plotConfig.legend2Pos?.y ?? 0.99);
-        plot.plotConfig.legend2Pos = { x: lx, y: ly };
-        const outX = e['legend2.x'] !== undefined && (e['legend2.x'] < 0 || e['legend2.x'] > 1);
-        const outY = e['legend2.y'] !== undefined && (e['legend2.y'] < 0 || e['legend2.y'] > 1);
-        if (outX || outY) { try { Plotly.relayout(pd, { 'legend2.x': lx, 'legend2.y': ly }); } catch (err) {} }
-      }
-      // Dragged annotations persist: indices past _noteOffset are notes
-      // (Phase 14); indices before it are the parity stats box — persist its
-      // position too (Stab A) so a dragged stats box survives re-render and
-      // export (single-parity reads plotConfig.annotPos).
-      for (const k of Object.keys(e)) {
-        const m = /^annotations\[(\d+)\]\.(x|y)$/.exec(k);
-        if (!m) continue;
-        const ai = parseInt(m[1]);
-        const noteIdx = ai - (pd._noteOffset ?? 0);
-        const ns = plot.plotConfig.notes ?? [];
-        if (noteIdx >= 0 && noteIdx < ns.length) {
-          ns[noteIdx][m[2]] = e[k];
-        } else if (ai < (pd._noteOffset ?? 0)) {
-          plot.plotConfig.annotPos = plot.plotConfig.annotPos || { x: 0.98, y: 0.04 };
-          plot.plotConfig.annotPos[m[2]] = e[k];
-        }
-      }
-      // Persist interactive zoom/pan into plotConfig so re-renders (e.g.
-      // toggling minor gridlines) and exports keep the user's view — previously
-      // a drag-zoom lived only on the node and was reset on the next render.
-      // Plotly emits xaxis.range[0/1] on zoom/drag and xaxis.autorange on a
-      // double-click reset. Base xaxis/yaxis only (subplot-grid axes out of
-      // scope); parity re-forces its own equal-axis range, so it is unaffected.
-      const isActive = plot.id === activePlot().id;
-      for (const ax of ['xaxis', 'yaxis']) {
-        const cfgMin = ax === 'xaxis' ? 'xMin' : 'yMin';
-        const cfgMax = ax === 'xaxis' ? 'xMax' : 'yMax';
-        const isLog  = ax === 'xaxis' ? plot.plotConfig.xLog : plot.plotConfig.yLog;
-        const lo = e[`${ax}.range[0]`], hi = e[`${ax}.range[1]`];
-        if (lo !== undefined && hi !== undefined) {
-          const conv = v => isLog ? Math.pow(10, v) : v; // Plotly log ranges are log10; fields hold data units
-          plot.plotConfig[cfgMin] = String(conv(lo));
-          plot.plotConfig[cfgMax] = String(conv(hi));
-        } else if (e[`${ax}.autorange`]) {
-          plot.plotConfig[cfgMin] = ''; plot.plotConfig[cfgMax] = ''; // reset → auto
-        } else continue;
-        if (isActive) { // mirror into the panel Min/Max inputs so the UI stays in sync
-          const elMin = document.getElementById(cfgMin), elMax = document.getElementById(cfgMax);
-          if (elMin) elMin.value = plot.plotConfig[cfgMin];
-          if (elMax) elMax.value = plot.plotConfig[cfgMax];
-        }
-      }
-    });
-    pd._legendHooked = true;
-  }
+  // Persist dragged legend(s) / annotations / zoom per panel (Phase 6+, now in
+  // decorations.js — the §6 seam discharged at v2.22.0). Re-bound after
+  // clearPanel replaces the node (guarded by pd._legendHooked inside).
+  bindRelayoutPersistence(pd, plot);
 }
 
 // Release every panel and return to the empty state (Phase 4 strategy:

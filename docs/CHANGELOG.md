@@ -1,5 +1,33 @@
 # Changelog
 
+## v2.22.0 — Per-subplot labels, titles & shared colorbar
+
+### Features
+- **Searchable axis labels.** The Title / X / Y label fields now suggest the
+  loaded datasets' column names (native datalist) while still accepting free
+  text — type or pick; editing locks the label, "auto" reverts.
+- **Per-subplot axis labels & titles.** In a subplot grid, an "Edit cell" Row×Col
+  selector lets you set an optional X label, Y label, and title per cell (blank =
+  the existing auto behavior).
+- **Plot-level shared colorbar.** When subplots share one colorbar (a shared
+  Color-by), a "Shared colorbar" block overrides the per-series colorbar
+  (colormap, title, range, reverse) and renders exactly one bar. It forces a
+  shared color range (the values you set, or the union across cells) so the
+  single bar is honest, and satisfies the mixed-scale warning.
+
+### Internal
+- §6: extracted the `plotly_relayout` persistence hook from `chart.js` to
+  `decorations.js` (`bindRelayoutPersistence`) — discharges the seam named since
+  v2.14.0; `chart.js` 354 → ~300. `grid.js` (343) and `decorations.js` (320) are
+  over the trigger and **tolerated** this release; named seam for `grid.js` is a
+  per-cell sub-panel builder (`grid-cells.js`) at the next touch.
+
+## Schema
+### v2.22.0 (state version unchanged at 2 — all additive, no migration)
+- New optional `plotConfig.cells` (keyed `"r,c"` → `{xLabel?, yLabel?, title?}`,
+  blank = auto) and `plotConfig.colorbar` (`null` = use per-series).
+- v2.0–v2.21 session files load unchanged.
+
 ## v2.21.0 — Parity readout controls
 
 ### Features

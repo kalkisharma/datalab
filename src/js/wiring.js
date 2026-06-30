@@ -274,8 +274,49 @@ function init() {
   ['sharedColorCol', 'sharedSizeCol'].forEach(id =>
     g(id).addEventListener('change', () => {
       activePlot().plotConfig[id] = g(id).value || null;
+      syncActivePlotInputs(); // refresh the shared-colorbar block visibility (v2.22.0)
       if (appState.plotRendered) renderPlot();
     }));
+
+  // Keep the label-suggestion datalist current: repopulate whenever a label
+  // field is focused (covers "loaded a CSV, then typed a label", v2.22.0).
+  ['inputTitle', 'inputXLabel', 'inputYLabel', 'cellXLabel', 'cellYLabel'].forEach(id =>
+    g(id)?.addEventListener('focus', populateLabelDatalist));
+
+  // Per-cell overrides (v2.22.0): the Edit-cell selector re-points the fields;
+  // each field writes plotConfig.cells["r,c"][field] (blank removes it).
+  g('cellTarget')?.addEventListener('change', loadCellOverrideFields);
+  const writeCell = (field, el) => {
+    const key = g('cellTarget')?.value; if (!/^\d+,\d+$/.test(key || '')) return;
+    const cfg = activePlot().plotConfig;
+    cfg.cells = cfg.cells || {};
+    const ov = { ...(cfg.cells[key] || {}) };
+    const v = el.value.trim();
+    if (v) ov[field] = v; else delete ov[field];
+    if (Object.keys(ov).length) cfg.cells[key] = ov; else delete cfg.cells[key];
+    if (appState.plotRendered) debounceRender();
+  };
+  [['cellTitle', 'title'], ['cellXLabel', 'xLabel'], ['cellYLabel', 'yLabel']].forEach(([id, field]) =>
+    g(id)?.addEventListener('input', () => writeCell(field, g(id))));
+
+  // Shared colorbar override (v2.22.0): the six controls collapse into
+  // plotConfig.colorbar, or null when entirely empty (= use per-series).
+  const writeSharedCb = () => {
+    const cfg = activePlot().plotConfig;
+    const num = id => { const n = parseFloat(g(id).value); return Number.isFinite(n) ? n : null; };
+    const o = {
+      colormap: g('sharedCbMap').value || null,
+      label:    g('sharedCbTitle').value.trim() || null,
+      titleHide: g('sharedCbHide').checked,
+      reverse:   g('sharedCbReverse').checked,
+      min: num('sharedCbMin'), max: num('sharedCbMax'),
+    };
+    const empty = !o.colormap && !o.label && !o.titleHide && !o.reverse && o.min == null && o.max == null;
+    cfg.colorbar = empty ? null : o;
+    if (appState.plotRendered) renderPlot();
+  };
+  ['sharedCbMap', 'sharedCbTitle', 'sharedCbHide', 'sharedCbReverse', 'sharedCbMin', 'sharedCbMax'].forEach(id =>
+    g(id)?.addEventListener('change', writeSharedCb));
 
   // Bulk axis retarget: one-shot — set the column on all series, then reset
   // the select (it's an action trigger, not a persistent value)
