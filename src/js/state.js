@@ -2,7 +2,7 @@
 
 // Single source of truth for the app version (STANDARDS.md §3).
 // build.js parses the declaration below — do not rename or reformat it.
-const VERSION = '2.18.1';
+const VERSION = '2.19.0';
 
 // ── appState ──────────────────────────────────────────────────────────────
 //
@@ -23,10 +23,13 @@ const VERSION = '2.18.1';
 //   id, datasetId, xCol, yCol, colorCol, chartType,
 //   // join: joinDatasetId, joinKey — parity always; scatter optional (workspace ergonomics)
 //   // parity-only: showBands, band5, band10; parityFit (bool — linear best-fit
-//   //   line + R²); parityFitColor (hex, absent = series color) / parityFitWidth
-//   //   (px, absent = 2) / parityFitStyle ('solid'|'dash'|'dot'|'dashdot', absent
-//   //   = solid) — best-fit line styling; bandColor (hex) / bandOpacity (0–1) —
-//   //   shared ±5%/±10% band styling, absent = default blue #5b8dee
+//   //   line; R² is shown in the stats box, not the legend); parityFitEquation
+//   //   (bool, absent = true — show the equation in the legend); parityFitSigFigs
+//   //   (int 1–10, absent = 4 — sig figs for the equation + R²); parityFitColor
+//   //   (hex, absent = series color) / parityFitWidth (px, absent = 2) /
+//   //   parityFitStyle ('solid'|'dash'|'dot'|'dashdot', absent = solid) — best-fit
+//   //   line styling; bandColor (hex) / bandOpacity (0–1) — shared ±5%/±10% band
+//   //   styling, absent = default blue #5b8dee
 //   // contour (Phase 17): interpolate (bool) — grid scattered (x,y,z) when true;
 //   //                      showPoints (bool) — overlay sample locations;
 //   //                      contourSmooth (bool, absent = true) — false renders

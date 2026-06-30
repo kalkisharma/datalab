@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.19.0 — Parity best-fit reporting
+
+### Features
+- **Best-fit R² moves to the stats box.** The parity best-fit line's R² now
+  appears in the NSE/MAE/RMSE annotation box (alongside the fit it describes),
+  not in the legend.
+- **Toggle the equation.** "Show equation in legend" (default on) — turn it off
+  for a clean "Best fit" legend entry without the `y = mx + b` text.
+- **Significant figures.** Set the sig figs (1–10, default 4) for the equation
+  and the R².
+
+## Schema
+### v2.19.0 (state version unchanged at 2 — all additive, no migration)
+- New optional `series` fields (parity): `parityFitEquation` (bool, absent =
+  true), `parityFitSigFigs` (int, absent = 4).
+- v2.0–v2.18 session files load unchanged.
+
 ## v2.18.1 — Colormap fix (6 of 12 were broken)
 
 ### Fixes

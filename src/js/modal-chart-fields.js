@@ -257,7 +257,12 @@ function chartColumnFields(chartType, ds, dsId, existing, colOptions, cols) {
       </div>
       <div class="modal-section-title">Best fit</div>
       <div class="check-row">
-        <label><input type="checkbox" id="mParityFit" ${existing?.parityFit ? 'checked' : ''} /> Best-fit line (least squares; legend shows equation and R²)</label>
+        <label><input type="checkbox" id="mParityFit" ${existing?.parityFit ? 'checked' : ''} /> Best-fit line (least squares; R² shown in the stats box)</label>
+      </div>
+      <div class="check-row" style="align-items:center;gap:12px">
+        <label><input type="checkbox" id="mParityFitEquation" ${existing?.parityFitEquation !== false ? 'checked' : ''} /> Show equation in legend</label>
+        <label class="modal-label" for="mParityFitSigFigs" style="margin:0">Sig. figures
+          <input type="number" class="ctrl-input" id="mParityFitSigFigs" min="1" max="10" step="1" value="${existing?.parityFitSigFigs ?? 4}" style="width:56px" /></label>
       </div>
       <div class="modal-field">
         <label class="modal-label" for="mParityFitColor" style="margin:0">Fit line color

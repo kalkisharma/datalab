@@ -44,6 +44,10 @@ function applyRightAxis(layout, leftSeries, rightSeries, leftColor, rightColor, 
 function appendParityStats(layout, parityResults, plot, srParts) {
   if (!parityResults.length) return;
   const fmt = v => isNaN(v) ? 'N/A' : Number(v).toPrecision(4);
+  // Best-fit R² (when the series has a fit) is shown HERE, not in the legend,
+  // at the series' chosen significant figures (v2.19.0).
+  const r2Txt = p => p.fitInfo ? `R² = ${isNaN(p.fitInfo.r2) ? 'N/A' : Number(p.fitInfo.r2).toPrecision(p.fitInfo.sig)}<br>` : '';
+  const r2Sr  = p => p.fitInfo ? `, R2=${isNaN(p.fitInfo.r2) ? 'N/A' : Number(p.fitInfo.r2).toPrecision(p.fitInfo.sig)}` : '';
   const th  = plotTheme();
   const single = parityResults.length === 1;
   // Tie each box to its parity series' OWN subplot cell via axis-DOMAIN refs
@@ -65,7 +69,7 @@ function appendParityStats(layout, parityResults, plot, srParts) {
       yanchor: base.y < 0.5 ? 'bottom' : 'top',
       // Series names are user data — escHtml applied (Plotly pseudo-HTML)
       text: (single ? '' : `<b>${escHtml(p.name)}</b><br>`)
-        + `NSE = ${fmt(p.stats.nse)}<br>MAE = ${fmt(p.stats.mae)}<br>RMSE = ${fmt(p.stats.rmse)}<br>N = ${p.n}`,
+        + `NSE = ${fmt(p.stats.nse)}<br>MAE = ${fmt(p.stats.mae)}<br>RMSE = ${fmt(p.stats.rmse)}<br>${r2Txt(p)}N = ${p.n}`,
       showarrow: false,
       bgcolor: th.annotBg,
       bordercolor: th.annotBorder, borderwidth: 1, borderpad: 8,
@@ -76,7 +80,7 @@ function appendParityStats(layout, parityResults, plot, srParts) {
     };
   });
   parityResults.forEach(p => srParts.unshift(
-    `${p.name} statistics: NSE=${fmt(p.stats.nse)}, MAE=${fmt(p.stats.mae)}, RMSE=${fmt(p.stats.rmse)}, N=${p.n}`
+    `${p.name} statistics: NSE=${fmt(p.stats.nse)}, MAE=${fmt(p.stats.mae)}, RMSE=${fmt(p.stats.rmse)}${r2Sr(p)}, N=${p.n}`
   ));
 }
 

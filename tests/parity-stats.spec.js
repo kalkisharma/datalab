@@ -104,13 +104,62 @@ test('parity best-fit line: linear fit trace carries the equation and R²', asyn
   expect(fit).toBeTruthy();
   expect(fit.mode).toBe('lines');
   expect(fit.name).toContain('y = 2.000x + 1.000');
-  expect(fit.name).toContain('R² = 1.000');
+  expect(fit.name).not.toContain('R²'); // R² moved to the stats box (v2.19.0)
   // The line is evaluated from the fit across the equal-axis range
   expect(fit.x).toEqual([result.axMin, result.axMax]);
   expect(fit.y[0]).toBeCloseTo(2 * result.axMin + 1, 10);
   expect(fit.y[1]).toBeCloseTo(2 * result.axMax + 1, 10);
-  // Screen-reader mirror is emitted for the dispatcher to pick up
-  expect(result.fitAnnot && result.fitAnnot.sr).toContain('R2=1.000');
+  // R² is surfaced via fitInfo (consumed by the stats box), not the legend
+  expect(result.fitInfo.r2).toBeCloseTo(1, 10);
+  expect(result.fitInfo.sig).toBe(4);
+  // Screen-reader mirror carries the equation (R² is announced with the box)
+  expect(result.fitAnnot.sr).toContain('y = 2.000x + 1.000');
+  expect(result.fitAnnot.sr).not.toContain('R2=');
+});
+
+// Equation toggle (v2.19.0): off → a clean "Best fit" legend entry.
+test('parity best-fit equation toggle drops the equation from the legend', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const name = await page.evaluate(() => {
+    const ds = { id:'a', name:'A', color:'#000', headers:['obs','mod'],
+      rows:[{obs:1,mod:3},{obs:2,mod:5},{obs:3,mod:7}] };
+    const series = { id:'s1', name:'p', chartType:'parity', datasetId:'a',
+      xCol:'obs', yCol:'mod', parityFit:true, parityFitEquation:false, filters:[], style:{} };
+    return buildParityTrace(series, [ds]).traces.find(t => (t.name||'').startsWith('Best fit')).name;
+  });
+  expect(name).toBe('Best fit'); // no equation
+});
+
+// Significant figures (v2.19.0): controls equation + R² precision.
+test('parity best-fit significant figures apply to the equation and R²', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const out = await page.evaluate(() => {
+    const ds = { id:'a', name:'A', color:'#000', headers:['obs','mod'],
+      rows:[{obs:1,mod:3},{obs:2,mod:5},{obs:3,mod:7}] }; // y = 2x + 1
+    const series = { id:'s1', name:'p', chartType:'parity', datasetId:'a',
+      xCol:'obs', yCol:'mod', parityFit:true, parityFitSigFigs:2, filters:[], style:{} };
+    const r = buildParityTrace(series, [ds]);
+    return { name: r.traces.find(t => (t.name||'').startsWith('Best fit')).name, sig: r.fitInfo.sig };
+  });
+  expect(out.name).toContain('y = 2.0x + 1.0'); // toPrecision(2)
+  expect(out.sig).toBe(2);
+});
+
+// R² is rendered in the parity stats box (decorations.js), at the chosen sig figs.
+test('parity stats box shows the best-fit R² (and omits it without a fit)', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const out = await page.evaluate(() => {
+    const st = { nse: 0.9, mae: 1, rmse: 1 };
+    const withFit = {}, srA = [];
+    appendParityStats(withFit, [{ name:'A', sfx:'', n:3, stats:st, fitInfo:{ r2:0.9712, sig:3 } }], { plotConfig:{} }, srA);
+    const noFit = {}, srB = [];
+    appendParityStats(noFit, [{ name:'B', sfx:'', n:3, stats:st }], { plotConfig:{} }, srB);
+    return { withText: withFit.annotations[0].text, withSr: srA.join(' '),
+             noText: noFit.annotations[0].text };
+  });
+  expect(out.withText).toContain('R² = 0.971'); // toPrecision(3)
+  expect(out.withSr).toContain('R2=0.971');
+  expect(out.noText).not.toContain('R²');        // no fit → no R² line
 });
 
 test('parity best-fit line is absent unless parityFit is set', async ({ page }) => {

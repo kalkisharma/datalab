@@ -288,6 +288,8 @@ function saveModalSeries() {
     series.bandColor     = document.getElementById('mBandColor')?.value || null;          // shared ±5%/±10% color
     series.bandOpacity   = (v => Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : null)(parseFloat(document.getElementById('mBandOpacity')?.value));
     series.parityFit      = document.getElementById('mParityFit')?.checked ?? false;       // linear best-fit line + R²
+    series.parityFitEquation = document.getElementById('mParityFitEquation')?.checked ?? true; // equation in legend (R² is in the box)
+    series.parityFitSigFigs  = (v => Number.isFinite(v) && v >= 1 ? Math.min(10, Math.round(v)) : null)(parseFloat(document.getElementById('mParityFitSigFigs')?.value));
     series.parityFitColor = document.getElementById('mParityFitColor')?.value || null;     // fit-line color (absent = series color)
     series.parityFitWidth = (v => Number.isFinite(v) && v > 0 ? v : null)(parseFloat(document.getElementById('mParityFitWidth')?.value));
     series.parityFitStyle = document.getElementById('mParityFitStyle')?.value || null;     // solid|dash|dot|dashdot

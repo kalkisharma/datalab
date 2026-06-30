@@ -165,7 +165,7 @@ function buildParityTrace(series, datasets) {
   // Best-fit line (optional, linear least squares) — complements the y=x
   // reference. R² here is the regression coefficient of determination (modelled
   // vs observed), conceptually distinct from NSE (see file header).
-  let fitAnnot = null;
+  let fitAnnot = null, fitInfo = null;
   if (series.parityFit) {
     const fit = linearFit(xs, ys);
     if (fit) {
@@ -175,14 +175,20 @@ function buildParityTrace(series, datasets) {
       const fitWidth = Number.isFinite(series.parityFitWidth) ? series.parityFitWidth : 2;
       const dashMap = { solid: 'solid', dash: 'dash', dot: 'dot', dashdot: 'dashdot' };
       const fitDash = dashMap[series.parityFitStyle] || 'solid';
+      // Significant figures for the equation + R² (default 4, clamped 1–10).
+      const sig = Number.isFinite(series.parityFitSigFigs) ? Math.min(10, Math.max(1, series.parityFitSigFigs)) : 4;
+      const sf  = v => Number(v).toPrecision(sig);
+      const eq  = `y = ${sf(fit.a)}x ${fit.b < 0 ? '−' : '+'} ${sf(Math.abs(fit.b))}`;
+      const showEq = series.parityFitEquation !== false; // default on; toggle drops the equation from the legend
       traces.push({
         type: 'scatter', mode: 'lines',
         x: [axMin, axMax], y: [fit.a * axMin + fit.b, fit.a * axMax + fit.b],
-        name: `Best fit: y = ${fmt(fit.a)}x ${fit.b < 0 ? '−' : '+'} ${fmt(Math.abs(fit.b))} (R² = ${fmt(fit.r2)})`,
+        name: showEq ? `Best fit: ${eq}` : 'Best fit', // R² now lives in the stats box, not the legend
         line: { color: fitColor, width: fitWidth, dash: fitDash },
         hoverinfo: 'skip', showlegend: true,
       });
-      fitAnnot = { sr: `${baseName} best fit: slope=${fmt(fit.a)}, intercept=${fmt(fit.b)}, R2=${fmt(fit.r2)}, n=${n}` };
+      fitInfo = { r2: fit.r2, sig };                          // rendered in the parity stats box (decorations.js)
+      fitAnnot = { sr: `${baseName} best fit: ${eq}, n=${n}` }; // R² is announced with the stats box
     }
   }
 
@@ -198,7 +204,7 @@ function buildParityTrace(series, datasets) {
   // dataMin/dataMax are the unpadded extremes — log-log panels re-derive
   // their range from these (linear padding can push axMin negative even
   // for all-positive data; Phase 9 log axes)
-  return { traces, error: null, warning, layout, stats, annotSR, fitAnnot, axMin, axMax, dataMin: mn, dataMax: mx, n };
+  return { traces, error: null, warning, layout, stats, annotSR, fitAnnot, fitInfo, axMin, axMax, dataMin: mn, dataMax: mx, n };
 }
 
 function fmt(v) { return isNaN(v) ? 'N/A' : Number(v).toPrecision(4); }
