@@ -102,8 +102,12 @@ function pearsonR(xs, ys) {
 /**
  * @param {number[]} xs
  * @param {number[]} ys - same length, finite pairs only
- * @returns {{ a: number, b: number, r2: number, n: number }|null}
- *          null when n < 2 or x has no variance
+ * @returns {{ a: number, b: number, r2: number, n: number,
+ *            meanX: number, sxx: number, ssRes: number }|null}
+ *          null when n < 2 or x has no variance.
+ *          meanX/sxx/ssRes are additive (Phase 19) — the CI/PI band SEs need
+ *          them; existing callers ignore the extra keys. ssRes = Σ(y−ŷ)²,
+ *          clamped ≥ 0 against float cancellation on near-perfect fits.
  */
 function linearFit(xs, ys) {
   const n = xs.length;
@@ -119,7 +123,8 @@ function linearFit(xs, ys) {
   const a = sxy / sxx;
   const b = my - a * mx;
   const r2 = syy === 0 ? NaN : (sxy * sxy) / (sxx * syy);
-  return { a, b, r2, n };
+  const ssRes = Math.max(0, syy - a * sxy); // = Σ(y−ŷ)² for the OLS line
+  return { a, b, r2, n, meanX: mx, sxx, ssRes };
 }
 
 // ── Polynomial least squares (Phase 13, trendline degrees 2–3) ───────────

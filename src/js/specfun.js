@@ -124,3 +124,59 @@ function pUpperChi2(x, df) {
   return hx < s + 1 ? 1 - _gammaPSeries(s, hx) : _gammaQCF(s, hx);
 }
 
+// ── Inverse normal CDF (probit) — Acklam's rational approximation ──────────
+// Φ⁻¹(p): the theoretical-quantile axis of the Q–Q plot (Phase 19) and the
+// df→∞ limit of the t quantile. Acklam's raw relative error is < 1.15e-9 over
+// the whole open interval — BETTER than our A–S 7.1.26 normalCdf (|ε| < 1.5e-7),
+// so we deliberately do NOT Halley-refine against normalCdf (that would drag the
+// result toward the coarser forward map). References are hand-taken from
+// published normal quantiles (§20): Φ⁻¹(0.975)=1.9599639845, Φ⁻¹(0.75)=0.6744897502.
+const _ACK_A = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02, 1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00];
+const _ACK_B = [-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02, 6.680131188771972e+01, -1.328068155288572e+01];
+const _ACK_C = [-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00, -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00];
+const _ACK_D = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00, 3.754408661907416e+00];
+
+function normalInv(p) {
+  if (!(p > 0) || !(p < 1)) {
+    if (p === 0) return -Infinity;
+    if (p === 1) return Infinity;
+    return NaN; // p ∉ [0,1] (or NaN)
+  }
+  const pLow = 0.02425, pHigh = 1 - pLow;
+  let q, r;
+  if (p < pLow) {                        // lower tail
+    q = Math.sqrt(-2 * Math.log(p));
+    return (((((_ACK_C[0] * q + _ACK_C[1]) * q + _ACK_C[2]) * q + _ACK_C[3]) * q + _ACK_C[4]) * q + _ACK_C[5]) /
+           ((((_ACK_D[0] * q + _ACK_D[1]) * q + _ACK_D[2]) * q + _ACK_D[3]) * q + 1);
+  }
+  if (p <= pHigh) {                      // central region
+    q = p - 0.5; r = q * q;
+    return (((((_ACK_A[0] * r + _ACK_A[1]) * r + _ACK_A[2]) * r + _ACK_A[3]) * r + _ACK_A[4]) * r + _ACK_A[5]) * q /
+           (((((_ACK_B[0] * r + _ACK_B[1]) * r + _ACK_B[2]) * r + _ACK_B[3]) * r + _ACK_B[4]) * r + 1);
+  }
+  q = Math.sqrt(-2 * Math.log(1 - p));   // upper tail
+  return -(((((_ACK_C[0] * q + _ACK_C[1]) * q + _ACK_C[2]) * q + _ACK_C[3]) * q + _ACK_C[4]) * q + _ACK_C[5]) /
+          ((((_ACK_D[0] * q + _ACK_D[1]) * q + _ACK_D[2]) * q + _ACK_D[3]) * q + 1);
+}
+
+// ── Student's t inverse quantile — bisection on the two-tailed CDF ─────────
+// tQuantile(c, df): the value t* > 0 with P(T ≤ t*) = c (c ∈ (0.5,1)). No new
+// approximation — bisect the EXISTING pTwoTailedT, which is P(|T| > t) and
+// strictly decreasing in t for t > 0. THE TRAP: the 97.5% point corresponds to
+// two-tailed p = 2·(1−c) = 0.05, NOT 0.025. Used for CI/PI bands (df = n−2).
+// df→∞ → normalInv(c); references: t(0.975,10)=2.228, t(0.975,1)=12.706 (§20).
+function tQuantile(c, df) {
+  if (!(df > 0) || !(c > 0.5) || !(c < 1)) return NaN;
+  if (df > 1e7) return normalInv(c); // asymptotic limit; also dodges regIncBeta at extreme a
+  const target = 2 * (1 - c); // two-tailed p for the upper point
+  let lo = 0, hi = 2;
+  while (pTwoTailedT(hi, df) > target && hi < 1e12) hi *= 2;
+  for (let it = 0; it < 200; it++) {
+    const mid = (lo + hi) / 2;
+    // pTwoTailedT decreasing: p(mid) > target ⇒ root is to the right
+    if (pTwoTailedT(mid, df) > target) lo = mid; else hi = mid;
+    if (hi - lo < 1e-11 * (1 + hi)) break;
+  }
+  return (lo + hi) / 2;
+}
+

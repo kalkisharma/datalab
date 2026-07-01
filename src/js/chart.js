@@ -15,6 +15,8 @@ const RENDERERS = {
   violin:    buildViolinTrace,
   heatmap:   buildHeatmapTrace,
   pair:      buildPairTrace,
+  qq:        buildQQTrace,
+  residual:  buildResidualTrace,
 };
 
 // ── renderPlot — renders the whole grid ───────────────────────────────────
@@ -194,8 +196,8 @@ function renderOnePlot(plot) {
       // The figure title stays plot-level; cell titles are added separately.
       const { r, c } = cellOf(s);
       const ov = plot.plotConfig.cells?.[`${r},${c}`] || {};
-      layout['xaxis' + sfx].title.text = ov.xLabel || (plot.plotConfig.xLabelLocked ? plot.plotConfig.xLabel : (s.xCol || ''));
-      layout['yaxis' + sfx].title.text = ov.yLabel || (plot.plotConfig.yLabelLocked ? plot.plotConfig.yLabel : (s.yCol || ''));
+      layout['xaxis' + sfx].title.text = ov.xLabel || (plot.plotConfig.xLabelLocked ? plot.plotConfig.xLabel : (diagnosticAxisLabel(s, 'x') ?? s.xCol ?? ''));
+      layout['yaxis' + sfx].title.text = ov.yLabel || (plot.plotConfig.yLabelLocked ? plot.plotConfig.yLabel : (diagnosticAxisLabel(s, 'y') ?? s.yCol ?? ''));
     }
   }
 

@@ -169,6 +169,36 @@ function buildScatterTrace(series, datasets) {
     return fit;
   };
 
+  // CI/PI bands on the LINEAR fit (Phase 19, DS). Textbook closed form:
+  //   ŷ ± t(0.975, n−2)·s·√(k + 1/n + (x−x̄)²/Sxx),  k=0 CI (mean), k=1 PI (new)
+  // so CI ⊂ PI everywhere, both minimized at x̄ and flaring at the extremes.
+  // Uses linearFit's additive {sxx, meanX, ssRes}. Filled traces UNDER the fit
+  // line; legend names the level (unlabeled band = §20 violation). Returns [] if
+  // n<3 (needs n−2 df). PI pushed before CI so CI sits on top.
+  const bandTraces = (fit, fx, mode) => {
+    if (!fit || fit.n < 3) return [];
+    const n = fit.n, s = Math.sqrt(fit.ssRes / (n - 2)), t = tQuantile(0.975, n - 2);
+    const lo = Math.min(...fx), hi = Math.max(...fx), M = 100, xs = [];
+    for (let i = 0; i <= M; i++) xs.push(lo + (hi - lo) * i / M);
+    const poly = (k, name, rgba) => {
+      const up = [], dn = [];
+      for (const x of xs) {
+        const yh = fit.a * x + fit.b;
+        const se = s * Math.sqrt(k + 1 / n + (x - fit.meanX) * (x - fit.meanX) / fit.sxx);
+        up.push(yh + t * se); dn.push(yh - t * se);
+      }
+      return { type: 'scatter', mode: 'lines', x: [...xs, ...xs.slice().reverse()],
+        y: [...up, ...dn.slice().reverse()], fill: 'toself', fillcolor: rgba,
+        line: { width: 0 }, name, hoverinfo: 'skip' };
+    };
+    const out = [];
+    if (mode === 'pi' || mode === 'both') out.push(poly(1, '95% PI (new obs)', 'rgba(213,94,0,0.10)'));
+    if (mode === 'ci' || mode === 'both') out.push(poly(0, '95% CI (mean response)', 'rgba(213,94,0,0.20)'));
+    return out;
+  };
+  // Stored enum, fail closed to 'none' (§8): only these values draw bands.
+  const trendBands = ['ci', 'pi', 'both'].includes(series.trendBands) ? series.trendBands : 'none';
+
   // Degree (Phase 13): linear default; 2–3 fit via polyFit. Per-group fits
   // stay linear regardless (overfitting per tiny group — DS ruling).
   const degree = Math.min(3, Math.max(1, series.trendDegree || 1));
@@ -199,6 +229,9 @@ function buildScatterTrace(series, datasets) {
             warning = `"${series.colorCol}" has ${groups.size} groups — more than 10 fits is unreadable; drew one overall fit.`;
           } else {
             perGroup = true;
+            if (trendBands !== 'none' && !warning) {
+              warning = 'Confidence/prediction bands are drawn for a single overall linear fit only — not shown for per-group fits.';
+            }
             const srs = [];
             let gi = 0;
             for (const [cat, g2] of groups) {
@@ -217,16 +250,30 @@ function buildScatterTrace(series, datasets) {
           if (Number.isFinite(xV[i]) && Number.isFinite(yV[i])) { fx.push(xV[i]); fy.push(yV[i]); }
         }
         if (degree === 1) {
+          let bandsSr = '';
+          if (trendBands !== 'none') {
+            const bf = linearFit(fx, fy);
+            const bands = bandTraces(bf, fx, trendBands);
+            if (bands.length) {
+              for (const t of bands) traces.push(t); // pushed BEFORE the fit line → under it
+              bandsSr = ` with 95% ${trendBands === 'both' ? 'CI and PI' : trendBands.toUpperCase()} bands`;
+            } else if (bf) {
+              warning = 'Confidence/prediction bands need at least 3 points — not drawn.';
+            }
+          }
           const fit = fitLine(fx, fy, 'Fit', '#d55e00');
           if (!fit) {
             warning = 'Trendline needs at least 2 points with varying X.';
           } else {
             fitAnnot = {
               // Series name is user data — escHtml applied at the sr-only sink
-              sr: `${series.name} linear fit: slope=${f(fit.a)}, intercept=${f(fit.b)}, R2=${f(fit.r2)}, n=${fit.n}`,
+              sr: `${series.name} linear fit: slope=${f(fit.a)}, intercept=${f(fit.b)}, R2=${f(fit.r2)}, n=${fit.n}${bandsSr}`,
             };
           }
         } else {
+          if (trendBands !== 'none' && !warning) {
+            warning = 'Confidence/prediction bands are drawn for the linear (degree-1) fit only — not shown for a higher-degree fit.';
+          }
           const fit = polyFit(fx, fy, degree);
           if (!fit) {
             warning = `A degree-${degree} fit needs at least ${degree + 1} points with varying X.`;

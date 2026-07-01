@@ -2,7 +2,7 @@
 
 // Single source of truth for the app version (STANDARDS.md §3).
 // build.js parses the declaration below — do not rename or reformat it.
-const VERSION = '2.25.0';
+const VERSION = '2.26.0';
 
 // ── appState ──────────────────────────────────────────────────────────────
 //
@@ -54,6 +54,12 @@ const VERSION = '2.25.0';
 
 //   // bar (Phase 9): agg ('none'|'count'|'sum'|'mean'|'median'),
 //   //                errMode ('sd'|'sem'|null — mean only)
+//   // diagnostics (Phase 19): chartType 'qq' (normal Q–Q of xCol; standardized-z
+//   //   theoretical axis, quartile reference line) and 'residual' (residuals of
+//   //   xCol/yCol at trendDegree vs fitted, zero line) are normal single-axis-pair
+//   //   renderers. scatter gains trendBands ('ci'|'pi'|'both'; absent/other = none,
+//   //   §8 allowlist) — 95% CI/PI bands on the LINEAR trendline only (suppressed
+//   //   with a warning for degree>1 or per-group fits). residual reuses trendDegree.
 //   // scatter/line (Phase 9): errCol (± column), trendline (scatter only)
 //   // scatter/parity size-by (Phase 14 + 19): sizeCol; sizeLaw ('area' default
 //   //   | 'diameter' — exaggerates, warns); sizeMin/sizeMax (px, default 4/28);

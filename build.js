@@ -56,6 +56,7 @@ const appJs = [
   'src/js/filters.js',
   'src/js/modal.js',
   'src/js/modal-field-controls.js',
+  'src/js/modal-chart-fields-parity.js',
   'src/js/modal-chart-fields.js',
   'src/js/modal-fields.js',
   'src/js/date-prompt.js',
@@ -89,6 +90,8 @@ const appJs = [
   'src/js/renderers/violin.js',
   'src/js/renderers/heatmap.js',
   'src/js/renderers/pair.js',
+  'src/js/renderers/qq.js',
+  'src/js/renderers/residual.js',
 ].map(read).join('\n\n');
 
 // ── Assemble ──────────────────────────────────────────────────────────────

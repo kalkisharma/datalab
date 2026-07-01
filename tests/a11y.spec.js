@@ -146,6 +146,35 @@ test('axe: series modal with heatmap fields has no violations', async ({ page })
   expect(await audit(page, 'modal-heatmap')).toHaveLength(0);
 });
 
+test('axe: series modal with Q–Q fields has no violations', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'v\n1\n2\n3\n4', '_a11y_qq.csv');
+  await page.click('#addSeriesBtn');
+  await page.click('.ct-btn[data-ct="qq"]'); // 11th type: single numeric column (Phase 19)
+  await page.waitForTimeout(200);
+  expect(await audit(page, 'modal-qq')).toHaveLength(0);
+});
+
+test('axe: series modal with residual fields has no violations', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'x,y\n1,2\n2,4\n3,5', '_a11y_resid.csv');
+  await page.click('#addSeriesBtn');
+  await page.click('.ct-btn[data-ct="residual"]'); // 12th type: X/Y/degree (Phase 19)
+  await page.waitForTimeout(200);
+  expect(await audit(page, 'modal-residual')).toHaveLength(0);
+});
+
+test('axe: scatter modal with trendline + CI/PI bands select has no violations', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'x,y\n1,2\n2,4\n3,5', '_a11y_bands.csv');
+  await page.click('#addSeriesBtn');
+  await page.click('.ct-btn[data-ct="scatter"]');
+  await page.waitForTimeout(150);
+  await page.check('#mTrend'); // enables the trendBands select (Phase 19)
+  await page.waitForTimeout(150);
+  expect(await audit(page, 'modal-bands')).toHaveLength(0);
+});
+
 test('axe: preset category picker open has no violations', async ({ page }) => {
   await page.goto(FILE_URL);
   // Preset buttons are an always-visible row now (Phase 16) — no disclosure to open

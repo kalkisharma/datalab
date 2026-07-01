@@ -1,5 +1,39 @@
 # Changelog
 
+## v2.26.0 — Statistical diagnostics (Q–Q, residual plots, CI/PI bands)
+
+### Features
+- **Q–Q normality plot** (new chart type). A column's sorted values against the
+  theoretical standard-normal quantiles they'd have if normal, with a robust
+  reference line through the quartiles. Points near the line ⇒ consistent with
+  normality; curvature ⇒ departure. A visual check — **not a formal test**, no
+  p-value (§20). Plotting positions use the Blom convention.
+- **Residual plot** (new chart type). Residuals (observed − fitted) vs fitted
+  values for a chosen X/Y and fit degree (linear/quadratic/cubic), with a zero
+  line. Random scatter ⇒ good fit; a funnel ⇒ non-constant variance; a curve ⇒
+  wrong degree. Residuals are raw (not standardized).
+- **Confidence & prediction bands on the scatter trendline.** A new "Confidence
+  / prediction bands" option (95% CI / PI / both) on the linear trendline. CI is
+  the uncertainty of the mean response; PI is where a new observation would fall
+  (wider). CI ⊂ PI, both flaring toward the data extremes. Each band names its
+  level in the legend (§20). Bands are drawn for the **linear** fit only — a
+  higher-degree or per-group fit suppresses them with a warning.
+
+## Schema
+### v2.26.0 (state version unchanged at 2 — all additive, no migration)
+- New `chartType` values `qq` (uses `xCol`) and `residual` (uses `xCol`/`yCol` +
+  the existing `trendDegree`). Both are normal single-axis-pair chart types.
+- New optional scatter `series.trendBands` (`'ci'|'pi'|'both'`; absent/other =
+  none, allowlisted). v2.0–v2.25 session files load unchanged.
+
+### Internal
+- `specfun.js`: `normalInv` (probit, Acklam approximation) + `tQuantile`
+  (bisection on the existing two-tailed t CDF — no new approximation).
+- `stats.js`: `linearFit` additively returns `meanX`/`sxx`/`ssRes` for the band
+  standard errors.
+- §6: the parity modal-field builder split to `modal-chart-fields-parity.js`
+  (`modal-chart-fields.js` 397 → 299, back under the trigger).
+
 ## v2.25.0 — Pair plots render everywhere (SVG rebuild) + histogram diagonal
 
 ### Fixes

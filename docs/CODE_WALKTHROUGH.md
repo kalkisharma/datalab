@@ -82,7 +82,7 @@ state → data → ui → filters → modal → modal-chart-fields → modal-fie
 → export → sessions → stats → distributions → specfun → hypothesis
 → expr → compare → datatools → dt-preview → saves → wiring → grid-interp
 → renderers/shared → scatter → line → bar → parity → contour
-→ histogram → boxplot → violin → heatmap → pair
+→ histogram → boxplot → violin → heatmap → pair → qq → residual
 ```
 
 ---
@@ -265,6 +265,8 @@ Scientist sign-off** for its statistical conventions. Summary:
 | `boxplot.js` | box plot | Tukey whiskers; warns above 50 categorical X values. |
 | `violin.js` | violin | Plotly-native violin with the Tukey box inside. |
 | `heatmap.js` | heatmap | Categorical X × categorical Y × explicit aggregation; colorbar names the aggregation. |
+| `qq.js` | qq (Q–Q) | **Diagnostics (Phase 19).** Normal quantile-quantile plot: sorted sample values vs standardized-normal theoretical quantiles (Blom positions, `normalInv`), robust reference line through the quartiles. Normal single-axis-pair renderer; `.sr` mirror reports the straight-line correlation + verdict. §20: a visual check, never claimed as a formal test. |
+| `residual.js` | residual | **Diagnostics (Phase 19).** Raw residuals (observed − fitted) vs fitted, for X/Y at a chosen degree (reuses `linearFit`/`polyFit`), with a zero line. Own panel (axes differ from the source scatter). Guidance comment: funnel = heteroscedasticity, curve = wrong degree. |
 | `pair.js` | pair / SPLOM | **Whole-plot type** (v2.24.0; **SVG rebuild v2.25.0**) — a scatterplot matrix of selected numeric columns. Dispatched specially by `renderPairPlot` (chart.js) *before* the series loop; the renderer owns the whole figure (N×N `layout.grid` + themed axes, merged wholesale). Built from SVG `scatter` (off-diagonal) + `histogram` (diagonal, FD bins) traces — **not** a WebGL `splom` (which dead-ended on no-WebGL browsers). Categorical hue = one scatter trace per group per cell + overlaid per-group diagonal histograms. §20: no _r_ by default, pairwise-complete n disclosed, edge-labeled axes (the top-left diagonal's count axis is left unlabeled to avoid mislabeling it as a variable). Blocked from subplot grids + co-resident series. Column cap: warn >8, cap/block >12; large rows×cells warns (SVG point budget). |
 
 ---
@@ -518,7 +520,9 @@ is overdue for its phase-exit update.
 | `renderers/boxplot.js` | Box plot (Tukey) |
 | `renderers/violin.js` | Violin |
 | `renderers/heatmap.js` | Heatmap (category × category) |
-| `renderers/pair.js` | Pair plot / SPLOM (whole-plot; categorical hue, blank diagonal) |
+| `renderers/pair.js` | Pair plot / SPLOM (whole-plot; categorical hue, histogram diagonal) |
+| `renderers/qq.js` | Q–Q normality plot (Blom positions, quartile reference line) |
+| `renderers/residual.js` | Residual diagnostic (residuals vs fitted, zero line) |
 
 Non-`src/js` files: `src/index.html` (page shell + CSP + injection markers),
 `src/style.css`, `build.js` (assembler), `lib/` (pinned dependencies),

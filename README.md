@@ -31,7 +31,8 @@ Maintainer: Kalki Sharma <kalkijsharma@gmail.com>
   auto-binning), box plot (Tukey whiskers), violin, heatmap (category ×
   category with explicit aggregation), pair plot / scatterplot matrix
   (every numeric column against every other, with an optional categorical
-  hue)
+  hue), and statistical diagnostics — Q–Q normality plots and residual
+  plots
 - **Self-describing encodings:** color a series by a column — categories
   get a named legend, numbers a labeled colorbar (editable label) — and
   size markers by a column, area- or diameter-proportional, with a
@@ -42,7 +43,8 @@ Maintainer: Kalki Sharma <kalkijsharma@gmail.com>
   lines, plus per-series colors, marker size, and edges
 - **Analysis on the plot:** distribution fits on histograms (normal,
   lognormal, Weibull MLE) with KDE overlay; trendlines with R² (linear,
-  quadratic, cubic) — overall or one linear fit per color group; error
+  quadratic, cubic) — overall or one linear fit per color group, with
+  optional 95% confidence/prediction bands on the linear fit; error
   bars from a ± column or computed SD/SEM (always labeled with what they
   represent); per-plot log axes with true log-space histogram binning
 - **Subplot figures:** any plot becomes an r × c grid of subplots with

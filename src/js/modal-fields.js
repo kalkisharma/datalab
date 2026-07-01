@@ -123,6 +123,8 @@ function renderDynamicFields(existing) {
   if (mTrend) {
     mTrend.addEventListener('change', () => {
       document.getElementById('mTrendDeg').disabled = !mTrend.checked;
+      const tb = document.getElementById('mTrendBands'); // CI/PI bands need the trendline on (Phase 19)
+      if (tb) { tb.disabled = !mTrend.checked; if (!mTrend.checked) tb.value = 'none'; }
     });
   }
 

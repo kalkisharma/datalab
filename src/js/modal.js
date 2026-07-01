@@ -67,7 +67,7 @@ function buildModalBody(existing) {
     `<option value="${escHtml(ds.id)}" ${existing?.datasetId === ds.id ? 'selected' : ''}>${escHtml(ds.name)}</option>`
   ).join('');
 
-  const chartTypes = ['scatter','line','bar','parity','contour','histogram','boxplot','violin','heatmap','pair'];
+  const chartTypes = ['scatter','line','bar','parity','contour','histogram','boxplot','violin','heatmap','pair','qq','residual'];
   const ctBtns = chartTypes.map(t =>
     `<button class="ct-btn ${existing?.chartType === t ? 'active' : ''}" data-ct="${t}">${t}</button>`
   ).join('');
@@ -167,6 +167,8 @@ function saveModalSeries() {
   if (chartType === 'pair') {
     if (pairCols.length < 2) { err.textContent = 'Select at least 2 numeric columns for the pair plot.'; return false; }
     if (pairCols.length > 12) { err.textContent = `Too many columns (${pairCols.length}) — a pair plot is capped at 12 to stay readable. Trim the selection.`; return false; }
+  } else if (chartType === 'qq') {
+    if (!xCol) { err.textContent = 'A numeric column is required.'; return false; }
   } else if (chartType === 'histogram') {
     if (!xCol) { err.textContent = 'A numeric column is required.'; return false; }
   } else if (chartType === 'boxplot') {
@@ -292,7 +294,8 @@ function saveModalSeries() {
     sizeKeySeparate: document.getElementById('mSizeKeySeparate')?.checked ?? false,
     rightAxis: document.getElementById('mRightAxis')?.checked ?? false,     // scatter/line/bar (Phase 14)
     trendline: document.getElementById('mTrend')?.checked ?? false,         // scatter only
-    trendDegree: parseInt(document.getElementById('mTrendDeg')?.value) || 1, // scatter only (Phase 13)
+    trendDegree: parseInt(document.getElementById('mTrendDeg')?.value) || 1, // scatter (Phase 13) + residual fit degree (Phase 19)
+    trendBands: (v => (v === 'ci' || v === 'pi' || v === 'both') ? v : null)(document.getElementById('mTrendBands')?.value), // scatter CI/PI (Phase 19); null = none
     trendGroups: document.getElementById('mTrendGroups')?.checked ?? false, // scatter only (Phase 11)
     colorCol:  document.getElementById('mColorCol')?.value || null,
     pairCols:  (chartType === 'pair' && pairCols && pairCols.length) ? pairCols : null, // SPLOM columns (null = all numeric)

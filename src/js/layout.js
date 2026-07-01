@@ -39,8 +39,17 @@ function autoTitle(plot) {
     ? `${types[0].charAt(0).toUpperCase() + types[0].slice(1)} plot`
     : 'Multi-series plot';
 }
-function autoXLabel(plot) { return plotSeries(plot)[0]?.xCol || ''; }
-function autoYLabel(plot) { return plotSeries(plot)[0]?.yCol || ''; }
+// Diagnostic chart types (Phase 19) plot derived quantities, not the raw
+// columns — their axes are semantic, so the auto-labels and the subplot-grid
+// per-cell titles use these instead of xCol/yCol. Returns null for every other
+// type (callers fall back to the column name).
+function diagnosticAxisLabel(series, axis) {
+  if (series?.chartType === 'qq')       return axis === 'x' ? 'Theoretical quantiles' : 'Sample quantiles';
+  if (series?.chartType === 'residual') return axis === 'x' ? 'Fitted values' : 'Residuals';
+  return null;
+}
+function autoXLabel(plot) { const s = plotSeries(plot)[0]; return diagnosticAxisLabel(s, 'x') ?? (s?.xCol || ''); }
+function autoYLabel(plot) { const s = plotSeries(plot)[0]; return diagnosticAxisLabel(s, 'y') ?? (s?.yCol || ''); }
 
 // Inputs mirror the ACTIVE plot; unlocked fields track their auto values
 function syncAutoLabels() {

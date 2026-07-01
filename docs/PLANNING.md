@@ -867,7 +867,7 @@ Deliverables (all shipped at v2.24.0):
 
 Exit criteria (met): a pair plot renders an N×N matrix of the selected numeric columns with a categorical hue (one trace per group), a blank edge-labeled diagonal, and no r by default; the column cap warns/blocks with an honest cell-count message; it is blocked from subplot grids and from sharing a plot; pairwise-n divergence is disclosed; dropped columns degrade gracefully; sessions round-trip; the §7 carve-out and the §6 decision are recorded; all prior tests green.
 
-### Phase 19 — Statistical Diagnostics `(pre-impl review COMPLETE; next MINOR when scheduled — version assigned at exit per §3)`
+### Phase 19 — Statistical Diagnostics — SHIPPED `v2.26.0`
 **Goal:** let the user check the assumptions behind the fits and tests already shipped — residuals, normality, and fit uncertainty. **Data Scientist is primary owner** (Phase 5+ statistical-feature ownership); every reference hand-derived or published per §20.
 
 **Pre-impl review — DONE (full team: DS, Data Viz + EL, QA + Accessibility).** The three reviews converged; the DS locked the numerics under §20, and the maintainer decided the four product forks. Chart-type numbering corrected: **pair shipped as the 10th type (v2.24.0), so `qq` = 11th, `residual` = 12th.**
@@ -893,19 +893,17 @@ Exit criteria (met): a pair plot renders an N×N matrix of the selected numeric 
 
 **Test plan (QA + a11y — folds in the gaps the review found in the old draft):** reference-pinned probit/t-quantile incl. tail cases + domain guards + the inverse round-trip; Q–Q normal-is-straight (build the sample AS the theoretical quantiles → correlation ≈ 1, deterministic) vs skewed-curves (relative-gap assertion); residual exact-fit ≈ 0 **and** bad-fit-shows-structure; CI ⊂ PI pointwise + width minimized at x̄; **bands name themselves** (CI/PI in the legend); the **trendBands + degree>1 / + per-group warn-and-skip** guard; **edge cases** (n<3, zero-variance X, all-equal residuals → widths 0 not NaN, Q–Q ties, non-finite dropped consistently, empty-after-filter); **session round-trip** of qq/residual/trendBands; axe-clean on the new modal fields + a **`.sr-only` mirror** per renderer (qq normality summary, residual n+degree, banded scatter "CI"+"PI"); no new draggable decoration (the deferred legend/box keyboard gap stays untouched). All SVG → fully verifiable headless (unlike pair).
 
-Deliverables (one MINOR; dependency order — bands last to isolate the `scatter.js` surgery):
-- [x] Pre-impl review (this section) — UI placement, plotting-position convention, numerics plan, and the four maintainer forks all locked.
-- [x] Chore (§6): date-format prompt split out of `modal.js` — done in Stab A / v2.13.0 (`date-prompt.js`).
-- [ ] `specfun.js`: `normalInv` (Acklam + guards) + `tQuantile` (two-tailed bisection); reference-pinned tests (DS)
-- [ ] `stats.js`: extend `linearFit` → `{…, sxx, meanX, ssRes}` (additive); tests (DS)
-- [ ] `renderers/qq.js` (11th type) + modal field (single numeric column) + `diagnosticAxisLabel` + log guidance; §6/§7 co-review with `shared.js` (Data Viz + DS)
-- [ ] `renderers/residual.js` (12th type) — residuals vs fitted, reuse `trendDegree`, zero line, guidance comment (Data Viz + DS)
-- [ ] CI/PI bands in the `scatter.js` degree-1 branch (`series.trendBands`, 95%), legend names the level; warn-and-skip on degree>1/per-group (Data Viz + DS)
-- [ ] `modal-chart-fields.js` §6 split (the phase's recorded split); `state.js` schema comment; `## Schema` CHANGELOG line; `CODE_WALKTHROUGH`/`REVIEW_GUIDE`/`README` (§17)
-- [ ] Tests per the plan above (QA + Accessibility) + in-app Playwright verification of all three (SVG → headless-observable)
-- [ ] README + exploratory (Data Scientist): real data through Q–Q, residuals, and a banded trendline
+Deliverables (all shipped at v2.26.0; one MINOR):
+- [x] Pre-impl review — UI placement, plotting-position convention, numerics plan, and the four maintainer forks all locked.
+- [x] `specfun.js`: `normalInv` (Acklam + guards; NOT Halley-refined — our `normalCdf` is coarser than Acklam) + `tQuantile` (two-tailed bisection, target 2(1−c); short-circuits to `normalInv` above df 1e7). Reference-pinned (Φ⁻¹(0.975), t-table, inverse round-trip, df→∞ cross-check).
+- [x] `stats.js`: `linearFit` additively returns `{meanX, sxx, ssRes}` (ssRes clamped ≥ 0).
+- [x] `renderers/qq.js` (11th type): Blom positions, standardized-z axis, quartile reference line, `.sr` mirror; `diagnosticAxisLabel` wired into `autoXLabel`/`autoYLabel` + the grid label block (the clobber fix).
+- [x] `renderers/residual.js` (12th type): raw residuals vs fitted, reuses `trendDegree`, zero line, guidance + `.sr` mirror.
+- [x] CI/PI bands in the `scatter.js` degree-1 branch (`series.trendBands`, 95%, §8 allowlist), filled `toself` traces under the fit, legend names the level; warn-and-skip on degree>1 and per-group; n≥3 required.
+- [x] §6 split: parity field builder → `modal-chart-fields-parity.js` (`modal-chart-fields.js` 397 → 299, back under the trigger). `scatter.js` 313 and `chart.js` 356 tolerated with named seams. `state.js` schema comment; `## Schema` CHANGELOG; `CODE_WALKTHROUGH`/`README`.
+- [x] `tests/diagnostics.spec.js` (11) + `tests/a11y.spec.js` (+3 axe audits): probit/t-quantile references + guards + round-trip; Q–Q normal-straight/skewed-curves/ties/n<3; residual exact-fit-zero/bad-fit-structure; band hand-derived half-widths (0.5196913 CI / 1.2729785 PI at x̄ — the review's 0.519615/1.272792 were arithmetic slips), CI⊂PI, flare, self-naming, linear-only warn+skip, n<3 + zero-variance edge cases; session round-trip; in-app render of all three. Full suite **267 + 7 skipped** green.
 
-Exit criteria: probit/t-quantile match references (+ inverse round-trip + df→∞=probit); Q–Q separates normal from skewed; residual zeroes on an exact fit and shows structure on a bad one; CI ⊂ PI and both flare at the extremes; bands name themselves with the level; degree>1/per-group suppresses bands with a warning; new types + `trendBands` round-trip sessions; new modal fields axe-clean with `.sr-only` mirrors; the `modal-chart-fields.js` §6 split + `scatter.js` decision recorded; all prior tests green.
+Exit criteria (met): probit/t-quantile match references (+ inverse round-trip + df→∞=probit); Q–Q separates normal from skewed; residual zeroes on an exact fit and shows structure on a bad one; CI ⊂ PI and both flare at the extremes; bands name themselves with the level; degree>1/per-group suppresses bands with a warning; new types + `trendBands` round-trip sessions; new modal fields axe-clean; the `modal-chart-fields.js` §6 split recorded; all prior tests green. **Verification note:** unlike pair (WebGL), qq/residual/bands are SVG and were driven end-to-end in-app headless (modal → save → `_fullData`/`_fullLayout`).
 
 ### Workspace & Encoding Ergonomics — SHIPPED `v2.11.0`
 Seven maintainer feature requests from real use, reviewed full-team during the Phase 17 build (design recorded in the team plan; sequencing decision: ship Phase 17 first, then this as its own phase). All **additive — state stays v2, no migration, MINOR (§3)**; each new optional field gets a `## Schema` line. Theme = workspace and encoding ergonomics. The features:
