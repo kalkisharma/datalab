@@ -34,6 +34,9 @@ function buildSeriesResult(s, ctx) {
     + '|x' + (ctx?.xLog ? 1 : 0); // plot context affects histogram binning (Phase 13)
   const cached = _traceCache.get(s.id);
   if (cached && cached.key === key) return cached.result;
+  // Fail closed on an unknown/crafted chartType (§8 stored-enum rule) — never
+  // index RENDERERS with an inherited Object member like 'constructor'.
+  if (!Object.hasOwn(RENDERERS, s.chartType)) return { traces: [], error: 'Unknown chart type.' };
   const result = RENDERERS[s.chartType](s, appState.datasets, ctx);
   _traceCache.set(s.id, { key, result });
   return result;

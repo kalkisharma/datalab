@@ -82,7 +82,9 @@ function buildPairTrace(series, datasets) {
 
   const N = cols.length;
   // Extract once; reused for the completeness check and every cell/group subset.
-  const colData = {};
+  // Object.create(null): pairCols are user column names — a column literally
+  // named "__proto__" must be an own key, not hit the prototype setter.
+  const colData = Object.create(null);
   for (const c of cols) colData[c] = colVals(rows, c);
 
   // Pairwise-complete disclosure (§20): each off-diagonal cell drops rows

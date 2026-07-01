@@ -18,6 +18,15 @@
 //              escaping rules as error. Added Phase 3 (EL + Data Viz review)
 //              for the boxplot >50-categories case.
 //
+// Optional return keys the dispatcher (chart.js) also consumes when present:
+//   layout    — layout overrides merged onto the figure; for a single-axis-pair
+//               renderer the xaxis/yaxis keys are REMAPPED onto the series' cell
+//               (parity's scaleanchor, qq/residual axis titles); a whole-plot
+//               renderer's layout is merged wholesale (see the SPLOM note below).
+//   fitAnnot  — { sr } screen-reader line pushed into the .sr-only plot summary
+//               (scatter trendline, qq correlation/verdict, residual RMSE/shape).
+//   stats/annotSR — parity's stats-box payload + its SR mirror.
+//
 // Rules:
 //   - Error messages may contain user data (column names, dataset names).
 //     Callers MUST apply escHtml() before inserting error into the DOM.
@@ -81,6 +90,20 @@ function colValsCached(ds, col) {
   let v = _colCache.get(key);
   if (!v) { v = colVals(ds.rows, col); _colCache.set(key, v); }
   return v;
+}
+
+/**
+ * Min/max of an array in a single pass, skipping non-finite values. Use instead
+ * of Math.min(...arr)/Math.max(...arr): the spread form throws RangeError on
+ * large arrays (the §11 50k-row target would blow the call-stack arg limit).
+ * Returns [Infinity, -Infinity] for an all-non-finite/empty input.
+ * @param {number[]} arr
+ * @returns {[number, number]}
+ */
+function extent(arr) {
+  let mn = Infinity, mx = -Infinity;
+  for (const v of arr) if (Number.isFinite(v)) { if (v < mn) mn = v; if (v > mx) mx = v; }
+  return [mn, mx];
 }
 
 /**

@@ -151,10 +151,10 @@ const buildBands = (page, extra = {}) => page.evaluate((extra) => {
   const s = { datasetId: 'd', chartType: 'scatter', xCol: 'x', yCol: 'y', trendline: true,
     trendDegree: 1, trendBands: 'both', style: {}, ...extra };
   const r = buildScatterTrace(s, ds, { xLog: false });
+  const names = r.traces.map(t => t.name || '');
   const ci = r.traces.find(t => /\bCI\b/.test(t.name || ''));
   const pi = r.traces.find(t => /\bPI\b/.test(t.name || ''));
-  const half = (t) => t ? t.y.slice(0, 101).map((up, i) => up - (t.a * t.x[i] + t.b)) : null; // not used; see below
-  return { r, ciName: ci?.name, piName: pi?.name,
+  return { names, ciName: ci?.name, piName: pi?.name,
     ciY: ci?.y, piY: pi?.y, xs: ci?.x, warning: r.warning,
     hasBands: !!(ci || pi) };
 }, extra);
@@ -218,6 +218,71 @@ test('bands edge cases: n<3 skips with a warning; zero-residual fit gives finite
   expect(r.twoWarn).toMatch(/at least 3/i);
   expect(r.perfNaN).toBe(false);              // no NaN
   expect(r.perfWidth0).toBeLessThan(1e-9);    // widths collapse to 0
+});
+
+test('bands render under the fit line; a bad stored trendBands value fails closed (§8)', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const b = await buildBands(page); // trendBands 'both'
+  const piIdx = b.names.findIndex(n => /\bPI\b/.test(n));
+  const ciIdx = b.names.findIndex(n => /\bCI\b/.test(n));
+  const fitIdx = b.names.findIndex(n => /^Fit:/.test(n));
+  expect(piIdx).toBeGreaterThan(-1);
+  expect(piIdx).toBeLessThan(ciIdx);   // PI drawn before CI (wider, underneath)
+  expect(ciIdx).toBeLessThan(fitIdx);  // both drawn before the fit line (under it)
+  // A hand-edited/garbage stored value must draw no bands and not throw (allowlist).
+  expect((await buildBands(page, { trendBands: 'javascript:alert(1)' })).hasBands).toBe(false);
+  expect((await buildBands(page, { trendBands: ['both'] })).hasBands).toBe(false); // wrong type
+  expect((await buildBands(page, { trendBands: '__proto__' })).hasBands).toBe(false);
+});
+
+test('Q–Q errors on a constant column and warns under a log axis', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const r = await page.evaluate(() => {
+    const constDs = [{ id: 'dc', name: 'D', color: '#000', headers: ['v'], rows: [{ v: 5 }, { v: 5 }, { v: 5 }, { v: 5 }] }];
+    const okDs = [{ id: 'dok', name: 'D', color: '#000', headers: ['v'], rows: Array.from({ length: 10 }, (_, i) => ({ v: i })) }];
+    return {
+      constErr: buildQQTrace({ datasetId: 'dc', chartType: 'qq', xCol: 'v', style: {} }, constDs).error,
+      logWarn: buildQQTrace({ datasetId: 'dok', chartType: 'qq', xCol: 'v', style: {} }, okDs, { xLog: true }).warning,
+    };
+  });
+  expect(r.constErr).toMatch(/no variance/i);
+  expect(r.logWarn).toMatch(/log scale/i);
+});
+
+test('residual drops one-sided-NaN pairs, keeping the rest aligned', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const n = await page.evaluate(() => {
+    const ds = [{ id: 'd', name: 'D', color: '#000', headers: ['x', 'y'],
+      rows: [{ x: 0, y: 0 }, { x: 1, y: '' }, { x: 2, y: 4 }, { x: 3, y: 6 }] }]; // blank y → whole pair dropped
+    return buildResidualTrace({ datasetId: 'd', chartType: 'residual', xCol: 'x', yCol: 'y', trendDegree: 1, style: {} }, ds)
+      .traces.find(t => t.mode === 'markers').x.length;
+  });
+  expect(n).toBe(3);
+});
+
+test('diagnostic axis titles survive inside a subplot grid (the clobber fix)', async ({ page }) => {
+  await page.goto(FILE_URL);
+  const csv = 'x,y\n' + Array.from({ length: 20 }, (_, i) => `${i},${2 * i + (i % 3)}`).join('\n');
+  await page.setInputFiles('#fileInput', { name: 'g.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+  await page.waitForTimeout(300);
+  // 1×2 grid so the per-cell auto-label block (which overwrites titles with xCol/yCol) runs.
+  await page.evaluate(() => { appState.plots[0].grid = { rows: 1, cols: 2, shareX: false, shareY: false }; });
+  await page.click('#addSeriesBtn'); await page.click('.ct-btn[data-ct="qq"]'); await page.waitForTimeout(150);
+  await page.selectOption('#mXCol', 'y');
+  if (await page.$('#mCell')) await page.selectOption('#mCell', '1,1');
+  await page.click('#modalSave'); await page.waitForTimeout(250);
+  await page.click('#addSeriesBtn'); await page.click('.ct-btn[data-ct="residual"]'); await page.waitForTimeout(150);
+  await page.selectOption('#mXCol', 'x'); await page.selectOption('#mYCol', 'y');
+  if (await page.$('#mCell')) await page.selectOption('#mCell', '1,2');
+  await page.click('#modalSave'); await page.waitForTimeout(350);
+  const t = await page.evaluate(() => {
+    const fl = activePlotDiv()._fullLayout;
+    return { x1: fl.xaxis?.title?.text, y1: fl.yaxis?.title?.text, x2: fl.xaxis2?.title?.text, y2: fl.yaxis2?.title?.text };
+  });
+  expect(t.x1).toBe('Theoretical quantiles'); // qq cell — NOT the column name 'y'
+  expect(t.y1).toBe('Sample quantiles');
+  expect(t.x2).toBe('Fitted values');         // residual cell — NOT 'x'
+  expect(t.y2).toBe('Residuals');
 });
 
 // ── E. Session round-trip ──────────────────────────────────────────────────

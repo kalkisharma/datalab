@@ -65,7 +65,7 @@ function buildResidualTrace(series, datasets) {
     maxAbs = Math.max(maxAbs, Math.abs(resid[i]));
     sse += resid[i] * resid[i];
   }
-  const loF = Math.min(...fitted), hiF = Math.max(...fitted);
+  const [loF, hiF] = extent(fitted); // single-pass min/max (avoids the large-array spread trap)
 
   const marker = buildMarkerStyle(series.style);
   const traces = [

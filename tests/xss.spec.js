@@ -175,6 +175,37 @@ for (const [label, payload] of [['PAYLOAD_SCRIPT', PAYLOAD_SCRIPT], ['PAYLOAD_IM
   });
 }
 
+// ── Diagnostics column-name sinks (Phase 19) ──────────────────────────────
+// A malicious column name flows into qq/residual trace names, axis titles, and
+// the .sr-only summary (fitAnnot.sr → textContent). All inert Plotly SVG /
+// textContent — prove non-execution (§8: new Plotly text sinks get a case).
+// (Pair plots route column names into the same inert axis titles, but the
+//  splom is WebGL-only and doesn't rasterize headless — see pair.spec.js.)
+
+for (const [label, payload] of [['PAYLOAD_SCRIPT', PAYLOAD_SCRIPT], ['PAYLOAD_IMG', PAYLOAD_IMG]]) {
+  test(`qq / residual (column name): ${label} does not execute`, async ({ page }) => {
+    await loadApp(page);
+    await loadCSV(page, `${csvField(payload)},y\n1,2\n4,5\n7,8\n2,3\n5,1`, '_xss_diag.csv');
+    await page.evaluate((col) => {
+      const ds = appState.datasets[0];
+      appState.series = [{ id: 'qq', name: 'q', datasetId: ds.id, chartType: 'qq',
+        xCol: col, filters: [], style: {}, enabled: true, plotId: appState.plots[0].id }];
+      renderPlot();
+    }, payload);
+    await page.waitForTimeout(300);
+    await page.mouse.move(400, 300); await page.waitForTimeout(150);
+    await page.evaluate((col) => {
+      const ds = appState.datasets[0];
+      appState.series = [{ id: 'rs', name: 'r', datasetId: ds.id, chartType: 'residual',
+        xCol: col, yCol: 'y', trendDegree: 1, filters: [], style: {}, enabled: true, plotId: appState.plots[0].id }];
+      renderPlot();
+    }, payload);
+    await page.waitForTimeout(300);
+    await page.mouse.move(420, 320); await page.waitForTimeout(150);
+    expect(await xssNotExecuted(page)).toBe(true);
+  });
+}
+
 // ── Colorbar label injection (Phase 16) ───────────────────────────────────
 // Free-text colorbar label reaches a Plotly colorbar title — Plotly text,
 // like the plot title above, not an innerHTML sink. Verify regardless.

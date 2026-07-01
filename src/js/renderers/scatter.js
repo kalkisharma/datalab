@@ -155,10 +155,10 @@ function buildScatterTrace(series, datasets) {
   // back to the single overall fit with a warning.
   let fitAnnot = null;
   const f = v => Number(v).toPrecision(4);
-  const fitLine = (fx, fy, name, color) => {
-    const fit = linearFit(fx, fy);
+  const fitLine = (fx, fy, name, color, precomputed) => {
+    const fit = precomputed || linearFit(fx, fy);
     if (!fit) return null;
-    const lo = Math.min(...fx), hi = Math.max(...fx);
+    const [lo, hi] = extent(fx);
     traces.push({
       type: 'scatter', mode: 'lines',
       x: [lo, hi], y: [fit.a * lo + fit.b, fit.a * hi + fit.b],
@@ -178,7 +178,7 @@ function buildScatterTrace(series, datasets) {
   const bandTraces = (fit, fx, mode) => {
     if (!fit || fit.n < 3) return [];
     const n = fit.n, s = Math.sqrt(fit.ssRes / (n - 2)), t = tQuantile(0.975, n - 2);
-    const lo = Math.min(...fx), hi = Math.max(...fx), M = 100, xs = [];
+    const [lo, hi] = extent(fx), M = 100, xs = [];
     for (let i = 0; i <= M; i++) xs.push(lo + (hi - lo) * i / M);
     const poly = (k, name, rgba) => {
       const up = [], dn = [];
@@ -250,9 +250,9 @@ function buildScatterTrace(series, datasets) {
           if (Number.isFinite(xV[i]) && Number.isFinite(yV[i])) { fx.push(xV[i]); fy.push(yV[i]); }
         }
         if (degree === 1) {
+          const bf = linearFit(fx, fy); // computed once — reused by the bands and the fit line
           let bandsSr = '';
           if (trendBands !== 'none') {
-            const bf = linearFit(fx, fy);
             const bands = bandTraces(bf, fx, trendBands);
             if (bands.length) {
               for (const t of bands) traces.push(t); // pushed BEFORE the fit line → under it
@@ -261,12 +261,13 @@ function buildScatterTrace(series, datasets) {
               warning = 'Confidence/prediction bands need at least 3 points — not drawn.';
             }
           }
-          const fit = fitLine(fx, fy, 'Fit', '#d55e00');
+          const fit = fitLine(fx, fy, 'Fit', '#d55e00', bf);
           if (!fit) {
             warning = 'Trendline needs at least 2 points with varying X.';
           } else {
             fitAnnot = {
-              // Series name is user data — escHtml applied at the sr-only sink
+              // Series name is user data — rendered inertly via textContent at
+              // the .sr-only sink (chart.js), so no escHtml needed here.
               sr: `${series.name} linear fit: slope=${f(fit.a)}, intercept=${f(fit.b)}, R2=${f(fit.r2)}, n=${fit.n}${bandsSr}`,
             };
           }
@@ -278,7 +279,7 @@ function buildScatterTrace(series, datasets) {
           if (!fit) {
             warning = `A degree-${degree} fit needs at least ${degree + 1} points with varying X.`;
           } else {
-            const lo = Math.min(...fx), hi = Math.max(...fx);
+            const [lo, hi] = extent(fx);
             const cx = [], cy = [];
             for (let i = 0; i <= 200; i++) {
               const x = lo + (hi - lo) * i / 200;

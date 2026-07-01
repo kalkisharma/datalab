@@ -106,7 +106,11 @@ function renderOnePlot(plot) {
     if ((s.plotId ?? appState.plots[0].id) !== plot.id) continue;
     if (s.enabled === false) continue;
     if (s.chartType === 'pair') continue; // whole-plot type — handled by the early branch above
-    if (!RENDERERS[s.chartType]) continue;
+    // Object.hasOwn, not truthiness: a crafted session's chartType could be an
+    // inherited Object member ('constructor', '__proto__', 'toString') that a
+    // `!RENDERERS[x]` guard lets through, then dispatches to a non-renderer.
+    // Stored enums fail closed to "skip" (§8). (Same guard used in render-cache.js.)
+    if (!Object.hasOwn(RENDERERS, s.chartType)) continue;
 
     const cell  = grid ? cellOf(s) : null;
     const sfx   = cell ? cell.sfx : '';

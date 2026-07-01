@@ -41,6 +41,12 @@ function buildQQTrace(series, datasets, ctx) {
   const sorted = colVals(rows, col).filter(Number.isFinite).sort((a, b) => a - b);
   const n = sorted.length;
   if (n < 3) return { traces: [], error: 'A Q–Q plot needs at least 3 finite values.' };
+  // Constant column: the quartile reference line and the straight-line
+  // correlation are undefined (0/0 → NaN). Fail with a clear message rather
+  // than plotting a flat line and reporting r=NaN.
+  if (sorted[0] === sorted[n - 1]) {
+    return { traces: [], error: `Column "${col}" has no variance (all values are equal) — a Q–Q plot needs spread.` };
+  }
 
   // Blom plotting positions → standardized-normal theoretical quantiles.
   const theo = new Array(n);
