@@ -77,11 +77,12 @@ committed artifact byte-identical to a fresh build.
 **Concatenation order** (from `build.js`, your map of the codebase):
 
 ```
-state → data → ui → filters → modal → modal-chart-fields → modal-fields
+state → data → ui → filters → modal → modal-field-controls
+→ modal-chart-fields-parity → modal-chart-fields → modal-fields
 → date-prompt → grid → render-cache → chart → decorations → layout
 → export → sessions → stats → distributions → specfun → hypothesis
 → expr → compare → datatools → dt-preview → saves → wiring → grid-interp
-→ renderers/shared → scatter → line → bar → parity → contour
+→ colorscales → renderers/shared → scatter → line → bar → parity → contour
 → histogram → boxplot → violin → heatmap → pair → qq → residual
 ```
 
@@ -100,7 +101,7 @@ boundary between files. The discipline that keeps this maintainable is the
 a clear single responsibility, and crossing the trigger forces a recorded
 split decision at the next phase exit. The split history is visible in the
 file headers ("split from X at the Phase N review"). This is why the codebase
-is ~35 small files instead of a few large ones.
+is ~42 small files instead of a few large ones.
 
 ---
 
@@ -279,14 +280,19 @@ keyboard-navigable dropdown. *(Review note: `makeDD` currently has zero call
 sites — wiring it into the modal's column pickers is a queued "Stab B" item.)*
 Also holds the series copy/paste clipboard.
 
-### `modal.js` + `modal-fields.js` + `modal-chart-fields.js` — the series editor
-The central dialog for adding/editing a series, split across three files by
+### `modal.js` + `modal-fields.js` + `modal-chart-fields*.js` + `modal-field-controls.js` — the series editor
+The central dialog for adding/editing a series, split across five files by
 the §6 size policy:
 - **`modal.js`** — open/close and **save** (`saveModalSeries`): collects the
   field values into a series object and writes it to `appState`.
 - **`modal-chart-fields.js`** — pure HTML builder for the per-chart-type
-  Columns/setup fields (the parity "Compare against" picker, the scatter
-  size-by, etc.). `colOptions` is passed in.
+  Columns/setup fields (the scatter size-by, the pair/qq/residual field
+  blocks, etc.). `colOptions` is passed in.
+- **`modal-chart-fields-parity.js`** — the parity field block (the largest —
+  Compare-against/join, stats box, bands, best-fit, encoding), split out at
+  v2.26.0 (§6) when the file re-crossed the trigger.
+- **`modal-field-controls.js`** — shared field builders (`sizeByExtraControls`,
+  `colorbarExtraControls`), split out at v2.21.0 (§6).
 - **`modal-fields.js`** — appends the shared Style + Filters sections and
   wires everything together.
 
@@ -488,6 +494,7 @@ is overdue for its phase-exit update.
 | `ui.js` | Dataset panel, series list, `makeDD` dropdown, series clipboard |
 | `modal.js` | Series editor: open/close/save |
 | `modal-chart-fields.js` | Per-chart-type Columns/setup field HTML |
+| `modal-chart-fields-parity.js` | The parity chart type's field HTML — split from modal-chart-fields.js at v2.26.0 (§6) |
 | `modal-field-controls.js` | Shared modal field builders (`sizeByExtraControls`, `colorbarExtraControls`) — split from modal-chart-fields.js at v2.21.0 (§6) |
 | `modal-fields.js` | Shared Style + Filters sections + wiring |
 | `date-prompt.js` | Ambiguous-date format prompt dialog |

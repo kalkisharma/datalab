@@ -86,6 +86,32 @@ not the URL, is authoritative** — a CDN can change; the bytes cannot.
     range/legend, marker shape, line marker-toggle/colour/style) are all
     client-side Plotly rendering options; zero new bundled dependencies.
     Pins stand.
+  - v2.15.0–v2.21.0 (Visualization & Encoding Polish batches; recorded together
+    at the v2.26.0 doc review — the per-release lines were missed at each tag):
+    no changes across the span — parity fits/exports, best-fit styling, contour
+    shading + colorbar controls, the colormap fix (`colorscales.js`
+    `resolveColorscale`, hand-written) and per-plot/series colormap overrides,
+    and the parity readout controls are all client-side Plotly render options +
+    hand-written mapping; zero new bundled dependencies. Pins stand.
+  - v2.22.0 exit: no changes — per-subplot labels/titles + plot-level shared
+    colorbar use Plotly `layout.grid` + `coloraxis`/`colorbar` natives; zero new
+    bundled dependencies. Pins stand.
+  - v2.23.0 exit: no changes — the parity 3-way bridge join reuses the existing
+    hand-written `innerJoinRows`/`bridgeJoinRows`; zero new bundled dependencies.
+    Pins stand.
+  - v2.24.0 exit: no changes — pair plots / SPLOM used a Plotly `splom` (WebGL)
+    trace; zero new bundled dependencies. Pins stand.
+  - v2.25.0 exit: no changes — the pair plot was rebuilt on **native SVG
+    `scatter` + `histogram` grid traces** (replacing the `splom` WebGL trace that
+    dead-ended on no-WebGL browsers); still a Plotly render-option change, zero
+    new bundled dependencies. Pins stand.
+  - v2.26.0 exit: no changes — statistical diagnostics (Q–Q, residual, CI/PI
+    bands) add two hand-written `specfun.js` functions (`normalInv` Acklam
+    approximation, `tQuantile` bisection on the existing t CDF — same §9
+    "hand-write the numerics, don't add a stats library" reasoning as the
+    Phase 6/8 p-value work) and use Plotly `scatter`/filled-`toself` traces;
+    zero new bundled dependencies. Plotly stays **3.6.0**, PapaParse 5.4.1,
+    JSZip 3.10.1. Pins stand.
 
 ## Updating a library
 

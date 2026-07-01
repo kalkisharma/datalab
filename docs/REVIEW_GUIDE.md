@@ -20,10 +20,11 @@ DataLab is a tool for making charts and doing statistics from spreadsheet
 data. You give it a CSV file (a plain-text spreadsheet — the kind Excel can
 export), and it draws a wide range of charts — scatter and line charts, bar
 charts, histograms, box and violin plots, heatmaps, contour maps,
-model-vs-observed ("parity") plots, and pair plots (scatterplot matrices) —
-and computes statistics ranging from
-averages and correlations to formal group comparisons (t-tests, ANOVA, and
-their rank-based equivalents). You can control the appearance in detail —
+model-vs-observed ("parity") plots, pair plots (scatterplot matrices), and
+statistical diagnostics (Q–Q normality plots and residual plots) — and
+computes statistics ranging from averages and correlations to formal group
+comparisons (t-tests, ANOVA, and their rank-based equivalents) and fit
+diagnostics (trendlines with confidence/prediction bands). You can control the appearance in detail —
 colors, color scales, fonts, labels, axes — export the results as images, and
 save your whole session to reload later.
 
@@ -174,7 +175,7 @@ for each, and assembles the final figure (including multi-panel grids and
 secondary axes). If you understand this file, you understand the tool's
 flow of control.
 
-**3. `src/js/renderers/shared.js`** *(~275 lines) — the renderer contract +
+**3. `src/js/renderers/shared.js`** *(~285 lines) — the renderer contract +
 shared helpers.* The comment at the top is the *contract* every chart type
 must satisfy: given a series and the datasets, return either drawable
 shapes or a clear error. The file also holds helpers the renderers share —

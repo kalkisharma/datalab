@@ -146,6 +146,15 @@ test('axe: series modal with heatmap fields has no violations', async ({ page })
   expect(await audit(page, 'modal-heatmap')).toHaveLength(0);
 });
 
+test('axe: series modal with pair (SPLOM) fields has no violations', async ({ page }) => {
+  await page.goto(FILE_URL);
+  await loadCSV(page, 'a,b,c,g\n1,2,3,x\n2,4,1,y\n3,5,2,x', '_a11y_pair.csv');
+  await page.click('#addSeriesBtn');
+  await page.click('.ct-btn[data-ct="pair"]'); // 10th type: numeric checklist + hue (v2.24.0)
+  await page.waitForTimeout(200);
+  expect(await audit(page, 'modal-pair')).toHaveLength(0);
+});
+
 test('axe: series modal with Q–Q fields has no violations', async ({ page }) => {
   await page.goto(FILE_URL);
   await loadCSV(page, 'v\n1\n2\n3\n4', '_a11y_qq.csv');

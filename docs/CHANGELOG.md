@@ -49,9 +49,11 @@
 ### Features
 - **Histogram diagonal.** The rebuild unlocks per-variable marginal histograms
   on the diagonal (the `splom` trace couldn't draw them — its shared data-range
-  axis isn't a count axis). Bins use the **Freedman–Diaconis** rule, the same as
-  the histogram chart type, so the two never disagree (§20). With a categorical
-  hue, the diagonal histograms overlay per group.
+  axis isn't a count axis). Bins use the same **Freedman–Diaconis** bin-count
+  rule (`fdBinCount`) as the histogram chart type (§20; the diagonal passes the
+  count as `nbinsx`, so Plotly may still snap edges — the histogram chart type
+  additionally pins exact edges). With a categorical hue, the diagonal histograms
+  overlay per group.
 
 ### Notes
 - The one `splom` affordance lost is built-in linked brushing across cells, which

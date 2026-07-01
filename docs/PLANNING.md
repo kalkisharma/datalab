@@ -158,8 +158,10 @@ Datetime columns are shown in column pickers but disabled with tooltip: "datetim
 > Refreshed again post-v2.13.0: added `date-prompt.js` (split in Stab A), and the
 > documentation set moved into `docs/` (README stays at repo root as the entry point;
 > `REVIEW_GUIDE.md` + `CODE_WALKTHROUGH.md` added).
-> Refreshed post-v2.21.0: added `colorscales.js` (v2.18.1) and `modal-field-controls.js`
-> (v2.21.0 §6 split).
+> Refreshed post-v2.26.0: added `colorscales.js` (v2.18.1), `modal-field-controls.js`
+> (v2.21.0 §6 split), `modal-chart-fields-parity.js` (v2.26.0 §6 split), and the
+> diagnostics renderers `qq.js`/`residual.js` (v2.26.0) — the renderers line below
+> is a catch-all "one file per chart type" (now twelve).
 
 ```
 datalab/
@@ -174,6 +176,7 @@ datalab/
       date-prompt.js    — ambiguous-date format prompt (split from modal.js, Stab A / v2.13.0)
       modal-fields.js   — modal field assembly: Style + Filters + wiring (split Phase 3)
       modal-chart-fields.js — per-chart-type Columns/setup HTML (split from modal-fields, Phase 16)
+      modal-chart-fields-parity.js — parity chart type's field HTML (split from modal-chart-fields, v2.26.0 §6)
       modal-field-controls.js — shared modal field builders: sizeByExtraControls, colorbarExtraControls (split from modal-chart-fields, v2.21.0 §6)
       filters.js        — filter row UI
       grid.js           — multi-plot live grid, active plot (Phase 7)
@@ -828,7 +831,12 @@ A run of maintainer-requested, pulled-forward feature batches (not scoped phases
 
 **Process (the maintainer's "discuss with the team" cadence).** The larger batches — the colormap/contour work (→ `v2.18.1` + `v2.20.0`) and the parity-readout work (→ `v2.21.0`) — were run as **full-team design discussions** (Engineering Lead, Data Viz, UX, Data Scientist, Security, Accessibility) before any `src/` change. Those discussions produced the resolve-at-the-dispatcher colormap architecture (cache-correct, no §7 change), the §20 honesty framing that made the colormap bug a fast standalone PATCH, the mixed-scale-warning guardrail, and the `_noteOffset` safety fix for the notes toggle.
 
-**§6 (recorded decisions).** `colorscales.js` added (v2.18.1, also the seam that de-duplicated the global colormap reads). `modal-chart-fields.js` crossed the ~300 trigger and was **tolerated at v2.20.0** with a named obligation, then **split at v2.21.0** — `sizeByExtraControls` + `colorbarExtraControls` extracted to `modal-field-controls.js` (debt discharged). New test file `colorscales.spec.js`; the contour/colour-encoding/parity specs were extended each release. **Phase 19 (Statistical Diagnostics) remains the next scoped phase** — unstarted; this span was visualization polish pulled forward ahead of it.
+**§6 (recorded decisions).** `colorscales.js` added (v2.18.1, also the seam that de-duplicated the global colormap reads). `modal-chart-fields.js` crossed the ~300 trigger and was **tolerated at v2.20.0** with a named obligation, then **split at v2.21.0** — `sizeByExtraControls` + `colorbarExtraControls` extracted to `modal-field-controls.js` (debt discharged). New test file `colorscales.spec.js`; the contour/colour-encoding/parity specs were extended each release. *(As of v2.21.0, Phase 19 (Statistical Diagnostics) was the next scoped phase — it later shipped at v2.26.0, after the v2.22.0–v2.25.0 pulled-forward batches below.)*
+
+### Per-Subplot Labels & Parity Bridge Join — SHIPPED `v2.22.0`–`v2.23.0`
+Two more maintainer-requested pulled-forward MINORs (not scoped phases; version-at-ship-time §3), each **additive — state v2, no migration**, each run through the "discuss with the team" cadence and driven in-browser before shipping.
+- **`v2.22.0` Per-subplot labels/titles + plot-level shared colorbar** — searchable Title/X/Y label fields (native datalist over the loaded columns); optional per-cell X label / Y label / title in a subplot grid (an "Edit cell" Row×Col selector; `plotConfig.cells` keyed `"r,c"`); and a **plot-level shared colorbar** that overrides the per-series colorbar when subplots share one Color-by (forces one honest shared range + a single bar, satisfying the mixed-scale warning). **§6:** the `plotly_relayout` persistence hook extracted from `chart.js` to `decorations.js` (`bindRelayoutPersistence`) — the seam named since v2.14.0 discharged.
+- **`v2.23.0` Parity 3-way bridge join** — a parity series can match observed and modelled values through a separate lookup/bridge table (observed A → bridge M → modelled B) via two keys; "Join by" defaults to the compare-against dataset so a plain two-file join is unchanged. Every hop is enforced **1:1** — duplicate keys are a hard error naming the dataset and column — so the observed↔modelled pairing the parity stats depend on can never be silently corrupted (§20). New optional `series.joinByDatasetId` + `joinKeyB` (`joinKey` becomes observed↔bridge). Shipped via `scripts/release.sh` (the safe release path added after the v2.22.0 tag mishap; see §4).
 
 ### Pair Plots / SPLOM — SHIPPED `v2.24.0` `(standalone pulled-forward MINOR ahead of Phase 19)`
 **Goal:** a scatterplot-matrix (SPLOM) chart type — every selected numeric column scattered against every other — so a scientist can eyeball all pairwise relationships and (with a categorical hue) cluster/group separation at once. Maintainer request; ships as its own **named** pulled-forward MINOR (state v2, additive, no migration — §3), ahead of (and architecturally disjoint from) Phase 19. **Owner: Data Viz + EL, with DS §20 sign-off.**

@@ -23,8 +23,10 @@
 //     Tools correlation heatmap is the project's r surface.
 //   - Off-diagonal cells use pairwise-complete points, so different cells can
 //     have different n; disclosed in a warning when any column has gaps.
-//   - Diagonal histograms use the Freedman-Diaconis bin rule (fdBinCount) — the
-//     same rule as the histogram chart type, so the two never disagree.
+//   - Diagonal histograms use the same Freedman-Diaconis bin-COUNT rule
+//     (fdBinCount) as the histogram chart type. (The count is passed as nbinsx,
+//     so Plotly may still snap edges; the histogram chart type additionally
+//     pins exact edges — the bin RULE matches, the rendered edges can differ.)
 //
 // Color-by is CATEGORICAL (one trace per group per cell, palette color) — the
 // canonical pairplot "hue"; diagonal histograms overlay per group. Numeric
