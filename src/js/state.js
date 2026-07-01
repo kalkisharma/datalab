@@ -2,7 +2,7 @@
 
 // Single source of truth for the app version (STANDARDS.md §3).
 // build.js parses the declaration below — do not rename or reformat it.
-const VERSION = '2.24.0';
+const VERSION = '2.25.0';
 
 // ── appState ──────────────────────────────────────────────────────────────
 //
@@ -59,13 +59,15 @@ const VERSION = '2.24.0';
 //   //   | 'diameter' — exaggerates, warns); sizeMin/sizeMax (px, default 4/28);
 //   //   sizeKeyLabel (size-legend title); sizeKeyCount (swatches, default 3);
 //   //   sizeKeyHide (bool); sizeKeySeparate (bool — route size key to legend2)
-//   // pair / SPLOM (v2.24.0): chartType 'pair' is a WHOLE-PLOT type (its own
-//   //   N×N axis grid; dispatched specially by renderPairPlot before the series
-//   //   loop — see the §7 carve-out in shared.js). pairCols (string[] numeric
-//   //   columns; absent/null = all numeric in the dataset, resolved at render);
-//   //   colorCol = optional categorical hue (one trace per group). Owns the
-//   //   whole panel — no co-resident series, no subplot grid (blocked save-time,
-//   //   degraded render-time). xCol/yCol unused.
+//   // pair / SPLOM (v2.24.0; rebuilt on SVG in v2.25.0): chartType 'pair' is a
+//   //   WHOLE-PLOT type (its own N×N axis grid; dispatched specially by
+//   //   renderPairPlot before the series loop — see the §7 carve-out in
+//   //   shared.js). Built from SVG scatter (off-diagonal) + histogram (diagonal)
+//   //   traces — NOT a WebGL splom — so it renders everywhere. pairCols (string[]
+//   //   numeric columns; absent/null = all numeric in the dataset, resolved at
+//   //   render); colorCol = optional categorical hue (one trace per group per
+//   //   cell). Owns the whole panel — no co-resident series, no subplot grid
+//   //   (blocked save-time, degraded render-time). xCol/yCol unused.
 //   // subplots (Phase 10): cell { row, col } 1-based, optional (default 1·1)
 //   // all series: legendHide (bool) — suppress this series' legend entries (workspace ergonomics)
 //   filters: [{ col, op, value, enabled }],

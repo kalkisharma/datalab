@@ -1,5 +1,30 @@
 # Changelog
 
+## v2.25.0 — Pair plots render everywhere (SVG rebuild) + histogram diagonal
+
+### Fixes
+- **Pair plots no longer require WebGL.** v2.24.0 built the scatterplot matrix
+  from a Plotly `splom` trace, which is WebGL-only and showed *"WebGL is not
+  supported by your browser"* on real Edge/Firefox with hardware acceleration
+  off, a blocklisted GPU, or in VMs/remote-desktop — where every other (SVG)
+  DataLab chart renders fine. The matrix is now built from plain SVG scatter +
+  histogram traces on an N×N grid, so it renders in every browser. This also
+  fixes the pair plot's **SVG export** (the WebGL trace previously rasterized
+  inside the exported SVG).
+
+### Features
+- **Histogram diagonal.** The rebuild unlocks per-variable marginal histograms
+  on the diagonal (the `splom` trace couldn't draw them — its shared data-range
+  axis isn't a count axis). Bins use the **Freedman–Diaconis** rule, the same as
+  the histogram chart type, so the two never disagree (§20). With a categorical
+  hue, the diagonal histograms overlay per group.
+
+### Notes
+- The one `splom` affordance lost is built-in linked brushing across cells, which
+  DataLab's static-export model doesn't use.
+- No schema change — `chartType 'pair'` and `series.pairCols`/`colorCol` are
+  unchanged; state stays v2. Sessions with pair plots load and render unchanged.
+
 ## v2.24.0 — Pair plots (scatterplot matrix / SPLOM)
 
 ### Features
